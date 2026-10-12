@@ -58,9 +58,24 @@ void callbackDispatcher() {
           // Trigger local notification if changes are detected
           if (hasChanges) {
             await NotificationService.showNotification(
+              id: 101,
               title: 'IMD Dashboard: New Data Available',
               body: 'New circulars or updated leave balances have been fetched.',
             );
+          }
+
+          // Check for Start-of-the-Month Reminder (Day 1, 2, or 3 of any month)
+          final now = DateTime.now();
+          if (now.day <= 3) {
+            final rhCount = int.tryParse(freshData.rhBalance) ?? 0;
+            final coffCount = int.tryParse(freshData.coffBalance) ?? 0;
+            if (rhCount > 0 || coffCount > 0) {
+              await NotificationService.showNotification(
+                id: 102,
+                title: '📅 Monthly Leave Reminder',
+                body: 'You have $coffCount C-Off(s) and $rhCount RH remaining. Plan your leaves before they lapse!',
+              );
+            }
           }
 
           // Save new data to storage

@@ -34,6 +34,9 @@ class WidgetService {
     );
   }
 
+  static const String appWidgetProviderName = 'ImdAppWidgetProvider';
+  static const String compactWidgetProviderName = 'ImdCompactWidgetProvider';
+
   /// Sends updated data fields to the native Android widget
   static Future<void> update({
     required String clBalance,
@@ -49,9 +52,16 @@ class WidgetService {
       await HomeWidget.saveWidgetData<String>('expiry_alert', expiryAlert);
       await HomeWidget.saveWidgetData<String>('last_synced', lastSynced);
 
+      // Update 2x2 Full Card Widget
       await HomeWidget.updateWidget(
         name: appWidgetProviderName,
         androidName: appWidgetProviderName,
+      );
+
+      // Update 1x1 Compact Quick-View Widget
+      await HomeWidget.updateWidget(
+        name: compactWidgetProviderName,
+        androidName: compactWidgetProviderName,
       );
     } catch (_) {
       // Gracefully ignore widget update issues on unsupported hosts

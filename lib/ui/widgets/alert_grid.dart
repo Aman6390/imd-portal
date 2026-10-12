@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../../models/dashboard_data.dart';
+import '../month_calendar_screen.dart';
 
 class AlertGrid extends StatelessWidget {
   final List<LapsingAlert> alerts;
@@ -60,38 +61,59 @@ class AlertGrid extends StatelessWidget {
       final countColor = hasAlert ? Colors.redAccent : Theme.of(context).colorScheme.outline;
 
       monthBoxes.add(
-        Container(
-          width: 105,
-          height: 105,
-          margin: const EdgeInsets.only(right: 10),
-          decoration: BoxDecoration(
-            color: bgColor,
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: borderColor, width: hasAlert ? 1.5 : 1),
-          ),
-          padding: const EdgeInsets.all(8),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            crossAxisAlignment: CrossAxisAlignment.center,
-            children: [
-              Text(
-                monthLabel,
-                style: TextStyle(
-                  fontSize: 13,
-                  fontWeight: FontWeight.bold,
-                  color: titleColor,
+        InkWell(
+          borderRadius: BorderRadius.circular(12),
+          onTap: () {
+            Navigator.of(context).push(
+              MaterialPageRoute(
+                builder: (context) => MonthCalendarScreen(
+                  month: targetMonth,
+                  allAlerts: alerts,
                 ),
               ),
-              const SizedBox(height: 8),
-              Text(
-                hasAlert ? '$count C-Off${count != 1 ? 's' : ''}' : '0',
-                style: TextStyle(
-                  fontSize: 15,
-                  fontWeight: FontWeight.bold,
-                  color: countColor,
+            );
+          },
+          child: Container(
+            width: 105,
+            height: 105,
+            margin: const EdgeInsets.only(right: 10),
+            decoration: BoxDecoration(
+              color: bgColor,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: borderColor, width: hasAlert ? 1.5 : 1),
+            ),
+            padding: const EdgeInsets.all(8),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                Text(
+                  monthLabel,
+                  style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.bold,
+                    color: titleColor,
+                  ),
                 ),
-              ),
-            ],
+                const SizedBox(height: 8),
+                Text(
+                  hasAlert ? '$count C-Off${count != 1 ? 's' : ''}' : '0',
+                  style: TextStyle(
+                    fontSize: 15,
+                    fontWeight: FontWeight.bold,
+                    color: countColor,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  'tap to view',
+                  style: TextStyle(
+                    fontSize: 9,
+                    color: Theme.of(context).colorScheme.outline.withOpacity(0.7),
+                  ),
+                ),
+              ],
+            ),
           ),
         ),
       );
@@ -109,7 +131,7 @@ class AlertGrid extends StatelessWidget {
         ),
         const SizedBox(height: 8),
         Text(
-          'Total active C-Offs tracked: $totalExpiring',
+          'Total active C-Offs tracked: $totalExpiring • Tap any month to open calendar view',
           style: TextStyle(
             fontSize: 12,
             fontStyle: FontStyle.italic,
