@@ -7,6 +7,7 @@ import '../models/dashboard_data.dart';
 import 'notification_service.dart';
 import 'scraper_engine.dart';
 import 'storage_service.dart';
+import 'widget_service.dart';
 
 const String imdDailySyncTask = 'com.imd.portal.dailySyncTask';
 
@@ -66,12 +67,7 @@ void callbackDispatcher() {
           await StorageService.saveDashboardData(freshData);
 
           // Update Home Screen Widget
-          await HomeWidget.saveWidgetData<String>('coff_balance', freshData.coffBalance);
-          await HomeWidget.saveWidgetData<String>('last_synced', freshData.lastUpdated);
-          await HomeWidget.updateWidget(
-            name: 'ImdAppWidgetProvider',
-            androidName: 'ImdAppWidgetProvider',
-          );
+          await WidgetService.updateFromDashboard(freshData);
         }
       }
       return Future.value(true);

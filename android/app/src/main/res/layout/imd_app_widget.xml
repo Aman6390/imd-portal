@@ -4,54 +4,133 @@
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:orientation="vertical"
-    android:padding="12dp"
+    android:padding="10dp"
     android:background="@drawable/widget_background"
     android:gravity="center">
 
-    <!-- Header -->
-    <TextView
-        android:id="@+id/appwidget_title"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:text="IMD Portal"
-        android:textColor="#BB86FC"
-        android:textSize="13sp"
-        android:textStyle="bold" />
-
-    <!-- C-Off Balance -->
+    <!-- Header: Title & Last Synced -->
     <LinearLayout
-        android:layout_width="wrap_content"
-        android:layout_height="0dp"
-        android:layout_weight="1"
-        android:orientation="vertical"
-        android:gravity="center">
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:gravity="center_vertical">
 
         <TextView
-            android:id="@+id/appwidget_coff_balance"
-            android:layout_width="wrap_content"
+            android:id="@+id/appwidget_title"
+            android:layout_width="0dp"
             android:layout_height="wrap_content"
-            android:text="--"
-            android:textColor="#03DAC6"
-            android:textSize="36sp"
+            android:layout_weight="1"
+            android:text="IMD Portal"
+            android:textColor="#BB86FC"
+            android:textSize="12sp"
             android:textStyle="bold" />
 
         <TextView
-            android:id="@+id/appwidget_coff_label"
+            android:id="@+id/appwidget_last_synced"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="C-Off Days"
-            android:textColor="#CCCCCC"
-            android:textSize="11sp" />
+            android:text="Sync: Never"
+            android:textColor="#888888"
+            android:textSize="9sp" />
     </LinearLayout>
 
-    <!-- Footer: Last Synced -->
+    <!-- 3 Leaves Row (CL, RH, C-Off) -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1"
+        android:orientation="horizontal"
+        android:gravity="center"
+        android:layout_marginTop="4dp"
+        android:layout_marginBottom="4dp">
+
+        <!-- CL Box -->
+        <LinearLayout
+            android:layout_width="0dp"
+            android:layout_height="match_parent"
+            android:layout_weight="1"
+            android:orientation="vertical"
+            android:gravity="center">
+
+            <TextView
+                android:id="@+id/appwidget_cl_balance"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="--"
+                android:textColor="#64B5F6"
+                android:textSize="22sp"
+                android:textStyle="bold" />
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="CL"
+                android:textColor="#AAAAAA"
+                android:textSize="10sp" />
+        </LinearLayout>
+
+        <!-- RH Box -->
+        <LinearLayout
+            android:layout_width="0dp"
+            android:layout_height="match_parent"
+            android:layout_weight="1"
+            android:orientation="vertical"
+            android:gravity="center">
+
+            <TextView
+                android:id="@+id/appwidget_rh_balance"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="--"
+                android:textColor="#FFB74D"
+                android:textSize="22sp"
+                android:textStyle="bold" />
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="RH"
+                android:textColor="#AAAAAA"
+                android:textSize="10sp" />
+        </LinearLayout>
+
+        <!-- C-Off Box -->
+        <LinearLayout
+            android:layout_width="0dp"
+            android:layout_height="match_parent"
+            android:layout_weight="1"
+            android:orientation="vertical"
+            android:gravity="center">
+
+            <TextView
+                android:id="@+id/appwidget_coff_balance"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="--"
+                android:textColor="#03DAC6"
+                android:textSize="22sp"
+                android:textStyle="bold" />
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="C-Off"
+                android:textColor="#AAAAAA"
+                android:textSize="10sp" />
+        </LinearLayout>
+
+    </LinearLayout>
+
+    <!-- Expiry Alert Footer -->
     <TextView
-        android:id="@+id/appwidget_last_synced"
+        android:id="@+id/appwidget_expiry_alert"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:text="Last Synced: Never"
-        android:textColor="#999999"
+        android:text="No active C-Off expiring"
+        android:textColor="#FFD54F"
         android:textSize="10sp"
-        android:gravity="center" />
+        android:textStyle="bold"
+        android:gravity="center"
+        android:maxLines="1" />
 
 </LinearLayout>

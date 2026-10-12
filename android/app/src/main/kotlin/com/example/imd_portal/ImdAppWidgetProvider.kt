@@ -17,12 +17,18 @@ class ImdAppWidgetProvider : HomeWidgetProvider() {
         appWidgetIds.forEach { widgetId ->
             try {
                 val views = RemoteViews(context.packageName, R.layout.imd_app_widget)
-                
+
+                val clBalance = widgetData.getString("cl_balance", "--") ?: "--"
+                val rhBalance = widgetData.getString("rh_balance", "--") ?: "--"
                 val coffBalance = widgetData.getString("coff_balance", "--") ?: "--"
+                val expiryAlert = widgetData.getString("expiry_alert", "No active C-Off expiring") ?: "No active C-Off expiring"
                 val lastSynced = widgetData.getString("last_synced", "Never") ?: "Never"
 
+                views.setTextViewText(R.id.appwidget_cl_balance, clBalance)
+                views.setTextViewText(R.id.appwidget_rh_balance, rhBalance)
                 views.setTextViewText(R.id.appwidget_coff_balance, coffBalance)
-                views.setTextViewText(R.id.appwidget_last_synced, "Last Synced: $lastSynced")
+                views.setTextViewText(R.id.appwidget_expiry_alert, expiryAlert)
+                views.setTextViewText(R.id.appwidget_last_synced, "Sync: $lastSynced")
 
                 // Open app when user taps the widget
                 val intent = Intent(context, MainActivity::class.java).apply {

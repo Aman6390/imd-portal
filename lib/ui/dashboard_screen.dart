@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
-import 'package:home_widget/home_widget.dart';
 import '../models/dashboard_data.dart';
 import '../services/scraper_engine.dart';
 import '../services/storage_service.dart';
+import '../services/widget_service.dart';
 import 'widgets/alert_grid.dart';
 import 'widgets/circular_tabs.dart';
 import 'widgets/leave_card.dart';
@@ -78,14 +78,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
       if (success && freshData != null) {
         await StorageService.saveDashboardData(freshData);
-        try {
-          await HomeWidget.saveWidgetData<String>('coff_balance', freshData.coffBalance);
-          await HomeWidget.saveWidgetData<String>('last_synced', freshData.lastUpdated);
-          await HomeWidget.updateWidget(
-            name: 'ImdAppWidgetProvider',
-            androidName: 'ImdAppWidgetProvider',
-          );
-        } catch (_) {}
+        await WidgetService.updateFromDashboard(freshData);
       }
 
       ScaffoldMessenger.of(context).showSnackBar(
