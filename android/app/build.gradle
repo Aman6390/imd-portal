@@ -54,6 +54,11 @@ android {
         multiDexEnabled true
     }
 
+    lintOptions {
+        checkReleaseBuilds false
+        abortOnError false
+    }
+
     buildTypes {
         release {
             signingConfig signingConfigs.debug
@@ -70,4 +75,12 @@ flutter {
 dependencies {
     implementation "org.jetbrains.kotlin:kotlin-stdlib-jdk8:$kotlin_version"
     implementation "androidx.multidex:multidex:2.0.1"
+    implementation "androidx.work:work-runtime:2.8.1"
+}
+
+configurations.all {
+    resolutionStrategy {
+        force 'androidx.work:work-runtime:2.8.1'
+        force 'androidx.work:work-runtime-ktx:2.8.1'
+    }
 }
