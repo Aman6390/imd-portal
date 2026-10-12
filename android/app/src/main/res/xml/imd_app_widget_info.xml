@@ -7,6 +7,6 @@
     android:updatePeriodMillis="1800000"
     android:initialLayout="@layout/imd_app_widget"
     android:description="@string/widget_description"
-    android:previewImage="@mipmap/ic_launcher"
+    android:previewImage="@android:drawable/sym_def_app_icon"
     android:resizeMode="horizontal|vertical"
     android:widgetCategory="home_screen" />

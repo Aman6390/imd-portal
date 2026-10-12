@@ -12,7 +12,7 @@ class NotificationService {
 
   /// Initializes the local notification plugin and configures Android notification channels
   static Future<void> initialize() async {
-    const androidSettings = AndroidInitializationSettings('@mipmap/ic_launcher');
+    const androidSettings = AndroidInitializationSettings('@android:drawable/sym_def_app_icon');
     const initSettings = InitializationSettings(android: androidSettings);
 
     await _notificationsPlugin.initialize(initSettings);
@@ -50,7 +50,7 @@ class NotificationService {
       importance: Importance.high,
       priority: Priority.high,
       showWhen: true,
-      icon: '@mipmap/ic_launcher',
+      icon: '@android:drawable/sym_def_app_icon',
     );
 
     const notificationDetails = NotificationDetails(android: androidDetails);
