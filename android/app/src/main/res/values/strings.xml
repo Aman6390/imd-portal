@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">IMD Portal</string>
+    <string name="widget_description">Displays IMD C-Off Balance and Last Synced status.</string>
+</resources>
