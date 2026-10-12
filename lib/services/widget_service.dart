@@ -34,7 +34,6 @@ class WidgetService {
     );
   }
 
-  static const String appWidgetProviderName = 'ImdAppWidgetProvider';
   static const String compactWidgetProviderName = 'ImdCompactWidgetProvider';
 
   /// Sends updated data fields to the native Android widget
