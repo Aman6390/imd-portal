@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../models/dashboard_data.dart';
+import '../services/auth_service.dart';
 import '../services/scraper_engine.dart';
 import '../services/storage_service.dart';
 import '../services/widget_service.dart';
@@ -22,15 +23,57 @@ class DashboardScreen extends StatefulWidget {
   State<DashboardScreen> createState() => _DashboardScreenState();
 }
 
-class _DashboardScreenState extends State<DashboardScreen> {
+class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingObserver {
   DashboardData? _data;
   bool _isLoading = true;
   bool _isSyncing = false;
+  bool _isAppUnlocked = false;
+  bool _isAuthenticating = false;
 
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _loadCachedData();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _authenticateAppLaunch();
+    });
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.paused) {
+      if (!_isAuthenticating) {
+        setState(() {
+          _isAppUnlocked = false;
+        });
+      }
+    } else if (state == AppLifecycleState.resumed) {
+      if (!_isAppUnlocked && !_isAuthenticating) {
+        _authenticateAppLaunch();
+      }
+    }
+  }
+
+  Future<void> _authenticateAppLaunch() async {
+    if (_isAuthenticating) return;
+    _isAuthenticating = true;
+    final authenticated = await AuthService.authenticate(
+      localizedReason: 'Authenticate with Fingerprint, Face, or PIN to open IMD Portal',
+    );
+    _isAuthenticating = false;
+
+    if (mounted) {
+      setState(() {
+        _isAppUnlocked = authenticated;
+      });
+    }
   }
 
   Future<void> _loadCachedData() async {
@@ -91,7 +134,25 @@ class _DashboardScreenState extends State<DashboardScreen> {
     }
   }
 
-  void _openSettings() {
+  Future<void> _openSettings() async {
+    _isAuthenticating = true;
+    final authenticated = await AuthService.authenticate(
+      localizedReason: 'Authenticate with Fingerprint, Face, or PIN to access portal credentials',
+    );
+    _isAuthenticating = false;
+
+    if (!authenticated) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Authentication required to change credentials.'),
+          backgroundColor: Colors.orange,
+        ),
+      );
+      return;
+    }
+
+    if (!mounted) return;
     showDialog(
       context: context,
       builder: (context) => SettingsDialog(onSaved: () {
@@ -243,8 +304,82 @@ class _DashboardScreenState extends State<DashboardScreen> {
     );
   }
 
+  Widget _buildLockScreen() {
+    return Scaffold(
+      body: SafeArea(
+        child: Center(
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 32.0),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Container(
+                  width: 96,
+                  height: 96,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    gradient: LinearGradient(
+                      colors: [Colors.blueAccent.shade400, Colors.tealAccent.shade400],
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                    ),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.blueAccent.withOpacity(0.35),
+                        blurRadius: 24,
+                        spreadRadius: 2,
+                      ),
+                    ],
+                  ),
+                  child: const Icon(
+                    Icons.fingerprint_rounded,
+                    size: 56,
+                    color: Colors.black87,
+                  ),
+                ),
+                const SizedBox(height: 28),
+                const Text(
+                  '🌤️ IMD Portal',
+                  style: TextStyle(
+                    fontSize: 26,
+                    fontWeight: FontWeight.bold,
+                    letterSpacing: -0.5,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  'App is locked for your security',
+                  style: TextStyle(
+                    fontSize: 14,
+                    color: Theme.of(context).colorScheme.outline,
+                  ),
+                ),
+                const SizedBox(height: 36),
+                FilledButton.icon(
+                  onPressed: _authenticateAppLaunch,
+                  icon: const Icon(Icons.lock_open_rounded),
+                  label: const Text('Unlock with Biometrics / PIN'),
+                  style: FilledButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(16),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
+    if (!_isAppUnlocked) {
+      return _buildLockScreen();
+    }
+
     return Scaffold(
       appBar: AppBar(
         title: const Text(
