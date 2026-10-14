@@ -37,7 +37,7 @@ class OcrService {
 
       // Run on-device Google ML Kit Text Recognition with Devanagari script model
       final inputImage = InputImage.fromFilePath(imagePath);
-      final textRecognizer = TextRecognizer(script: TextRecognitionScript.devanagari);
+      final textRecognizer = TextRecognizer(script: TextRecognitionScript.devanagiri);
       final RecognizedText recognizedText = await textRecognizer.processImage(inputImage);
       await textRecognizer.close();
 
