@@ -35,6 +35,11 @@
             </intent-filter>
         </activity>
 
+        <!-- ML Kit OCR model auto-downloader -->
+        <meta-data
+            android:name="com.google.mlkit.vision.DEPENDENCIES"
+            android:value="ocr" />
+
         <!-- Android Home Screen Widget Receiver (2x2 Full Card) -->
         <receiver
             android:name=".ImdAppWidgetProvider"

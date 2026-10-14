@@ -7,7 +7,9 @@ import 'package:http/http.dart' as http;
 import 'package:intl/intl.dart';
 
 import '../models/dashboard_data.dart';
+import 'ocr_service.dart';
 import 'rsa_crypto.dart';
+import 'storage_service.dart';
 
 /// HTTP Client that automatically maintains session cookies and headers,
 /// exactly mimicking Python's `requests.Session()`.
@@ -167,12 +169,22 @@ class ScraperEngine {
     return (balances, lapsingAlerts);
   }
 
-  /// Parses circulars and filters into VIP and FOMO categories
-  static (List<CircularItem>, List<CircularItem>) parseCirculars(dom.Document soup) {
+  /// Parses circulars using Title Pre-Filter (Fast-Path), OCR Cache, and on-device Devanagari OCR (Slow-Path)
+  static Future<(List<CircularItem>, List<CircularItem>)> parseCirculars(
+    dom.Document soup,
+    SessionHttpClient session,
+  ) async {
     final vipCirculars = <CircularItem>[];
     final fomoCirculars = <CircularItem>[];
 
+    final dynamicVipKeywords = await StorageService.loadVipKeywords();
+    final dynamicJunkKeywords = await StorageService.loadJunkKeywords();
+    final ocrCache = await StorageService.loadOcrCache();
+
     final rows = soup.querySelectorAll('tr[bgcolor="#ffffff"], tr[bgcolor="#f5f5f5"]');
+    int uncachedOcrCount = 0;
+    const maxUncachedOcrPerSync = 8; // Cap OCR scans per sync run to keep sync snappy
+
     for (final row in rows) {
       final cols = row.querySelectorAll('td');
       if (cols.length >= 4) {
@@ -184,16 +196,58 @@ class ScraperEngine {
           final uploadDate = cols[3].text.trim();
           final titleLower = title.toLowerCase();
 
-          // Check junk filter
-          if (junkKeywords.any((junk) => titleLower.contains(junk))) {
+          // 1. FAST-PATH: Title Pre-Filter (Junk)
+          if (dynamicJunkKeywords.any((junk) => titleLower.contains(junk.toLowerCase()))) {
             continue;
           }
 
           final item = CircularItem(title: title, link: link, date: uploadDate);
 
-          // Check VIP filter
-          if (vipKeywords.any((vip) => titleLower.contains(vip))) {
+          // 2. FAST-PATH: Title Pre-Filter (VIP)
+          if (dynamicVipKeywords.any((vip) => titleLower.contains(vip.toLowerCase()))) {
             vipCirculars.add(item);
+            continue;
+          }
+
+          // 3. SLOW-PATH: Title is ambiguous. Check OCR Cache or execute on-device OCR
+          if (link.isNotEmpty && link.startsWith('http')) {
+            if (ocrCache.containsKey(link)) {
+              // Deduplication cache hit: Never download or parse the same PDF twice
+              final isCachedVip = ocrCache[link] ?? false;
+              if (isCachedVip) {
+                vipCirculars.add(item);
+              } else {
+                fomoCirculars.add(item);
+              }
+            } else if (uncachedOcrCount < maxUncachedOcrPerSync) {
+              // OCR cache miss: Download Page 1 & run on-device Devanagari OCR
+              uncachedOcrCount++;
+              bool isVip = false;
+              try {
+                final extractedText = await OcrService.processPdfFromUrl(link, session);
+                if (extractedText.isNotEmpty) {
+                  final textLower = extractedText.toLowerCase();
+                  if (dynamicVipKeywords.any((vip) => textLower.contains(vip.toLowerCase()))) {
+                    isVip = true;
+                  }
+                }
+              } catch (_) {
+                // Ignore OCR extraction errors and fallback safely
+              }
+
+              // Save result to persistent OCR cache
+              await StorageService.saveOcrCacheEntry(link, isVip);
+              ocrCache[link] = isVip;
+
+              if (isVip) {
+                vipCirculars.add(item);
+              } else {
+                fomoCirculars.add(item);
+              }
+            } else {
+              // Exceeded max uncached per sync, categorize as FOMO for now
+              fomoCirculars.add(item);
+            }
           } else {
             fomoCirculars.add(item);
           }
@@ -314,7 +368,8 @@ class ScraperEngine {
         // Step 8: Fetch and parse circulars
         final circularPage =
             await session.get(Uri.parse(circularUrl)).timeout(const Duration(seconds: 25));
-        final (vipCirc, fomoCirc) = parseCirculars(html_parser.parse(circularPage.body));
+        final (vipCirc, fomoCirc) =
+            await parseCirculars(html_parser.parse(circularPage.body), session);
 
         final nowFormatted = DateFormat('dd-MM-yyyy HH:mm:ss').format(DateTime.now());
 

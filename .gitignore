@@ -3,3 +3,4 @@ build_output*/
 .dart_tool/
 .packages
 *.apk
+*.zip
