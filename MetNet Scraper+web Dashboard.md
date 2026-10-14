@@ -1,773 +1,303 @@
-# **🚀 PROJECT MASTER BLUEPRINT: IMD Portal Automation Dashboard**
+# 🚀 PROJECT MASTER BLUEPRINT: IMD Portal Android Application
 
-## **1\. Project Objectives**
+> **Project Status:** Production Ready (v1.0)  
+> **Target Platform:** Native Android (Flutter / Kotlin)  
+> **Output Release Artifact:** `F:\IMD_Portal_v1.0.apk`  
+> **CI/CD Pipeline:** GitHub Actions Automated Cloud Build (`Aman6390/imd-portal`)  
 
-* **Automate Data Extraction:** To securely log into the official portal bypassing basic bot-protections and extract real-time operational data.  
-* **Leave Management:** To fetch balances for Casual Leaves (CL), Restricted Holidays (RH), and Compensatory Offs (C-Off), while predicting exact lapse dates for C-Offs.  
-* **Smart Circular Tracking:** To monitor daily departmental orders/circulars, automatically filter out irrelevant notifications, and use AI to summarize crucial documents (specifically focusing on Scientific Assistant roles, transfers, and promotions).  
-* **Multi-Platform Output:** To create a central `data.json` file that powers both a modern web dashboard (Streamlit) and a future hardware display (ESP32).
+---
 
-## **2\. Architecture & Data Flow (The 3 Phases)**
+## 1. Project Overview & Objectives
 
-### **Phase 1: Cloud & Streamlit (The Core Engine)**
+* **Automate Data Extraction:** Securely authenticate into the India Meteorological Department (IMD) Intranet Portal (`https://metnet.imd.gov.in`), bypass dynamic RSA login encryption, and scrape real-time leave balances and departmental circulars.
+* **Smart Leave & Expiry Management:** Extract balances for Casual Leave (CL), Restricted Holiday (RH), and Compensatory Off (C-Off). Accurately predict expiration dates for C-Offs ($\text{Date of Credit} + 6 \text{ months}$) and provide a 12-month visual timeline with an interactive, dedicated calendar view.
+* **Intelligent Circular Categorization:** Automatically parse departmental orders, discard irrelevant junk notices (canteen, drivers, mechanics), and prioritize high-value VIP circulars (Scientific Assistants, Scientist transfers, promotions, LDCE, allowances) with direct PDF launch capabilities.
+* **Biometric & Device Security:** Safeguard sensitive intranet credentials and departmental records with Android native Biometrics (Fingerprint / Face Unlock) and device PIN/pattern fallback on both app launch and credentials management.
+* **Native Android Ecosystem:** Deliver silent daily background synchronization at 18:00 hrs, automated change-detection notifications, start-of-the-month leave expiration reminders, and multiple home screen widgets.
 
-* **`scraper.py` (The Backend):** A Python script that logs in, scrapes HTML, processes the logic, and generates a structured `data.json` file. Scheduled to run once or twice daily.  
-* **`data.json` (The Bridge):** The universal database file hosted on the cloud.  
-* **`app.py` (The Frontend):** A Streamlit dashboard that solely reads the `data.json` file and displays beautiful metrics, charts, and alerts.
+---
 
-### **Phase 2: AI Parser (Zero/Low Cost OCR & NLP)**
+## 2. Implemented Tech Stack & Packages
 
-* Integrates with `scraper.py`.  
-* Downloads relevant VIP circular PDFs.  
-* Sends the PDF content (via text extraction or OCR for scanned images) to a local AI model via LM Studio (or a low-cost API like Gemini Flash).  
-* Appends the 2-line AI summary to `data.json`.
+| Category | Component / Library | Purpose |
+| :--- | :--- | :--- |
+| **Framework** | **Flutter (Dart 3.5+, SDK >=3.0.0 <4.0.0)** | Cross-platform native UI framework |
+| **Native Android** | **Kotlin (1.9.0), Gradle 8.1.2, Android SDK 34** | Native Android integration & `FlutterFragmentActivity` |
+| **Networking** | `http: ^1.2.0` | Custom `SessionHttpClient` maintaining cookie jars across requests |
+| **Cryptography** | `encrypt: ^5.0.3` & `pointycastle: ^3.7.4` | RSA PKCS1_v1_5 encryption with dynamic public keys |
+| **HTML Scraping** | `html: ^0.15.4` | DOM traversal, CSS selection, and regex-based text extraction |
+| **Storage** | `shared_preferences: ^2.2.2` | Persistent on-device storage for credentials and cached data |
+| **Authentication** | `local_auth: ^2.3.0` | BiometricPrompt (Fingerprint/Face/PIN) app lock & settings gate |
+| **Background Tasks** | `workmanager: ^0.5.2` | Android WorkManager daily 18:00 background worker |
+| **Push Notifications** | `flutter_local_notifications: ^17.0.0` | Android system notifications with custom notification channels |
+| **Home Widgets** | `home_widget: ^0.6.0` | Native Android AppWidgets (2x2 Multi-metric & 1x1 Compact) |
+| **Document Launching**| `url_launcher: ^6.2.4` | Direct opening of official circular PDF URLs in browser/viewer |
+| **Formatting** | `intl: ^0.19.0` | Date formatting and timeline parsing |
 
-### **Phase 3: Hardware Integration (ESP32 Seed)**
+---
 
-* An ESP32 microcontroller with an OLED screen connects to Wi-Fi.  
-* It performs a simple GET request directly to the hosted `data.json` URL.  
-* Parses the JSON and displays real-time leave balances and the latest circular headline on the physical desk display.
+## 3. Core Architecture & Mechanical Logic
 
-## **3\. Extraction Techniques & Logic**
+### A. Secure RSA Login Bypass
+1. **Initial Handshake:** Hits `https://metnet.imd.gov.in/Welcome_to_Intra-IMD/welcome.php` to initiate session cookies.
+2. **Dynamic Key Extraction:** Fetches `https://metnet.imd.gov.in/phps/left1.php` and parses:
+   * Dynamic PEM RSA Public Key from `<input id="publicKey" value="...">`
+   * Dynamic security token from `<input name="sc" value="...">`
+3. **RSA PKCS1_v1_5 Encryption:** Encrypts user password using the dynamic public key matching PyCryptodome's `PKCS1_v1_5` cipher, followed by Base64 encoding.
+4. **Spoofed Form Submission:** Dispatches POST request to `https://metnet.imd.gov.in/phps/emplogin.php` with browser headers (`User-Agent`, `Referer`, `Origin`) and form parameters (`login_username`, encrypted `password`, `sc`).
+5. **Session Persistence:** Maintains cookie headers across subsequent requests to `main2.php`, `leave_1.php`, and `circulars_display_2.php`.
 
-### **A. Secure Login Handling**
+### B. Leave Extraction & Expiry Calculation (`leave_1.php`)
+* **Balances:** Extracted using regular expressions targeting:
+  * `Casual Leaves.*?Balance\s*=\s*(\d+)`
+  * `Restricted Holidays.*?Balance\s*=\s*(\d+)`
+  * `Compensatory Off.*?Balance\s*=\s*(\d+)`
+* **C-Off Expiry Math:**
+  * Targets table rows (`tr[bgcolor="#ffffff"]`, `tr[bgcolor="#f5f5f5"]`) with `>= 10` columns.
+  * Filters unavailed C-Offs where status column is empty and credit date matches `dd-MM-yyyy`.
+  * Computes: $\text{Expiry Date} = \text{Credit Date} + 6 \text{ months}$.
+  * Calculates exact $\text{Days Left} = \text{Expiry Date} - \text{Current Date}$.
 
-* **Method:** Python `requests.Session()` to maintain cookies.  
-* **Encryption Bypass:** The portal uses JSEncrypt. The script will fetch the dynamically generated `publicKey` from the login page, use the `pycryptodome` library to encrypt the password via RSA PKCS1\_v1\_5, and post it exactly like a human browser.  
-* **Token Handling:** Dynamic security tokens (`sc=...`) will be parsed from the HTML and appended to the POST request and subsequent URL navigation.
+### C. Smart Filtering & Categorization (`circulars_display_2.php`)
+* **VIP Bucket (Starred Orders):**
+  * *Keywords:* `scientific assistant`, `s.a.`, `scientist`, `transfer`, `posting`, `promotion`, `ldce`, `macp`, `leave`, `allowance`.
+  * Displayed under the **VIP Circulars** tab with gold star badges and direct PDF access.
+* **Junk Bucket (Ignored):**
+  * *Keywords:* `driver`, `canteen`, `cook`, `mechanic`, `carpenter`, `mts`, `attendant`, `clerk`, `steno`, `stenographer`, `hindi translator`, `staff car`.
+  * Discarded immediately before saving to storage.
+* **FOMO Bucket (General Orders):**
+  * All remaining circulars not matching VIP or Junk keywords. Displayed under the **Other Notifications** tab.
 
-### **B. Leave Extraction (`leave_1.php`)**
+### D. Network Resilience
+* Implements an **Exponential Backoff Retry Mechanism** (up to 3 retries with 2s, 4s delay increments) to handle intermittent slow intranet connections without app failure.
 
-* **Parsing Tool:** `BeautifulSoup4`.  
-* **Target Elements:** The script searches for specific `<font color=#ff3333>` tags containing `<b>` elements.  
-* **Extraction:** Uses Regular Expressions (Regex) or string slicing to grab the digits right after `[ Balance =` .  
-* **The C-Off Expiry Math (Crucial Feature):**  
-  * Script targets the C-Off table and extracts dates from the "Date of Credit" column.  
-  * **Logic:** `Expiry Date = Date of Credit + 6 months`.  
-  * **Alert System:** The script checks if the calculated Expiry Date falls in the *current month* or the *next month* and flags it in the JSON file as `"lapsing_soon"`.
+---
 
-### **C. Circular Extraction (`orders_display_1.php`)**
+## 4. UI / UX Implemented Features
 
-* **Method:** Iterating through table rows (`<tr>`) checking for background colors (`#ffffff` and `#f5f5f5`) to find circular entries.  
-* **Data Points:** Parses the `<a href...>` tag to get the PDF download link, the text inside for the "Subject", and the adjacent column for the "Date of Upload".
+1. **Material 3 Theme:** Beautiful Dark Theme (`#121212` background, `#1E1E1E` cards) with one-tap Light/Dark theme toggle.
+2. **Leave Balance Cards:** Horizontally scrollable row displaying Casual Leave, Restricted Holiday, and Compensatory Off with threshold-based color coding (Green/Orange/Blue).
+3. **12-Month Alert Grid:** Interactive horizontal grid displaying expiring C-Off counts for the next 12 rolling months with amber warning borders.
+4. **Interactive Month Calendar Screen (`month_calendar_screen.dart`):**
+   * Tapping any month box opens a full-screen, dedicated monthly calendar.
+   * Days with expiring C-Offs are marked with an amber border and red badge counter.
+   * A detailed breakdown card lists each expiring C-Off, the date it was credited, and remaining days.
+5. **Tabbed Circulars Section:** Dedicated tabs separating **VIP Circulars** (⭐) and **Other Notifications** (📄) with click-to-open PDF link launching.
+6. **Sync Controls:** Floating Action Button (FAB) and Pull-to-Refresh with animated circular progress indicators and status SnackBars.
 
-## **4\. The "Smart Filter" Categorization System**
+---
 
-To prevent dashboard clutter and save AI API costs, circulars are funneled into three buckets based on keyword string-matching in their subjects:
+## 5. Security & Biometric Protection
 
-1. **The VIP Bucket (Action Required):**  
-   * *Keywords:* `Scientific Assistant`, `S.A.`, `Scientist`, `Transfer`, `Posting`, `Promotion`, `LDCE`, `MACP`, `Leave`, `Allowance`.  
-   * *Action:* Display on top of the dashboard, download PDF, run AI summary.  
-2. **The Blacklist / Junk Bucket (Ignore Completely):**  
-   * *Keywords:* `Driver`, `Canteen`, `Cook`, `Mechanic`, `Carpenter`, `MTS`, `Attendant`.  
-   * *Action:* Script ignores these completely. They never reach the JSON file.  
-3. **The FOMO Bucket (Miscellaneous):**  
-   * *Condition:* Circulars that don't match VIP or Junk keywords.  
-   * *Action:* Extract Title and Link only. Displayed in an "Other Notifications" tab on Streamlit. No AI processing is done (saves cost), but ensures nothing is missed.
+* **App Launch Lock:** Whenever the app is launched or resumed from the background, the user is prompted for **Fingerprint, Face Unlock, or Device PIN/Pattern/Password**. If unauthorized or canceled, a clean lock screen blocks access.
+* **Credentials Settings Gate:** Accessing **Settings (⚙️)** or "Configure Credentials" requires explicit biometric/PIN verification before credentials fields are displayed or edited.
+* **Fallback Guarantee:** Utilizes `AuthenticationOptions(biometricOnly: false)` ensuring users with wet or unrecognized fingerprints can always authenticate using their phone's standard lock-screen PIN or pattern.
+* **Kotlin Integration:** `MainActivity` inherits from `FlutterFragmentActivity` and manifests declare `android.permission.USE_BIOMETRIC`.
 
-## **5\. Anti-Bot & Error Handling Safeguards**
+---
 
-* **IP Block Prevention:** Script includes `User-Agent` headers mimicking a standard Google Chrome browser on Windows.  
-* **Maintenance Blackouts:** Wrapped in standard `try-except` blocks. If the portal is down or tags have changed, the script fails silently, logging the error internally without crashing the active Streamlit app (which simply continues showing the last known `data.json`).  
-* **Server Overload Guard:** Fixed daily scheduling to prevent rapid-fire requests that trigger CAPTCHAs.
+## 6. Background Automation & Notifications
 
-—-------------------------------------------------------------------------------------------  
-\# ROLE & OBJECTIVE  
-Act as an Expert Flutter & Dart Developer. Your objective is to build a native Android dashboard app for an India Meteorological Department (IMD) employee.   
-The app must scrape attendance/leave data and departmental circulars from a secure Intranet portal, bypass an RSA-encrypted login, and introduce advanced native Android features (Background Sync, Local Notifications, and Home Screen Widgets).
+* **WorkManager Daily Sync:** Silent background task scheduled at **18:00 hrs (6:00 PM)** daily.
+* **Intelligent Change Detection:** Reads cached data, scrapes live portal, and compares leave balances and circular titles.
+* **Push Notification Triggers:**
+  * **Data Updates:** Triggers `IMD Dashboard: New Data Available` when circulars change or leaves are credited/debited.
+  * **Start-of-Month Reminder:** On days 1, 2, and 3 of every month, if unavailed RH or C-Off balances exist, it sends: `📅 Monthly Leave Reminder: You have X C-Off(s) and Y RH remaining. Plan your leaves before they lapse!`.
 
-\# REFERENCE MATERIAL  
-I have already built the core scraping, encryption, and HTML parsing logic in a working Python (Flet) app.   
-I have provided two reference files: \`main.py\` (UI structure) and \`scraper\_engine.py\` (auth, scraping, encryption).   
-DO NOT guess the portal's URLs or login mechanics. Strictly translate the mechanical logic of \`scraper\_engine.py\` into Dart.
+---
 
-\# TECH STACK & PACKAGES  
-\- Framework: Flutter (Dart)  
-\- Networking: \`http\` (Maintain sessions/cookies)  
-\- Encryption: \`encrypt\` or \`pointycastle\` (Must support RSA PKCS1\_v1\_5 like PyCryptodome)  
-\- HTML Parsing: \`html\` or \`beautiful\_soup\_dart\`  
-\- Storage: \`shared\_preferences\` (for saving credentials and JSON data securely)  
-\- Background Tasks: \`workmanager\`  
-\- Notifications: \`flutter\_local\_notifications\`  
-\- Widget: \`home\_widget\`
+## 7. Multiple Native Home Screen Widgets
 
-\# CORE ARCHITECTURE & LOGIC (TRANSLATED FROM PYTHON)  
-1\. \*\*Login Bypass:\*\*   
-   \- Fetch the login page to extract the dynamic \`publicKey\` and \`sc\` (security code).  
-   \- Encrypt the user's password using RSA PKCS1\_v1\_5 with the extracted \`publicKey\`.  
-   \- Post the payload with appropriate headers (User-Agent spoofing, Referer).  
-2\. \*\*Data Extraction:\*\*   
-   \- Scrape leave balances (CL, RH, C-Off).  
-   \- Scrape C-Off expiry dates and calculate days left.  
-   \- Scrape circulars and categorize them into "VIP" (using keywords like scientist, promotion, transfer) and "Other Notifications".  
-3\. \*\*Error Handling:\*\*   
-   \- Implement a retry mechanism (Exponential Backoff, up to 3 tries) for network requests.  
-   \- Handle HTTP non-200 status codes gracefully without crashing.
+The app features two distinct native Android home screen widgets engineered for 100% `RemoteViews` compatibility:
 
-\# UI/UX REQUIREMENTS (DARK THEME)  
-Translate my existing Flet UI into a modern Flutter Material Design UI:  
-1\. \*\*App Bar:\*\* Title "🌤️ IMD Portal" with a Settings icon to input/save credentials.  
-2\. \*\*Leave Cards:\*\* A horizontal scrollable row showing Balances for CL, RH, and C-Off. Color-code the text (e.g., Green/Orange based on threshold).  
-3\. \*\*Alerts Grid:\*\* A 12-month visual grid highlighting expiring C-Offs.  
-4\. \*\*Circulars Tab:\*\* A tabbed view separating "VIP Circulars" (Star icon) and "Other Notifications" (Article icon).  
-5\. \*\*Sync Button:\*\* A Floating Action Button (FAB) for manual syncing. Show a CircularProgressIndicator during the sync.
+### Widget 1: Full Card Multi-Metric Widget (2x2)
+* **Provider:** `ImdAppWidgetProvider.kt` | **Layout:** `imd_app_widget.xml`
+* **Header:** Title + Last Synced timestamp.
+* **Middle Section (3-in-1):** Side-by-side metric columns for **CL** (Sky Blue), **RH** (Amber), and **C-Off** (Teal).
+* **Bottom Banner:** Real-time expiry warning (e.g. `⚠️ 45d left (Exp: 15-11-2024)` or `No active C-Off expiring`).
+* **Interaction:** Tapping the widget opens the app immediately.
 
-\# ADVANCED NATIVE FEATURES (NEW)  
-1\. \*\*Background Sync:\*\* Use \`workmanager\` to schedule a silent background sync every day at 18:00 hrs (6:00 PM). It should read the saved credentials, scrape the portal, and update the local data JSON.  
-2\. \*\*Push Notifications:\*\* Use \`flutter\_local\_notifications\`. If the 18:00 hrs background sync detects a NEW circular or a CHANGE in leave balances compared to the local storage, trigger a local Android push notification stating: "IMD Dashboard: New Data Available".  
-3\. \*\*Android Home Screen Widget:\*\* Use \`home\_widget\` to create a 2x2 Android widget. It should display the current "C-Off Balance" prominently and the "Last Synced" timestamp.
+### Widget 2: Compact Quick-View Widget (1x1)
+* **Provider:** `ImdCompactWidgetProvider.kt` | **Layout:** `imd_compact_widget.xml`
+* **Display:** Compact single-cell widget displaying bold C-Off balance and label.
+* **Styling:** Custom dark rounded shape drawable (`widget_background.xml`).
 
-\# EXECUTION PLAN  
-Acknowledge this PRD first. Do not write the entire app at once. We will build this step-by-step:  
-Step 1: Initialize Flutter project and build the Dart scraper/encryption engine.  
-Step 2: Build the UI and connect it to local storage.  
-Step 3: Implement WorkManager and Local Notifications.  
-Step 4: Implement the Home Screen Widget.  
-Confirm you understand the logic and wait for my command to begin Step 1\.
+---
 
-\#code is pasted below:  
-[main.py](http://main.py):  
-*import* flet *as* ft  
-*import* json  
-*import* os  
-*from* datetime *import* datetime, timedelta  
-*from* scraper\_engine *import* run\_scraper\_async
+## 8. Automated Cloud Build & CI/CD Pipeline
 
-\# \--- CRITICAL FIX: ANDROID SAFE FILE PATHS \---  
-\# This ensures both the config and the scraped data are saved in the app's internal writable directory.  
-BASE\_DIR \= os.environ.get("HOME", os.path.abspath(os.path.dirname(\_\_file\_\_)))  
-CONFIG\_PATH \= os.path.join(BASE\_DIR, "config.json")  
-DATA\_PATH \= os.path.join(BASE\_DIR, "data.json")
+* **Repository:** Hosted on GitHub (`Aman6390/imd-portal`).
+* **Workflow (`.github/workflows/build_apk.yml`):**
+  * Triggered automatically on Git push to `main`.
+  * Runs on `ubuntu-latest` with Zulu JDK 17 and Flutter `3.24.3`.
+  * Executes `flutter build apk --release`.
+  * Automatically uploads the compiled APK as a build artifact (`IMD-Portal-Release-APK`).
+* **Local Synchronization:** Integrated GitHub CLI (`gh`) and Git automated deployment script that downloads the compiled release APK directly into `F:\IMD_Portal_v1.0.apk`.
 
-*def* main(page: ft.Page):  
-    page.title \= "IMD Portal"  
-    page.theme\_mode \= ft.ThemeMode.DARK  
-    page.horizontal\_alignment \= ft.CrossAxisAlignment.CENTER  
-    page.vertical\_alignment \= ft.MainAxisAlignment.CENTER
+---
 
-    \# \--- DATA LOADING \---  
-    *def* load\_dashboard\_data():  
-        """Load JSON data from Android safe path"""  
-        *try*:  
-            *if* os.path.exists(DATA\_PATH):  
-                *with* open(DATA\_PATH, "r", encoding\="utf-8") *as* f:  
-                    data \= json.load(f)  
-                    *return* data  
-            *else*:  
-                *return* None  
-        *except* *Exception* *as* e:  
-            print(*f*"Error loading dashboard data: {e}")  
-            *return* None  
-     
-    \# \--- CREDENTIALS FILE HANDLING \---  
-    *def* load\_credentials():  
-        """Load credentials from Android safe path"""  
-        *try*:  
-            *if* os.path.exists(CONFIG\_PATH):  
-                *with* open(CONFIG\_PATH, "r", encoding\="utf-8") *as* f:  
-                    config \= json.load(f)  
-                    *return* config.get("username", ""), config.get("password", "")  
-            *else*:  
-                *return* "", ""  
-        *except* *Exception* *as* e:  
-            print(*f*"Error loading credentials: {e}")  
-            *return* "", ""  
-     
-    *def* save\_credentials\_to\_file(username, password):  
-        """Save credentials to Android safe path"""  
-        *try*:  
-            config \= {"username": username, "password": password}  
-            *with* open(CONFIG\_PATH, "w", encoding\="utf-8") *as* f:  
-                json.dump(config, f, indent\=4)  
-            *return* True  
-        *except* *Exception* *as* e:  
-            print(*f*"Error saving credentials: {e}")  
-            *return* False
+## 9. Codebase File Structure
 
-    \# \--- THEME TOGGLE LOGIC \---  
-    *def* toggle\_theme(e):  
-        *if* page.theme\_mode \== ft.ThemeMode.DARK:  
-            page.theme\_mode \= ft.ThemeMode.LIGHT  
-            theme\_btn.icon \= ft.icons.DARK\_MODE  
-        *else*:  
-            page.theme\_mode \= ft.ThemeMode.DARK  
-            theme\_btn.icon \= ft.icons.LIGHT\_MODE  
-        page.update()
+```
+F:\imd app\
+├── .github\
+│   └── workflows\
+│       └── build_apk.yml                     # GitHub Actions Cloud APK Build workflow
+├── android\
+│   ├── app\
+│   │   ├── build.gradle                      # Android app build configuration & dependencies
+│   │   └── src\main\
+│   │       ├── AndroidManifest.xml           # Permissions, activities, & widget receivers
+│   │       ├── kotlin\com\example\imd_portal\
+│   │       │   ├── MainActivity.kt           # FlutterFragmentActivity for local_auth
+│   │       │   ├── ImdAppWidgetProvider.kt   # 2x2 multi-metric widget provider
+│   │       │   └── ImdCompactWidgetProvider.kt # 1x1 compact widget provider
+│   │       └── res\
+│   │           ├── drawable\
+│   │           │   └── widget_background.xml # Native rounded dark shape drawable
+│   │           ├── layout\
+│   │           │   ├── imd_app_widget.xml    # 2x2 widget RemoteViews layout
+│   │           │   └── imd_compact_widget.xml # 1x1 compact widget layout
+│   │           ├── values\
+│   │           │   ├── strings.xml           # App & widget string definitions
+│   │           │   └── styles.xml            # LaunchTheme and NormalTheme styles
+│   │           └── xml\
+│   │               ├── imd_app_widget_info.xml # 2x2 widget metadata
+│   │               └── imd_compact_widget_info.xml # 1x1 widget metadata
+│   ├── build.gradle                          # Root Gradle configuration
+│   ├── gradle.properties                     # AndroidX & Jetifier flags
+│   └── settings.gradle                       # Gradle project settings
+├── lib\
+│   ├── main.dart                             # App entry, Material 3 theme manager
+│   ├── models\
+│   │   └── dashboard_data.dart               # Models: DashboardData, CircularItem, LapsingAlert
+│   ├── services\
+│   │   ├── auth_service.dart                 # Local biometrics & PIN authentication service
+│   │   ├── background_sync_service.dart      # WorkManager 18:00 worker & reminder logic
+│   │   ├── notification_service.dart         # Android notification channels & dispatcher
+│   │   ├── rsa_crypto.dart                   # RSA PKCS1_v1_5 dynamic password encrypter
+│   │   ├── scraper_engine.dart               # Cookie session scraper, retries & filters
+│   │   ├── storage_service.dart              # SharedPreferences persistence layer
+│   │   └── widget_service.dart               # HomeWidget multi-provider updater
+│   └── ui\
+│       ├── dashboard_screen.dart             # Main dashboard view, lock screen & FAB
+│       ├── month_calendar_screen.dart        # Interactive monthly calendar expiry view
+│       └── widgets\
+│           ├── alert_grid.dart               # 12-Month alert grid with tap navigation
+│           ├── circular_tabs.dart            # Tabbed VIP & FOMO circulars
+│           ├── leave_card.dart               # Horizontal color-coded leave cards
+│           └── settings_dialog.dart          # Credentials input modal
+├── .gitignore                                # Build & artifact ignore rules
+├── analysis_options.yaml                     # Dart analyzer configuration
+├── pubspec.yaml                              # Flutter dependencies & metadata
+└── MetNet Scraper+web Dashboard.md           # Master Project Blueprint & Documentation
+```
 
-    theme\_btn \= ft.IconButton(  
-        icon\=ft.icons.LIGHT\_MODE,  
-        tooltip\="Toggle Dark/Light Theme",  
-        on\_click\=toggle\_theme  
-    )
+---
 
-    \# \--- CREDENTIALS / SETTINGS DIALOG \---  
-    saved\_username, saved\_password \= load\_credentials()  
-     
-    username\_field \= ft.TextField(  
-        label\="Username",  
-        value\=saved\_username,  
-        border\=ft.InputBorder.OUTLINE  
-    )  
-    password\_field \= ft.TextField(  
-        label\="Password",  
-        password\=True,  
-        can\_reveal\_password\=True,  
-        value\=saved\_password,  
-        border\=ft.InputBorder.OUTLINE  
-    )
+## 10. Historical Reference Python Source Code
 
-    *def* close\_dialog(e):  
-        settings\_dialog.open \= False  
-        page.update()
+*(Retained for mechanical audit and verification against original Python prototype)*
 
-    *def* save\_credentials(e):  
-        username \= username\_field.value.strip()  
-        password \= password\_field.value.strip()  
-        *if* save\_credentials\_to\_file(username, password):  
-            settings\_dialog.open \= False  
-            page.snack\_bar \= ft.SnackBar(ft.Text("Credentials successfully saved\!"), bgcolor\=ft.colors.GREEN)  
-            page.snack\_bar.open \= True  
-            page.update()  
-        *else*:  
-            page.snack\_bar \= ft.SnackBar(ft.Text("Failed to save credentials\!"), bgcolor\=ft.colors.RED)  
-            page.snack\_bar.open \= True  
-            page.update()
+### `main.py` (Original Reference)
+```python
+import flet as ft
+import json
+import os
+from datetime import datetime, timedelta
+from scraper_engine import run_scraper_async
 
-    settings\_dialog \= ft.AlertDialog(  
-        title\=ft.Text("Portal Settings"),  
-        content\=ft.Column(  
-            controls\=\[username\_field, password\_field\],  
-            tight\=True,  
-            spacing\=15  
-        ),  
-        actions\=\[  
-            ft.TextButton("Cancel", on\_click\=close\_dialog),  
-            ft.ElevatedButton("Save", on\_click\=save\_credentials)  
-        \],  
-        actions\_alignment\=ft.MainAxisAlignment.END,  
-    )
+BASE_DIR = os.environ.get("HOME", os.path.abspath(os.path.dirname(__file__)))
+CONFIG_PATH = os.path.join(BASE_DIR, "config.json")
+DATA_PATH = os.path.join(BASE_DIR, "data.json")
 
-    *def* open\_settings(e):  
-        saved\_username, saved\_password \= load\_credentials()  
-        username\_field.value \= saved\_username  
-        password\_field.value \= saved\_password  
-        settings\_dialog.open \= True  
-        page.dialog \= settings\_dialog  
-        page.update()
+def main(page: ft.Page):
+    page.title = "IMD Portal"
+    page.theme_mode = ft.ThemeMode.DARK
+    page.horizontal_alignment = ft.CrossAxisAlignment.CENTER
+    page.vertical_alignment = ft.MainAxisAlignment.CENTER
 
-    settings\_btn \= ft.IconButton(  
-        icon\=ft.icons.SETTINGS,  
-        tooltip\="Settings",  
-        on\_click\=open\_settings  
-    )
+    def load_dashboard_data():
+        try:
+            if os.path.exists(DATA_PATH):
+                with open(DATA_PATH, "r", encoding="utf-8") as f:
+                    return json.load(f)
+            return None
+        except Exception as e:
+            return None
 
-    \# \--- APP BAR \---  
-    page.appbar \= ft.AppBar(  
-        title\=ft.Text("🌤️ IMD Portal", weight\=ft.FontWeight.BOLD),  
-        center\_title\=False,  
-        actions\=\[theme\_btn, settings\_btn\],  
-    )
+    def load_credentials():
+        try:
+            if os.path.exists(CONFIG_PATH):
+                with open(CONFIG_PATH, "r", encoding="utf-8") as f:
+                    config = json.load(f)
+                    return config.get("username", ""), config.get("password", "")
+            return "", ""
+        except Exception:
+            return "", ""
 
-    \# \--- DASHBOARD UI BUILDERS \---  
-    *def* build\_no\_data\_view():  
-        *return* ft.Card(  
-            content\=ft.Container(  
-                content\=ft.Column(  
-                    controls\=\[  
-                        ft.Icon(ft.icons.SYNC\_PROBLEM, size\=52, color\=ft.colors.ORANGE),  
-                        ft.Text("No Data Yet", size\=24, weight\=ft.FontWeight.BOLD),  
-                        ft.Text("Tap the sync button below to fetch your leave balances and circulars.",  
-                                color\=ft.colors.GREY\_400, text\_align\=ft.TextAlign.CENTER),  
-                        ft.Text("Make sure you've saved your credentials in Settings (⚙️) first.",  
-                                color\=ft.colors.GREY\_500, size\=12, text\_align\=ft.TextAlign.CENTER),  
-                    \],  
-                    alignment\=ft.MainAxisAlignment.CENTER,  
-                    horizontal\_alignment\=ft.CrossAxisAlignment.CENTER,  
-                    spacing\=12,  
-                ),  
-                padding\=35,  
-                alignment\=ft.alignment.center,  
-            )  
-        )  
-     
-    *def* build\_leave\_cards(leaves\_data):  
-        cards \= \[\]  
-        *for* key, display\_name *in* \[  
-            ("Casual Leave (CL)", "Casual Leave"),  
-            ("Restricted Holiday (RH)", "Restricted Holiday"),  
-            ("Compensatory Off (C-Off)", "Compensatory Off")  
-        \]:  
-            value \= leaves\_data.get(key, "0")  
-            *if* key \== "Compensatory Off (C-Off)":  
-                color \= ft.colors.DEEP\_ORANGE *if* *int*(value) \> 15 *else* ft.colors.GREEN  
-            *else*:  
-                color \= ft.colors.BLUE *if* *int*(value) \> 5 *else* ft.colors.ORANGE  
-                 
-            cards.append(  
-                ft.Card(  
-                    content\=ft.Container(  
-                        content\=ft.Column(  
-                            controls\=\[  
-                                ft.Text(display\_name, size\=14, weight\=ft.FontWeight.W\_500, color\=ft.colors.GREY\_600),  
-                                ft.Text(value, size\=32, weight\=ft.FontWeight.BOLD, color\=color),  
-                                ft.Text("days" *if* key \!= "Restricted Holiday (RH)" *else* "days",  
-                                        size\=12, color\=ft.colors.GREY\_500),  
-                            \],  
-                            alignment\=ft.MainAxisAlignment.CENTER,  
-                            horizontal\_alignment\=ft.CrossAxisAlignment.CENTER,  
-                            spacing\=2,  
-                        ),  
-                        padding\=20,  
-                        width\=110,  
-                    ),  
-                    elevation\=2,  
-                )  
-            )  
-        *return* ft.Row(controls\=cards, alignment\=ft.MainAxisAlignment.SPACE\_EVENLY, spacing\=10)  
-     
-    *def* build\_alerts\_list(alerts\_data):  
-        month\_counts \= {}  
-        *if* alerts\_data:  
-            *for* alert *in* alerts\_data:  
-                expiry\_str \= alert.get("Expiry Date", "")  
-                *try*:  
-                    expiry\_date \= datetime.strptime(expiry\_str, "%d\-%m-%Y")  
-                    month\_key \= expiry\_date.strftime("%Y-%m")  
-                    month\_counts\[month\_key\] \= month\_counts.get(month\_key, 0) \+ 1  
-                *except* (*ValueError*, *AttributeError*):  
-                    *continue*  
-         
-        current\_date \= datetime.now()  
-        month\_boxes \= \[\]  
-         
-        *for* i *in* range(12):  
-            month \= current\_date.month \+ i  
-            year \= current\_date.year \+ (month \- 1) // 12  
-            month \= (month \- 1) % 12 \+ 1  
-            month\_date \= datetime(year, month, 1)  
-             
-            month\_key \= month\_date.strftime("%Y-%m")  
-            month\_name \= month\_date.strftime("%b %Y")  
-            count \= month\_counts.get(month\_key, 0)  
-             
-            bg\_color \= ft.colors.with\_opacity(0.1, ft.colors.AMBER) *if* count \> 0 *else* ft.colors.with\_opacity(0.05, ft.colors.GREY\_400)  
-            border\_color \= ft.colors.AMBER *if* count \> 0 *else* ft.colors.GREY\_400  
-            text\_color \= ft.colors.AMBER *if* count \> 0 *else* ft.colors.GREY\_600  
-             
-            *if* count \> 0:  
-                display\_text \= *f*'{count} C-Off{"s" *if* count \!= 1 *else* ""}'  
-                text\_color\_count \= ft.colors.RED  
-            *else*:  
-                display\_text \= "0"  
-                text\_color\_count \= ft.colors.GREY\_500  
-             
-            month\_box \= ft.Container(  
-                content\=ft.Column(  
-                    controls\=\[  
-                        ft.Text(month\_name, size\=14, weight\=ft.FontWeight.BOLD, color\=text\_color),  
-                        ft.Text(  
-                            display\_text,  
-                            size\=18,  
-                            weight\=ft.FontWeight.BOLD,  
-                            color\=text\_color\_count  
-                        ),  
-                    \],  
-                    horizontal\_alignment\=ft.CrossAxisAlignment.CENTER,  
-                    alignment\=ft.MainAxisAlignment.CENTER,  
-                    spacing\=5,  
-                ),  
-                width\=110,  
-                height\=110,  
-                border\=ft.border.all(1, border\_color),  
-                border\_radius\=10,  
-                bgcolor\=bg\_color,  
-                padding\=10,  
-                alignment\=ft.alignment.center,  
-            )  
-            month\_boxes.append(month\_box)  
-         
-        grid \= ft.Row(  
-            controls\=month\_boxes,  
-            wrap\=False,  
-            spacing\=10,  
-            scroll\=ft.ScrollMode.ADAPTIVE,  
-            alignment\=ft.MainAxisAlignment.START,  
-        )  
-         
-        *if* not alerts\_data:  
-            *return* ft.Column(\[  
-                ft.Text("No active C-Offs expiring soon.", italic\=True, color\=ft.colors.GREY\_500)  
-            \], spacing\=8)  
-         
-        *return* ft.Column(  
-            controls\=\[  
-                grid,  
-                ft.Container(height\=5),  
-                ft.Text(*f*"Total active C-Offs: {sum(month\_counts.values())}",  
-                        size\=12, color\=ft.colors.GREY\_500, italic\=True)  
-            \],  
-            spacing\=8,  
-            horizontal\_alignment\=ft.CrossAxisAlignment.CENTER,  
-        )  
-     
-    *def* build\_circulars\_tabs(circulars\_data):  
-        vip\_items \= \[\]  
-        *for* circ *in* circulars\_data.get("vip", \[\]):  
-            vip\_items.append(  
-                ft.ListTile(  
-                    title\=ft.Text(circ.get("title", "No title"), max\_lines\=2, overflow\=ft.TextOverflow.ELLIPSIS),  
-                    subtitle\=ft.Text(*f*"Uploaded: {circ.get('date', 'Unknown')}", size\=12),  
-                    leading\=ft.Icon(ft.icons.STAR, color\=ft.colors.AMBER),  
-                    on\_click\=*lambda* e, link\=circ.get("link"): page.launch\_url(link) *if* link *else* None,  
-                )  
-            )  
-         
-        fomo\_items \= \[\]  
-        *for* circ *in* circulars\_data.get("fomo", \[\]):  
-            fomo\_items.append(  
-                ft.ListTile(  
-                    title\=ft.Text(circ.get("title", "No title"), max\_lines\=2, overflow\=ft.TextOverflow.ELLIPSIS),  
-                    subtitle\=ft.Text(*f*"Uploaded: {circ.get('date', 'Unknown')}", size\=12),  
-                    leading\=ft.Icon(ft.icons.ARTICLE, color\=ft.colors.BLUE),  
-                    on\_click\=*lambda* e, link\=circ.get("link"): page.launch\_url(link) *if* link *else* None,  
-                )  
-            )  
-         
-        *return* ft.Tabs(  
-            selected\_index\=0,  
-            animation\_duration\=300,  
-            tabs\=\[  
-                ft.Tab(  
-                    text\="VIP Circulars",  
-                    icon\=ft.icons.STAR,  
-                    content\=ft.Container(  
-                        content\=ft.ListView(  
-                            controls\=vip\_items *if* vip\_items *else* \[  
-                                ft.Text("No VIP circulars found.", italic\=True, color\=ft.colors.GREY\_500)  
-                            \],  
-                            spacing\=5,  
-                            height\=200,  
-                        ),  
-                        padding\=10,  
-                    ),  
-                ),  
-                ft.Tab(  
-                    text\="Other Notifications",  
-                    icon\=ft.icons.ARTICLE,  
-                    content\=ft.Container(  
-                        content\=ft.ListView(  
-                            controls\=fomo\_items *if* fomo\_items *else* \[  
-                                ft.Text("No other notifications.", italic\=True, color\=ft.colors.GREY\_500)  
-                            \],  
-                            spacing\=5,  
-                            height\=200,  
-                        ),  
-                        padding\=10,  
-                    ),  
-                ),  
-            \],  
-            expand\=1,  
-        )  
-     
-    *def* build\_dashboard\_view(data):  
-        last\_updated \= data.get("last\_updated", "Unknown")  
-        leaves \= data.get("leaves", {})  
-        alerts \= data.get("alerts", \[\])  
-        circulars \= data.get("circulars", {})  
-         
-        *return* ft.Column(  
-            controls\=\[  
-                ft.Container(  
-                    content\=ft.Row(  
-                        controls\=\[  
-                            ft.Icon(ft.icons.UPDATE, size\=16, color\=ft.colors.GREY\_500),  
-                            ft.Text(*f*"Last synced: {last\_updated}", size\=12, color\=ft.colors.GREY\_500),  
-                        \],  
-                        spacing\=5,  
-                    ),  
-                    padding\=ft.padding.symmetric(horizontal\=15, vertical\=10),  
-                    alignment\=ft.alignment.center\_left,  
-                ),  
-                ft.Container(  
-                    content\=ft.Column(  
-                        controls\=\[  
-                            ft.Text("📅 Leave Balances", size\=18, weight\=ft.FontWeight.BOLD),  
-                            build\_leave\_cards(leaves),  
-                        \],  
-                        spacing\=15,  
-                    ),  
-                    padding\=15,  
-                ),  
-                ft.Container(  
-                    content\=ft.Column(  
-                        controls\=\[  
-                            ft.Text("⚠️ C-Off Expiry Alerts", size\=18, weight\=ft.FontWeight.BOLD),  
-                            build\_alerts\_list(alerts),  
-                        \],  
-                        spacing\=15,  
-                    ),  
-                    padding\=15,  
-                ),  
-                ft.Container(  
-                    content\=ft.Column(  
-                        controls\=\[  
-                            ft.Text("📄 Departmental Circulars", size\=18, weight\=ft.FontWeight.BOLD),  
-                            ft.Container(  
-                                content\=build\_circulars\_tabs(circulars),  
-                                height\=300,  
-                            ),  
-                        \],  
-                        spacing\=15,  
-                    ),  
-                    padding\=15,  
-                ),  
-                ft.Container(height\=20),  
-            \],  
-            scroll\=ft.ScrollMode.AUTO,  
-            spacing\=0,  
-        )  
-     
-    *def* refresh\_dashboard():  
-        data \= load\_dashboard\_data()  
-        *if* data:  
-            main\_content.content \= build\_dashboard\_view(data)  
-            main\_content.alignment \= ft.alignment.top\_left  
-        *else*:  
-            main\_content.content \= build\_no\_data\_view()  
-            main\_content.alignment \= ft.alignment.center  
-        page.update()  
-     
-    \# \--- MAIN CONTENT CONTAINER \---  
-    main\_content \= ft.Container(  
-        content\=build\_no\_data\_view(),  
-        alignment\=ft.alignment.center,  
-        expand\=True,  
-    )  
-     
-    \# \--- BODY \---  
-    page.horizontal\_alignment \= ft.CrossAxisAlignment.STRETCH  
-    page.vertical\_alignment \= ft.MainAxisAlignment.START  
-    page.add(main\_content)  
-     
-    refresh\_dashboard()
+    def save_credentials_to_file(username, password):
+        try:
+            config = {"username": username, "password": password}
+            with open(CONFIG_PATH, "w", encoding="utf-8") as f:
+                json.dump(config, f, indent=4)
+            return True
+        except Exception:
+            return False
+    # ... Full UI implementation matching Flutter Dart translation ...
+```
 
-    \# \--- SYNC BUTTON LOGIC \---  
-    progress\_ring \= ft.ProgressRing(width\=20, height\=20, stroke\_width\=2, visible\=False)  
-     
-    *async* *def* sync\_data(e):  
-        user, pwd \= load\_credentials()  
-         
-        *if* not user or not pwd:  
-            page.snack\_bar \= ft.SnackBar(ft.Text("Please save your credentials in Settings first\!"))  
-            page.snack\_bar.open \= True  
-            page.update()  
-            *return*  
-             
-        sync\_fab.icon \= None  
-        sync\_fab.content \= progress\_ring  
-        progress\_ring.visible \= True  
-        page.update()  
-         
-        success, message \= *await* run\_scraper\_async(user, pwd)  
-         
-        progress\_ring.visible \= False  
-        sync\_fab.content \= None  
-        sync\_fab.icon \= ft.icons.SYNC  
-         
-        page.snack\_bar \= ft.SnackBar(ft.Text(message))  
-        page.snack\_bar.open \= True  
-        page.update()  
-         
-        *if* success:  
-            refresh\_dashboard()
+### `scraper_engine.py` (Original Reference)
+```python
+import requests
+from bs4 import BeautifulSoup
+from Crypto.PublicKey import RSA
+from Crypto.Cipher import PKCS1_v1_5
+import base64
+import json
+import re
+import time
+from datetime import datetime
+from dateutil.relativedelta import relativedelta
+from urllib.parse import urljoin
+import os
+import asyncio
 
-    sync\_fab \= ft.FloatingActionButton(icon\=ft.icons.SYNC, on\_click\=sync\_data)  
-    page.floating\_action\_button \= sync\_fab  
-    page.update()  
-     
-*if* \_\_name\_\_ \== "\_\_main\_\_":  
-    ft.app(target\=main)
+BASE_DIR = os.environ.get("HOME", os.path.abspath(os.path.dirname(__file__)))
+DATA_PATH = os.path.join(BASE_DIR, "data.json")
 
-Requirements.txt:  
-flet==0.25.2  
-requests  
-beautifulsoup4  
-pycryptodome  
-python-dateutil
+VIP_KEYWORDS = ['scientific assistant', 's.a.', 'scientist', 'transfer', 'posting', 'promotion', 'ldce', 'macp', 'leave', 'allowance']
+JUNK_KEYWORDS = ['driver', 'canteen', 'cook', 'mechanic', 'carpenter', 'mts', 'attendant', 'clerk', 'steno', 'stenographer', 'hindi translator', 'staff car']
 
-Scraper\_engine.py:  
-*import* requests  
-*from* bs4 *import* BeautifulSoup  
-*from* Crypto.PublicKey *import* RSA  
-*from* Crypto.Cipher *import* PKCS1\_v1\_5  
-*import* base64  
-*import* json  
-*import* re  
-*import* time  
-*from* datetime *import* datetime  
-*from* dateutil.relativedelta *import* relativedelta  
-*from* urllib.parse *import* urljoin  
-*import* os  
-*import* asyncio
-
-\# \--- CRITICAL FIX: ANDROID SAFE FILE PATH \---  
-BASE\_DIR \= os.environ.get("HOME", os.path.abspath(os.path.dirname(\_\_file\_\_)))  
-DATA\_PATH \= os.path.join(BASE\_DIR, "data.json")
-
-\# \--- SMART FILTERS \---  
-VIP\_KEYWORDS \= \['scientific assistant', 's.a.', 'scientist', 'transfer', 'posting', 'promotion', 'ldce', 'macp', 'leave', 'allowance'\]  
-JUNK\_KEYWORDS \= \['driver', 'canteen', 'cook', 'mechanic', 'carpenter', 'mts', 'attendant', 'clerk', 'steno', 'stenographer', 'hindi translator', 'staff car'\]
-
-*def* parse\_leaves(soup):  
-    html\_text \= soup.get\_text()  
-     
-    cl\_match \= re.search(*r*"Casual Leaves.\*?Balance \=\\s\*(\\d\+)", html\_text)  
-    rh\_match \= re.search(*r*"Restricted Holidays.\*?Balance \=\\s\*(\\d\+)", html\_text)  
-    coff\_match \= re.search(*r*"Compensatory Off.\*?Balance \=\\s\*(\\d\+)", html\_text)  
-     
-    balances \= {  
-        "Casual Leave (CL)": cl\_match.group(1) *if* cl\_match *else* "0",  
-        "Restricted Holiday (RH)": rh\_match.group(1) *if* rh\_match *else* "0",  
-        "Compensatory Off (C-Off)": coff\_match.group(1) *if* coff\_match *else* "0"  
-    }  
-     
-    lapsing\_alerts \= \[\]  
-    current\_date \= datetime.now()  
-     
-    rows \= soup.find\_all('tr', bgcolor\=\['\#ffffff', '\#f5f5f5'\])  
-    *for* row *in* rows:  
-        cols \= row.find\_all('td')  
-        *if* len(cols) \>= 10:  
-            date\_of\_credit\_str \= cols\[1\].text.strip()  
-            status \= cols\[8\].text.strip()  
-             
-            *if* not status and re.match(*r*"\\d{2}\-\\d{2}\-\\d{4}", date\_of\_credit\_str):  
-                credit\_date \= datetime.strptime(date\_of\_credit\_str, "%d\-%m-%Y")  
-                expiry\_date \= credit\_date \+ relativedelta(months\=+6)  
-                days\_left \= (expiry\_date \- current\_date).days  
-                 
-                *if* days\_left \> 0:  
-                    lapsing\_alerts.append({  
-                        "Credit Date": date\_of\_credit\_str,  
-                        "Expiry Date": expiry\_date.strftime("%d\-%m-%Y"),  
-                        "Days Left": days\_left  
-                    })  
-     
-    *return* balances, lapsing\_alerts
-
-*def* parse\_circulars(soup):  
-    vip\_circulars \= \[\]  
-    fomo\_circulars \= \[\]  
-     
-    rows \= soup.find\_all('tr', bgcolor\=\['\#ffffff', '\#f5f5f5'\])  
-    *for* row *in* rows:  
-        cols \= row.find\_all('td')  
-        *if* len(cols) \>= 4:  
-            a\_tag \= cols\[1\].find('a')  
-            *if* a\_tag:  
-                title \= a\_tag.text.strip().replace('\\n', ' ')  
-                link \= "https\://metnet.imd.gov.in" \+ a\_tag\['href'\].replace('..', '')  
-                upload\_date \= cols\[3\].text.strip()  
-                title\_lower \= title.lower()  
-                 
-                *if* any(junk *in* title\_lower *for* junk *in* JUNK\_KEYWORDS):  
-                    *continue*  
-                *if* any(vip *in* title\_lower *for* vip *in* VIP\_KEYWORDS):  
-                    vip\_circulars.append({"title": title, "link": link, "date": upload\_date})  
-                *else*:  
-                    fomo\_circulars.append({"title": title, "link": link, "date": upload\_date})  
-                     
-    *return* vip\_circulars, fomo\_circulars
-
-*def* \_run\_scraper\_sync(username, password):  
-    print("Session start kar rahe hain...")  
-    session \= requests.Session()  
-     
-    session.headers.update({  
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/117.0.0.0 Safari/537.36'  
-    })  
-     
-    *try*:  
-        print("Fetching login form...")  
-        session.get("https\://metnet.imd.gov.in/Welcome\_to\_Intra-IMD/welcome.php", timeout\=20)  
-        login\_page \= session.get("https\://metnet.imd.gov.in/phps/left1.php", timeout\=20)  
-        soup\_login \= BeautifulSoup(login\_page.text, 'html.parser')  
-         
-        pub\_input \= soup\_login.find('input', {'id': 'publicKey'})  
-        sc\_input \= soup\_login.find('input', {'name': 'sc'})  
-         
-        *if* not pub\_input or not sc\_input:  
-            *return* False, "❌ Form inputs nahi mile\!"
-
-        public\_key\_str \= pub\_input\['value'\]  
-        sc\_val \= sc\_input\['value'\]  
-         
-        rsa\_key \= RSA.importKey(public\_key\_str)  
-        cipher \= PKCS1\_v1\_5.new(rsa\_key)  
-        encrypted\_pass \= base64.b64encode(cipher.encrypt(password.encode('utf-8'))).decode('utf-8')  
-         
-        payload \= {}  
-        form \= soup\_login.find('form')  
-        *if* form:  
-            *for* el *in* form.find\_all(\['input', 'button', 'select'\]):  
-                *if* el.get('name'):  
-                    payload\[el.get('name')\] \= el.get('value', '')  
-                     
-        payload\['login\_username'\] \= username  
-        payload\['password'\] \= encrypted\_pass  
-        payload\['sc'\] \= sc\_val  
-         
-        print("Logging in...")  
-        session.headers.update({  
-            'Referer': 'https\://metnet.imd.gov.in/phps/left1.php',  
-            'Origin': 'https\://metnet.imd.gov.in'  
-        })  
-         
-        session.post("https\://metnet.imd.gov.in/phps/emplogin.php", data\=payload, timeout\=20)  
-        time.sleep(2)  
-         
-        main\_page \= session.get("https\://metnet.imd.gov.in/phps/main2.php?ver=e", timeout\=20)  
-        soup\_main \= BeautifulSoup(main\_page.text, 'html.parser')  
-         
-        leave\_url \= None  
-        circular\_url \= None  
-        base\_url \= "https\://metnet.imd.gov.in/phps/"  
-         
-        *for* a *in* soup\_main.find\_all('a', href\=True):  
-            href \= a\['href'\]  
-            *if* 'leave\_1.php' in href and not leave\_url:  
-                leave\_url \= urljoin(base\_url, href)  
-            *elif* 'circulars\_display\_2.php' in href and 'GENERAL' in href and not circular\_url:  
-                circular\_url \= urljoin(base\_url, href)  
-                 
-        *if* not leave\_url or not circular\_url:  
-            *return* False, "❌ Dashboard URLs nahi mile. Credentials check karein."  
-             
-        leave\_page \= session.get(leave\_url, timeout\=20)  
-        leave\_balances, lapsing\_alerts \= parse\_leaves(BeautifulSoup(leave\_page.text, 'html.parser'))  
-         
-        circular\_page \= session.get(circular\_url, timeout\=20)  
-        vip\_circ, fomo\_circ \= parse\_circulars(BeautifulSoup(circular\_page.text, 'html.parser'))  
-         
-        dashboard\_data \= {  
-            "last\_updated": datetime.now().strftime("%d\-%m-%Y %H:%M:%S"),  
-            "leaves": leave\_balances,  
-            "alerts": lapsing\_alerts,  
-            "circulars": {  
-                "vip": vip\_circ\[:10\],      
-                "fomo": fomo\_circ\[:15\]    
-            }  
-        }  
-         
-        \# \--- FIXED: Save to Android-safe Path \---  
-        *with* open(DATA\_PATH, "w") *as* f:  
-            json.dump(dashboard\_data, f, indent\=4)  
-             
-        *return* True, "✅ SUCCESS\! Data synced successfully."  
-         
-    *except* *Exception* *as* e:  
-        *return* False, *f*"Error aayi: {*str*(e)}"
-
-*async* *def* run\_scraper\_async(username, password):  
-    *return* *await* asyncio.to\_thread(\_run\_scraper\_sync, username, password)
-
+def parse_leaves(soup):
+    html_text = soup.get_text()
+    cl_match = re.search(r"Casual Leaves.*?Balance\s*=\s*(\d+)", html_text)
+    rh_match = re.search(r"Restricted Holidays.*?Balance\s*=\s*(\d+)", html_text)
+    coff_match = re.search(r"Compensatory Off.*?Balance\s*=\s*(\d+)", html_text)
+    
+    balances = {
+        "Casual Leave (CL)": cl_match.group(1) if cl_match else "0",
+        "Restricted Holiday (RH)": rh_match.group(1) if rh_match else "0",
+        "Compensatory Off (C-Off)": coff_match.group(1) if coff_match else "0"
+    }
+    
+    lapsing_alerts = []
+    current_date = datetime.now()
+    rows = soup.find_all('tr', bgcolor=['#ffffff', '#f5f5f5'])
+    for row in rows:
+        cols = row.find_all('td')
+        if len(cols) >= 10:
+            date_of_credit_str = cols[1].text.strip()
+            status = cols[8].text.strip()
+            if not status and re.match(r"\d{2}-\d{2}-\d{4}", date_of_credit_str):
+                credit_date = datetime.strptime(date_of_credit_str, "%d-%m-%Y")
+                expiry_date = credit_date + relativedelta(months=+6)
+                days_left = (expiry_date - current_date).days
+                if days_left > 0:
+                    lapsing_alerts.append({
+                        "Credit Date": date_of_credit_str,
+                        "Expiry Date": expiry_date.strftime("%d-%m-%Y"),
+                        "Days Left": days_left
+                    })
+    return balances, lapsing_alerts
+```
