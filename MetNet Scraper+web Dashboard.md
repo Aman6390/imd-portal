@@ -7,6 +7,23 @@
 
 ---
 
+## 🔑 Master Credentials & Secret Keys Quick Reference
+
+> [!IMPORTANT]
+> Keep this document private. These credentials provide master administrative control and cryptographic license generation authority over the IMD Portal application.
+
+| Item | Value / Secret | Description & Instructions |
+| :--- | :--- | :--- |
+| **👑 Universal VIP Master Key** | `IMD-VIP-9K4F-8X2M-6390` | **Your master passkey.** Entering this in the app's activation box unlocks permanent Pro status and enables **Owner Mode** on any device. |
+| **🔒 Secret Admin PIN** | `6390` | **Your 4-digit PIN.** Unlocks the in-app license generator on your phone (Settings &rarr; License &rarr; Admin Generator). |
+| **🛡️ HMAC Cryptographic Salt** | `IMD_METNET_PORTAL_SECURE_SALT_2026` | Secret mathematical salt used to hash Device IDs (`IMD-XXXX-XXXX`) into offline License Keys (`PRO-XXXX-XXXX`). |
+| **⏳ Beta Trial Period** | `30 Days` | Automatic full-access duration for every fresh installation before license activation is prompted. |
+| **💻 Offline PC Key Generator** | `F:\imd app\key_generator.html` | Standalone HTML tool. Double-click in Chrome/Edge to generate keys offline without opening the mobile app. |
+| **📦 Release APK Location** | `F:\IMD_Portal_v1.0.apk` | Ready-to-install production Android APK file compiled via GitHub Actions. |
+| **🐙 GitHub Repository** | `https://github.com/Aman6390/imd-portal` | Authenticated remote repository with automated CI/CD cloud build workflow. |
+
+---
+
 ## 1. Project Overview & Objectives
 
 * **Automate Data Extraction:** Securely authenticate into the India Meteorological Department (IMD) Intranet Portal (`https://metnet.imd.gov.in`), bypass dynamic RSA login encryption, and scrape real-time leave balances and departmental circulars.
