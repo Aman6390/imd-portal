@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>IMD Portal - License Key Generator</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      background: #0f172a;
+      color: #f8fafc;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      min-height: 100vh;
+      padding: 20px;
+    }
+    .card {
+      background: #1e293b;
+      border: 1px solid #334155;
+      border-radius: 16px;
+      padding: 32px;
+      width: 100%;
+      max-width: 480px;
+      box-shadow: 0 10px 25px rgba(0,0,0,0.5);
+    }
+    h1 {
+      font-size: 22px;
+      margin-bottom: 8px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      color: #38bdf8;
+    }
+    p.subtitle {
+      color: #94a3b8;
+      font-size: 13px;
+      margin-bottom: 24px;
+      line-height: 1.5;
+    }
+    label {
+      display: block;
+      font-size: 13px;
+      font-weight: 600;
+      color: #cbd5e1;
+      margin-bottom: 8px;
+    }
+    input[type="text"] {
+      width: 100%;
+      background: #0f172a;
+      border: 1px solid #475569;
+      color: #fff;
+      padding: 12px 16px;
+      border-radius: 8px;
+      font-size: 16px;
+      font-family: monospace;
+      text-transform: uppercase;
+      outline: none;
+      transition: border-color 0.2s;
+    }
+    input[type="text"]:focus {
+      border-color: #38bdf8;
+    }
+    button.btn-primary {
+      width: 100%;
+      background: #0284c7;
+      color: #fff;
+      border: none;
+      padding: 12px;
+      border-radius: 8px;
+      font-size: 15px;
+      font-weight: 600;
+      cursor: pointer;
+      margin-top: 16px;
+      transition: background 0.2s;
+    }
+    button.btn-primary:hover {
+      background: #0369a1;
+    }
+    .result-box {
+      margin-top: 24px;
+      background: #0f172a;
+      border: 1px solid #334155;
+      border-radius: 8px;
+      padding: 16px;
+      display: none;
+    }
+    .result-title {
+      font-size: 12px;
+      color: #94a3b8;
+      margin-bottom: 6px;
+    }
+    .key-display {
+      font-family: monospace;
+      font-size: 20px;
+      font-weight: bold;
+      color: #4ade80;
+      letter-spacing: 2px;
+      word-break: break-all;
+    }
+    .copy-btn {
+      background: #334155;
+      color: #f1f5f9;
+      border: none;
+      padding: 8px 12px;
+      border-radius: 6px;
+      font-size: 12px;
+      cursor: pointer;
+      margin-top: 10px;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .copy-btn:hover { background: #475569; }
+    .footer {
+      margin-top: 24px;
+      padding-top: 16px;
+      border-top: 1px solid #334155;
+      font-size: 12px;
+      color: #64748b;
+      text-align: center;
+    }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <h1>🔑 IMD Portal Key Generator</h1>
+    <p class="subtitle">Generate an offline, permanent Pro activation key for a colleague's Device ID. Works 100% offline.</p>
+
+    <label for="deviceId">Colleague's Device ID:</label>
+    <input type="text" id="deviceId" placeholder="e.g. IMD-8B4E-29A1" autocomplete="off" spellcheck="false">
+
+    <button class="btn-primary" onclick="handleGenerate()">Generate Activation Key</button>
+
+    <div class="result-box" id="resultBox">
+      <div class="result-title">Generated Activation Key:</div>
+      <div class="key-display" id="keyDisplay">PRO-XXXX-XXXX</div>
+      <button class="copy-btn" onclick="copyKey()">📋 Copy to Clipboard</button>
+    </div>
+
+    <div class="footer">
+      Private Administrator Tool &bull; Aman (Aman6390)
+    </div>
+  </div>
+
+  <script>
+    async function generateKey(deviceId) {
+      const cleanId = deviceId.trim().toUpperCase();
+      const salt = "IMD_METNET_PORTAL_SECURE_SALT_2026";
+      const enc = new TextEncoder();
+      const key = await crypto.subtle.importKey(
+        "raw",
+        enc.encode(salt),
+        { name: "HMAC", hash: "SHA-256" },
+        false,
+        ["sign"]
+      );
+      const sig = await crypto.subtle.sign("HMAC", key, enc.encode(cleanId));
+      const hex = Array.from(new Uint8Array(sig))
+        .map(b => b.toString(16).padStart(2, "0"))
+        .join("")
+        .toUpperCase();
+      return `PRO-${hex.substring(0, 4)}-${hex.substring(4, 8)}`;
+    }
+
+    async function handleGenerate() {
+      const input = document.getElementById('deviceId').value.trim();
+      if (!input) {
+        alert("Please enter a valid Device ID (e.g. IMD-8B4E-29A1)");
+        return;
+      }
+      const key = await generateKey(input);
+      document.getElementById('keyDisplay').innerText = key;
+      document.getElementById('resultBox').style.display = 'block';
+    }
+
+    function copyKey() {
+      const keyText = document.getElementById('keyDisplay').innerText;
+      navigator.clipboard.writeText(keyText).then(() => {
+        alert("Activation Key copied to clipboard: " + keyText);
+      });
+    }
+
+    document.getElementById('deviceId').addEventListener('keypress', function(e) {
+      if (e.key === 'Enter') handleGenerate();
+    });
+  </script>
+</body>
+</html>

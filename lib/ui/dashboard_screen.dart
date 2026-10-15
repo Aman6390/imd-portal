@@ -1,12 +1,14 @@
 import 'package:flutter/material.dart';
 import '../models/dashboard_data.dart';
 import '../services/auth_service.dart';
+import '../services/license_service.dart';
 import '../services/scraper_engine.dart';
 import '../services/storage_service.dart';
 import '../services/widget_service.dart';
 import 'widgets/alert_grid.dart';
 import 'widgets/circular_tabs.dart';
 import 'widgets/leave_card.dart';
+import 'widgets/notice_resolver_webview.dart';
 import 'widgets/settings_dialog.dart';
 
 class DashboardScreen extends StatefulWidget {
@@ -30,11 +32,17 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
   bool _isAppUnlocked = false;
   bool _isAuthenticating = false;
 
+  // Notice & License state
+  bool _hasMetNetNotice = false;
+  int _trialDaysRemaining = 30;
+  bool _isProActive = false;
+
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
     _loadCachedData();
+    _loadLicenseStatus();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _authenticateAppLaunch();
     });
@@ -76,6 +84,17 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
     }
   }
 
+  Future<void> _loadLicenseStatus() async {
+    final days = await LicenseService.getRemainingTrialDays();
+    final activated = await LicenseService.isActivated();
+    if (mounted) {
+      setState(() {
+        _trialDaysRemaining = days;
+        _isProActive = activated;
+      });
+    }
+  }
+
   Future<void> _loadCachedData() async {
     final cached = await StorageService.loadDashboardData();
     if (mounted) {
@@ -86,8 +105,54 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
     }
   }
 
+  Future<void> _openNoticeResolver() async {
+    final (user, pass) = await StorageService.loadCredentials();
+    if (user.isEmpty || pass.isEmpty) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Please save your MetNet credentials in Settings first!'),
+          backgroundColor: Colors.orange,
+        ),
+      );
+      _openSettings();
+      return;
+    }
+
+    final resolved = await Navigator.of(context).push<bool>(
+      MaterialPageRoute(
+        builder: (context) => NoticeResolverWebView(
+          username: user,
+          password: pass,
+        ),
+      ),
+    );
+
+    if (resolved == true) {
+      setState(() {
+        _hasMetNetNotice = false;
+      });
+      _triggerSync();
+    }
+  }
+
   Future<void> _triggerSync() async {
     if (_isSyncing) return;
+
+    // Check License & Beta Trial status
+    final canSync = await LicenseService.canUseApp();
+    if (!canSync) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('30-Day Beta Trial has expired. Please activate your license in Settings.'),
+          backgroundColor: Colors.red,
+          duration: Duration(seconds: 4),
+        ),
+      );
+      _openSettings();
+      return;
+    }
 
     final (user, pass) = await StorageService.loadCredentials();
     if (user.isEmpty || pass.isEmpty) {
@@ -116,6 +181,9 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
         _isSyncing = false;
         if (success && freshData != null) {
           _data = freshData;
+          _hasMetNetNotice = false;
+        } else if (message.contains('Notice') || message.contains('Action Required')) {
+          _hasMetNetNotice = true;
         }
       });
 
@@ -137,7 +205,7 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
   Future<void> _openSettings() async {
     _isAuthenticating = true;
     final authenticated = await AuthService.authenticate(
-      localizedReason: 'Authenticate with Fingerprint, Face, or PIN to access portal credentials',
+      localizedReason: 'Authenticate with Fingerprint, Face, or PIN to access settings & credentials',
     );
     _isAuthenticating = false;
 
@@ -145,7 +213,7 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Authentication required to change credentials.'),
+          content: Text('Authentication required to access settings.'),
           backgroundColor: Colors.orange,
         ),
       );
@@ -155,12 +223,67 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
     if (!mounted) return;
     showDialog(
       context: context,
-      builder: (context) => SettingsDialog(onSaved: () {
-        // Automatically sync after saving credentials if no data exists
-        if (_data == null) {
-          _triggerSync();
-        }
-      }),
+      builder: (context) => SettingsDialog(
+        onSaved: () {
+          _loadLicenseStatus();
+          if (_data == null) {
+            _triggerSync();
+          }
+        },
+        onToggleTheme: widget.onToggleTheme,
+        isDarkMode: widget.isDarkMode,
+      ),
+    );
+  }
+
+  Widget _buildNoticeCard() {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 18),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.amber.withOpacity(0.12),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: Colors.amber.shade700, width: 1.5),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(Icons.warning_amber_rounded, color: Colors.amber.shade800, size: 24),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  '⚠️ MetNet Notice or Action Required',
+                  style: TextStyle(
+                    fontWeight: FontWeight.bold,
+                    color: Colors.amber.shade900,
+                    fontSize: 14,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 6),
+          Text(
+            'MetNet has an unread inbox notice, shift roster, or prompt that needs acknowledgment.',
+            style: TextStyle(
+              fontSize: 12,
+              color: Theme.of(context).colorScheme.onSurface.withOpacity(0.7),
+            ),
+          ),
+          const SizedBox(height: 12),
+          FilledButton.icon(
+            style: FilledButton.styleFrom(
+              backgroundColor: Colors.amber.shade700,
+              foregroundColor: Colors.white,
+            ),
+            icon: const Icon(Icons.open_in_browser, size: 18),
+            label: const Text('Open MetNet to Resolve'),
+            onPressed: _openNoticeResolver,
+          ),
+        ],
+      ),
     );
   }
 
@@ -168,51 +291,56 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
     return Center(
       child: SingleChildScrollView(
         padding: const EdgeInsets.all(28.0),
-        child: Card(
-          elevation: 2,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-          child: Padding(
-            padding: const EdgeInsets.symmetric(vertical: 36, horizontal: 24),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                const Icon(
-                  Icons.sync_problem_rounded,
-                  size: 64,
-                  color: Colors.orangeAccent,
+        child: Column(
+          children: [
+            if (_hasMetNetNotice) _buildNoticeCard(),
+            Card(
+              elevation: 2,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(vertical: 36, horizontal: 24),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Icon(
+                      Icons.sync_problem_rounded,
+                      size: 64,
+                      color: Colors.orangeAccent,
+                    ),
+                    const SizedBox(height: 18),
+                    const Text(
+                      'No Data Yet',
+                      style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
+                    ),
+                    const SizedBox(height: 12),
+                    Text(
+                      'Tap the sync button below to fetch your leave balances and departmental circulars.',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        fontSize: 14,
+                        color: Theme.of(context).colorScheme.outline,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      'Make sure you have saved your credentials in Settings (⚙️) first.',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: Theme.of(context).colorScheme.outline.withOpacity(0.8),
+                      ),
+                    ),
+                    const SizedBox(height: 24),
+                    FilledButton.icon(
+                      onPressed: _openSettings,
+                      icon: const Icon(Icons.settings, size: 18),
+                      label: const Text('Configure Settings'),
+                    ),
+                  ],
                 ),
-                const SizedBox(height: 18),
-                const Text(
-                  'No Data Yet',
-                  style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
-                ),
-                const SizedBox(height: 12),
-                Text(
-                  'Tap the sync button below to fetch your leave balances and departmental circulars.',
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                    fontSize: 14,
-                    color: Theme.of(context).colorScheme.outline,
-                  ),
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  'Make sure you have saved your credentials in Settings (⚙️) first.',
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                    fontSize: 12,
-                    color: Theme.of(context).colorScheme.outline.withOpacity(0.8),
-                  ),
-                ),
-                const SizedBox(height: 24),
-                FilledButton.icon(
-                  onPressed: _openSettings,
-                  icon: const Icon(Icons.settings, size: 18),
-                  label: const Text('Configure Credentials'),
-                ),
-              ],
+              ),
             ),
-          ),
+          ],
         ),
       ),
     );
@@ -229,6 +357,8 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            if (_hasMetNetNotice) _buildNoticeCard(),
+
             // Sync status badge
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
@@ -387,10 +517,25 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
           style: TextStyle(fontWeight: FontWeight.bold),
         ),
         actions: [
-          IconButton(
-            tooltip: widget.isDarkMode ? 'Switch to Light Mode' : 'Switch to Dark Mode',
-            icon: Icon(widget.isDarkMode ? Icons.light_mode : Icons.dark_mode),
-            onPressed: widget.onToggleTheme,
+          // License Status Chip
+          Padding(
+            padding: const EdgeInsets.symmetric(vertical: 10.0),
+            child: ActionChip(
+              avatar: Icon(
+                _isProActive ? Icons.verified : Icons.timelapse,
+                size: 16,
+                color: _isProActive ? Colors.green : Colors.orange,
+              ),
+              label: Text(
+                _isProActive ? 'Pro' : 'Trial: ${_trialDaysRemaining}d',
+                style: TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.bold,
+                  color: _isProActive ? Colors.green : Colors.orange,
+                ),
+              ),
+              onPressed: _openSettings,
+            ),
           ),
           IconButton(
             tooltip: 'Settings',

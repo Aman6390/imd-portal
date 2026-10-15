@@ -358,7 +358,11 @@ class ScraperEngine {
         }
 
         if (leaveUrl == null || circularUrl == null) {
-          return (false, '❌ Dashboard URLs not found. Please verify your credentials.', null);
+          return (
+            false,
+            '⚠️ MetNet Notice or Action Required',
+            null,
+          );
         }
 
         // Step 7: Fetch and parse leave balances

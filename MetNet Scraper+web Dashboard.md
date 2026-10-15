@@ -1,6 +1,6 @@
 # 🚀 PROJECT MASTER BLUEPRINT: IMD Portal Android Application
 
-> **Project Status:** Production Ready (v1.1)  
+> **Project Status:** Production Ready (v1.2)  
 > **Target Platform:** Native Android (Flutter / Kotlin)  
 > **Output Release Artifact:** `F:\IMD_Portal_v1.0.apk`  
 > **CI/CD Pipeline:** GitHub Actions Automated Cloud Build (`Aman6390/imd-portal`)  
@@ -14,9 +14,11 @@
 * **Intelligent Circular Categorization:** Automatically parse departmental orders, discard irrelevant junk notices (canteen, drivers, mechanics), and prioritize high-value VIP circulars (Scientific Assistants, Scientist transfers, promotions, LDCE, allowances) with direct PDF launch capabilities.
 * **Fast-Path Title Pre-Filter & On-Device Devanagari OCR:** Instant title matching from the web page for 90% of orders, coupled with lightweight on-device Devanagari OCR (Google ML Kit) for ambiguous scanned documents and Hindi circulars.
 * **Custom Keyword Editor:** Allows users to dynamically customize, add, and delete tracked VIP keywords (e.g. specific station names, user name, topics) and junk keywords directly from Settings.
+* **In-App MetNet Notice Resolver WebView:** When portal sync encounters unread inbox messages, duty roster declarations, or interstitial pages, displays `⚠️ MetNet Notice or Action Required` with an `Open MetNet to Resolve` button. Auto-logs into MetNet, lets the user dismiss the notice, and automatically closes and triggers re-sync when navigating to the dashboard.
+* **30-Day Beta Trial & Cryptographic Offline Licensing:** Automatic 30-day free trial on fresh installations. Cryptographic HMAC license verification with unique Device IDs (`IMD-XXXX-XXXX`), universal Master VIP Key (`IMD-VIP-9K4F-8X2M-6390`), and an Owner-Only Admin Key Generator protected by PIN `6390`.
 * **Never-Download-Twice Cache Registry:** Deduplication cache ensuring circular PDFs are processed only once in their lifetime, keeping daily sync under 3 seconds and mobile data under 100 KB.
 * **Biometric & Device Security:** Safeguard sensitive intranet credentials and departmental records with Android native Biometrics (Fingerprint / Face Unlock) and device PIN/pattern fallback on both app launch and credentials management.
-* **Native Android Ecosystem:** Deliver silent daily background synchronization at 18:00 hrs, automated change-detection notifications, start-of-the-month leave expiration reminders, and multiple home screen widgets.
+* **Settings & Customization:** Unified settings panel featuring Theme selection (Dark / Light Mode), keyword filters, license management, and an About Section honoring developer Aman (Aman6390).
 
 ---
 
@@ -37,6 +39,8 @@
 | **Push Notifications** | `flutter_local_notifications: ^17.0.0` | Android system notifications with custom notification channels |
 | **Home Widgets** | `home_widget: ^0.6.0` | Native Android AppWidgets (2x2 Multi-metric & 1x1 Compact) |
 | **Document Launching**| `url_launcher: ^6.2.4` | Direct opening of official circular PDF URLs in browser/viewer |
+| **Notice Resolver** | `webview_flutter: ^4.10.0` | In-app authenticated WebView for resolving MetNet notices & pop-ups |
+| **Licensing Crypto** | `crypto: ^3.0.3` | HMAC-SHA256 mathematical algorithm for offline license validation |
 | **Formatting** | `intl: ^0.19.0` | Date formatting and timeline parsing |
 
 ---
@@ -158,7 +162,54 @@ The app features two distinct native Android home screen widgets engineered for 
 
 ---
 
-## 8. Automated Cloud Build & CI/CD Pipeline
+## 8. In-App MetNet Notice Resolver WebView ("Open MetNet to Resolve")
+
+### The Challenge
+MetNet intranet occasionally redirects active sessions away from the normal portal homepage (`main2.php`) to:
+1. Mandatory internal inbox messages requiring read confirmation.
+2. Shift duty rostering notices and seasonal declarations.
+3. Administrative pop-ups and session checkpoints.
+
+When this occurs, standard leave/circular links are missing from the response HTML, causing headless scrapers to fail.
+
+### The Two-Tiered Solution
+* **Status Detection:** When `ScraperEngine` detects missing dashboard links, it returns a distinct `needsNoticeResolution: true` flag.
+* **Amber Action Card:** The main dashboard displays:
+  > `⚠️ MetNet Notice or Action Required`  
+  > `[Open MetNet to Resolve]`
+* **Authenticated In-App WebView:** Tapping the button launches `NoticeResolverWebView`:
+  1. Injects the active session cookie (`PHPSESSID`) or auto-fills login credentials without requiring manual password entry.
+  2. Displays the exact intranet page / message / modal dialog for the employee to read, acknowledge, or dismiss.
+  3. **Auto-Close & Re-Sync:** Monitors URL navigation changes via `NavigationDelegate`. The instant MetNet navigates back to `main2.php`, the WebView automatically closes itself and triggers an immediate background dashboard synchronization.
+
+---
+
+## 9. 30-Day Beta Trial, Cryptographic Licensing & Owner Key Generator
+
+### A. 30-Day Beta Trial Mode
+* **Zero Configuration:** Upon fresh installation, the app generates an installation timestamp and grants full unrestricted access for **30 calendar days**.
+* **Visual Status:** Displays a subtle trial badge (`Trial: X days left`) in the app header and Settings dialog.
+* **Trial Expiry Gate:** When 30 days lapse, syncing pauses and prompts the user to activate.
+
+### B. Offline Cryptographic License Verification (Serverless & Zero-Cost)
+* **Device ID:** Generates a deterministic 8-character hardware/install hash formatted as `IMD-XXXX-XXXX` (e.g. `IMD-8B4E-29A1`).
+* **Cryptographic HMAC Formula:**
+  $$\text{License Key} = \text{HMAC-SHA256}(\text{Device ID}, \text{Secret Salt})$$
+  Formatted as `PRO-XXXX-XXXX`. Because each key is mathematically bound to that specific Device ID, colleagues cannot forward or share activation keys.
+
+### C. Universal VIP Master Key
+* **Master Passkey:** `IMD-VIP-9K4F-8X2M-6390`
+* **Purpose:** Unlocks any device immediately for life without needing a device-specific key. Entering this key on the owner's phone unlocks **Owner / Admin Mode**.
+
+### D. Owner-Only In-App Key Generator & Security
+* **Protection:** Hidden from regular colleagues. Available only on devices activated with the Master Key.
+* **Admin PIN:** Protected by the user's secret 4-digit PIN: **`6390`**.
+* **Workflow:** The owner opens Settings -> taps **Admin License Generator** -> enters PIN `6390` -> pastes colleague's Device ID -> taps **Generate** -> copies key and sends to colleague.
+* **Offline HTML Fallback:** Accompanied by a standalone `key_generator.html` file stored in the project repository for generating keys on any PC/browser offline.
+
+---
+
+## 10. Automated Cloud Build & CI/CD Pipeline
 
 * **Repository:** Hosted on GitHub (`Aman6390/imd-portal`).
 * **Workflow (`.github/workflows/build_apk.yml`):**
@@ -170,7 +221,7 @@ The app features two distinct native Android home screen widgets engineered for 
 
 ---
 
-## 9. Codebase File Structure
+## 11. Codebase File Structure
 
 ```
 F:\imd app\
@@ -208,6 +259,7 @@ F:\imd app\
 │   ├── services\
 │   │   ├── auth_service.dart                 # Local biometrics & PIN authentication service
 │   │   ├── background_sync_service.dart      # WorkManager 18:00 worker & reminder logic
+│   │   ├── license_service.dart              # 30-Day trial, Device ID, HMAC offline licensing & generator
 │   │   ├── notification_service.dart         # Android notification channels & dispatcher
 │   │   ├── ocr_service.dart                  # On-Device Google ML Kit Devanagari OCR service
 │   │   ├── rsa_crypto.dart                   # RSA PKCS1_v1_5 dynamic password encrypter
@@ -215,22 +267,24 @@ F:\imd app\
 │   │   ├── storage_service.dart              # SharedPreferences for credentials, keywords & OCR cache
 │   │   └── widget_service.dart               # HomeWidget multi-provider updater
 │   └── ui\
-│       ├── dashboard_screen.dart             # Main dashboard view, lock screen & FAB
+│       ├── dashboard_screen.dart             # Main dashboard view, lock screen, notice banner & FAB
 │       ├── month_calendar_screen.dart        # Interactive monthly calendar expiry view
 │       └── widgets\
 │           ├── alert_grid.dart               # 12-Month alert grid with tap navigation
 │           ├── circular_tabs.dart            # Tabbed VIP & FOMO circulars
 │           ├── leave_card.dart               # Horizontal color-coded leave cards
-│           └── settings_dialog.dart          # Credentials & Custom Keyword Filter Editor modal
+│           ├── notice_resolver_webview.dart  # In-App MetNet Notice Resolver WebView
+│           └── settings_dialog.dart          # 5-Tab settings: Account, VIP, Junk, License & About
 ├── .gitignore                                # Build & artifact ignore rules
 ├── analysis_options.yaml                     # Dart analyzer configuration
+├── key_generator.html                        # Standalone offline browser license generator tool
 ├── pubspec.yaml                              # Flutter dependencies & metadata
 └── MetNet Scraper+web Dashboard.md           # Master Project Blueprint & Documentation
 ```
 
 ---
 
-## 10. Historical Reference Python Source Code
+## 12. Historical Reference Python Source Code
 
 *(Retained for mechanical audit and verification against original Python prototype)*
 
