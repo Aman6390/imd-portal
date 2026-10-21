@@ -1,87 +1,92 @@
 # 🚀 PROJECT MASTER BLUEPRINT: Meteorological Portal Android Application
 
 > **Project Status:** Production Ready — 100% Free & Open Edition (v1.3.6)  
-> **Target Platform:** Native Android (Flutter / Kotlin)  
-> **Output Release Artifact:** `build/app/outputs/flutter-apk/app-release.apk`  
-> **CI/CD Pipeline:** GitHub Actions Automated Cloud Build (`Aman6390/imd-portal`)  
-> **Licensing & Access:** 100% Free for all meteorological staff and employees (Zero cost, no licenses, no restrictions)
+> **Target Platform:** Native Android (Flutter / Kotlin) [Why: Guarantees broad compatibility with all modern Android smartphones used by staff]  
+> **Output Release Artifact:** `build/app/outputs/flutter-apk/app-release.apk` [Why: Standard Android standalone package format for direct distribution]  
+> **CI/CD Pipeline:** GitHub Actions Automated Cloud Build (`Aman6390/imd-portal`) [Why: Eliminates the need for a high-end development computer by compiling APKs in the cloud automatically]  
+> **Licensing & Access:** 100% Free for all meteorological staff and employees [Why: Pure non-profit internal utility tool built to empower colleagues with zero financial or technical barriers]
 
 ---
 
 ## 📌 Project Quick Reference & Repository Endpoints
 
-| Item | Value / Reference | Description & Details |
+| Item | Value / Reference | Description & Details [Why We Use It] |
 | :--- | :--- | :--- |
-| **🐙 GitHub Repository** | `https://github.com/Aman6390/imd-portal` | Authenticated remote repository with automated CI/CD cloud build workflow. |
-| **🌐 Intranet Target Portal** | `https://metnet.imd.gov.in` | Official India Meteorological Department Intranet Portal. |
-| **📦 Cloud Build Release APK** | `build/app/outputs/flutter-apk/app-release.apk` | Production Android APK compiled via GitHub Actions Ubuntu runners. |
-| **🚀 Over-The-Air Updates** | `https://github.com/Aman6390/imd-portal/releases` | GitHub Releases endpoint for version tracking and direct APK update downloads. |
-| **🎁 Edition & Pricing** | **100% Free Edition** | Unrestricted full access for all staff, scientists, and employees with zero barriers. |
-| **👤 Project Lead & Developer** | Aman Kumar (`Aman6390`) | Designed & built for meteorological colleagues. |
+| **🐙 GitHub Repository** | `https://github.com/Aman6390/imd-portal` | Authenticated remote repository with automated CI/CD cloud build workflow. [Why: Provides permanent version control, cloud compilation, and public update hosting for colleagues] |
+| **🌐 Intranet Target Portal** | `https://metnet.imd.gov.in` | Official India Meteorological Department Intranet Portal. [Why: The authoritative central server storing employee leave records and departmental circulars] |
+| **📦 Cloud Build Release APK** | `build/app/outputs/flutter-apk/app-release.apk` | Production Android APK compiled via GitHub Actions Ubuntu runners. [Why: Compiles a clean, optimized binary that anyone can install directly without app stores] |
+| **🚀 Over-The-Air Updates** | `https://github.com/Aman6390/imd-portal/releases` | GitHub Releases endpoint for version tracking and direct APK update downloads. [Why: Enables seamless in-app auto-updating so users receive bug fixes and new features automatically] |
+| **🎁 Edition & Pricing** | **100% Free Edition** | Unrestricted full access for all staff, scientists, and employees with zero barriers. [Why: Avoids user frustration, paywalls, and license key validation issues] |
+| **👤 Project Lead & Developer** | Aman Kumar (`Aman6390`) | Designed & built for meteorological colleagues. [Why: Created by an insider who understands the exact departmental pain points of MetNet] |
 
 ---
 
 ## 1. Project Overview & Objectives
 
-* **Automate Intranet Data Extraction:** Securely authenticate into the Intranet Portal (`https://metnet.imd.gov.in`), bypass dynamic RSA login encryption, and scrape real-time leave balances and departmental circulars.
-* **Smart Leave & Expiry Management:** Extract balances for Casual Leave (CL), Restricted Holiday (RH), and Compensatory Off (C-Off). Accurately predict expiration dates for C-Offs ($\text{Date of Credit} + 6 \text{ months}$) and provide a 12-month visual timeline with an interactive, dedicated calendar view.
-* **Intelligent Circular Categorization:** Automatically parse departmental orders, discard irrelevant junk notices (canteen, drivers, mechanics), and prioritize high-value VIP circulars (Scientific Assistants, Scientist transfers, promotions, LDCE, allowances) with direct PDF launch capabilities.
-* **Fast-Path Title Pre-Filter & On-Device Devanagari OCR:** Instant title matching from the web page for 90% of orders, coupled with lightweight on-device Devanagari OCR (Google ML Kit) for ambiguous scanned documents and Hindi circulars.
-* **Custom Keyword Editor:** Allows users to dynamically customize, add, and delete tracked VIP keywords (e.g. specific station names, user name, topics) and junk keywords directly from Settings.
-* **In-App MetNet Notice Resolver WebView:** When portal sync encounters unread inbox messages, duty roster declarations, or interstitial pages, displays `⚠️ MetNet Notice or Action Required` with an `Open MetNet to Resolve` button. Auto-logs into MetNet, lets the user dismiss the notice, and automatically closes and triggers re-sync when navigating back to the dashboard.
-* **100% Free & Open Access:** Zero licensing barriers, zero paywalls, and zero trial expiration dates. All features are permanently available to any colleague upon download.
-* **Over-The-Air (OTA) Updates:** In-app check for new releases and features via GitHub Releases, allowing colleagues to update their installed app seamlessly over the internet without manual downloads or app store hurdles.
-* **Never-Download-Twice Cache Registry:** Deduplication cache ensuring circular PDFs are processed only once in their lifetime, keeping daily sync under 3 seconds and mobile data under 100 KB.
-* **Biometric & Device Security:** Safeguard sensitive intranet credentials and departmental records with Android native Biometrics (Fingerprint / Face Unlock) and device PIN/pattern fallback on both app launch and credentials management.
-* **Settings & Customization:** Unified settings panel featuring Theme selection (Dark / Light Mode), keyword filters, account credentials, updates, and an About Section honoring developer Aman (Aman6390).
+* **Automate Intranet Data Extraction:** [Why: Manual portal login requires solving dynamic RSA encryption and navigating slow web pages; automated extraction retrieves leave records and circulars in under 3 seconds]. Securely authenticates into the Intranet Portal (`https://metnet.imd.gov.in`), bypasses dynamic RSA login encryption, and scrapes real-time balances and circulars.
+* **Smart Leave & Expiry Management:** [Why: Compensatory Offs lapse after exactly 6 months, and employees frequently lose hard-earned leaves simply because they forget when they were earned]. Extracts balances for Casual Leave (CL), Restricted Holiday (RH), and Compensatory Off (C-Off). Accurately predicts expiration dates for C-Offs ($\text{Date of Credit} + 6 \text{ months}$) and provides a 12-month visual timeline with an interactive, dedicated calendar view.
+* **Intelligent Circular Categorization:** [Why: MetNet publishes dozens of daily notices (driver duties, canteen menus, carpenter jobs) that bury critical orders like promotions, transfers, and allowances]. Automatically parses departmental orders, discards irrelevant junk notices, and prioritizes high-value VIP circulars (Scientific Assistants, Scientist transfers, promotions, LDCE, allowances) with direct PDF launch capabilities.
+* **Fast-Path Title Pre-Filter & On-Device Devanagari OCR:** [Why: 90% of orders have clear titles that can be filtered in milliseconds, but vague scanned Hindi notices require reading the actual document without wasting mobile data]. Instant title matching from the web page for 90% of orders, coupled with lightweight on-device Devanagari OCR (Google ML Kit) for ambiguous scanned documents and Hindi circulars.
+* **Custom Keyword Editor:** [Why: Every employee cares about different things—some track their specific station (e.g. Pune, Delhi), their own name, or specialized sections]. Allows users to dynamically customize, add, and delete tracked VIP keywords and junk keywords directly from Settings.
+* **In-App MetNet Notice Resolver WebView:** [Why: MetNet periodically blocks login with mandatory popups, unread inbox messages, or duty declarations that break automated scrapers]. When portal sync encounters unread notices, displays `⚠️ MetNet Notice or Action Required` with an `Open MetNet to Resolve` button. Auto-logs into MetNet, lets the user dismiss the notice, and automatically closes and triggers re-sync upon returning.
+* **100% Free & Open Access:** [Why: To foster maximum adoption among all departmental staff without trial limits, activation keys, or subscription hurdles]. Zero licensing barriers, zero paywalls, and zero trial expiration dates. All features are permanently available upon download.
+* **Over-The-Air (OTA) Updates:** [Why: Because the app is distributed directly via APK rather than Google Play, users need a smooth way to get updates without manually searching GitHub]. In-app check for new releases and features via GitHub Releases, allowing colleagues to update their installed app seamlessly over the internet.
+* **Never-Download-Twice Cache Registry:** [Why: Mobile networks in regional meteorological centers can be slow; re-downloading the same PDFs repeatedly drains data and battery]. Deduplication cache ensuring circular PDFs are processed only once in their lifetime, keeping daily sync under 3 seconds and mobile data under 100 KB.
+* **Biometric & Device Security:** [Why: MetNet credentials and leave balances are private employee records that must be protected if someone else holds the phone]. Safeguard sensitive intranet credentials and departmental records with Android native Biometrics (Fingerprint / Face Unlock) and device PIN/pattern fallback on both app launch and credentials management.
+* **Settings & Customization:** [Why: Gives users full control over visual appearance, security preferences, and filter keywords in one central location]. Unified settings panel featuring Theme selection (Dark / Light Mode), keyword filters, account credentials, updates, and an About Section honoring developer Aman (Aman6390).
 
 ---
 
 ## 2. Implemented Tech Stack & Packages
 
-| Category | Component / Library | Purpose |
+| Category | Component / Library | Purpose & [Why We Chose It] |
 | :--- | :--- | :--- |
-| **Framework** | **Flutter (Dart 3.5+, SDK >=3.0.0 <4.0.0)** | Cross-platform native UI framework |
-| **Native Android** | **Kotlin (1.9.0), Gradle 8.1.2, Android SDK 35** | Native Android integration & `FlutterFragmentActivity` |
-| **Networking** | `http: ^1.2.0` | Custom `SessionHttpClient` maintaining cookie jars across requests |
-| **Cryptography** | `encrypt: ^5.0.3` & `pointycastle: ^3.7.4` | RSA PKCS1_v1_5 encryption with dynamic public keys matching PyCryptodome |
-| **HTML Scraping** | `html: ^0.15.4` | DOM traversal, CSS selection, and regex-based text extraction |
-| **Local OCR (AI)** | `google_mlkit_text_recognition: ^0.13.0` | 100% On-device Devanagari (Hindi) & Latin OCR (offline) |
-| **PDF Rasterizer** | Native Android `android.graphics.pdf.PdfRenderer` | Hardware-accelerated native PDF page-to-image converter |
-| **Storage** | `shared_preferences: ^2.2.2` | Persistent storage for credentials, custom keywords, and OCR cache |
-| **Authentication** | `local_auth: ^2.3.0` | BiometricPrompt (Fingerprint/Face/PIN) app lock & settings gate |
-| **Background Tasks** | `workmanager: ^0.5.2` | Android WorkManager daily 18:00 background worker |
-| **Push Notifications** | `flutter_local_notifications: ^17.0.0` | Android system notifications with custom notification channels |
-| **Home Widgets** | `home_widget: ^0.6.0` | Native Android AppWidgets (2x2 Multi-metric & 1x1 Compact) |
-| **Document Launching**| `url_launcher: ^6.2.4` | Direct opening of circular PDFs and OTA update downloads |
-| **Notice Resolver** | `webview_flutter: ^4.10.0` | In-app authenticated WebView for resolving MetNet notices & pop-ups |
-| **Formatting** | `intl: ^0.19.0` | Date formatting and timeline parsing |
+| **Framework** | **Flutter (Dart 3.5+, SDK >=3.0.0 <4.0.0)** | Cross-platform native UI framework [Why: Delivers 60fps native performance, rich Material 3 animations, and rapid UI development from a single codebase] |
+| **Native Android** | **Kotlin (1.9.0), Gradle 8.1.2, Android SDK 35** | Native Android integration & `FlutterFragmentActivity` [Why: Required for direct hardware access, native biometrics, FileProvider, and Android 15 compatibility] |
+| **Networking** | `http: ^1.2.0` | Custom `SessionHttpClient` maintaining cookie jars across requests [Why: MetNet requires continuous session persistence (`PHPSESSID`) across multiple login and data endpoints] |
+| **Cryptography** | `encrypt: ^5.0.3` & `pointycastle: ^3.7.4` | RSA PKCS1_v1_5 encryption with dynamic public keys matching PyCryptodome [Why: MetNet encrypts user passwords using RSA PKCS1_v1_5 on the login page; without this exact cipher, authentication is rejected] |
+| **HTML Scraping** | `html: ^0.15.4` | DOM traversal, CSS selection, and regex-based text extraction [Why: Parses server-rendered HTML tables directly without needing heavy, resource-intensive browser engines] |
+| **Local OCR (AI)** | `google_mlkit_text_recognition: ^0.13.0` | 100% On-device Devanagari (Hindi) & Latin OCR [Why: Extracts text from scanned Hindi/English circular PDFs locally on the device without sending sensitive documents to external cloud APIs] |
+| **PDF Rasterizer** | Native Android `android.graphics.pdf.PdfRenderer` | Hardware-accelerated native PDF page-to-image converter [Why: Built directly into Android OS; renders PDF pages into bitmaps at maximum speed with zero third-party dependencies] |
+| **Storage** | `shared_preferences: ^2.2.2` | Persistent key-value storage for credentials, custom keywords, and OCR cache [Why: Instant local read/write access for user preferences without the overhead of an SQL database] |
+| **Authentication** | `local_auth: ^2.3.0` | BiometricPrompt (Fingerprint/Face/PIN) app lock & settings gate [Why: Standard Android security bridge that automatically adapts to each device's biometric hardware or lock-screen PIN] |
+| **Background Tasks** | `workmanager: ^0.5.2` | Android WorkManager daily 18:00 background worker [Why: Android's official recommended battery-efficient background scheduler that survives phone reboots and app termination] |
+| **Push Notifications** | `flutter_local_notifications: ^17.0.0` | Android system notifications with custom notification channels [Why: Delivers heads-up alerts for expiring leaves, new circulars, and background app updates] |
+| **Home Widgets** | `home_widget: ^0.6.0` | Native Android AppWidgets (2x2 Multi-metric & 1x1 Compact) [Why: Lets staff view their leave balances directly on their phone home screen without opening the app] |
+| **Document Launching**| `url_launcher: ^6.2.4` | Fallback browser and document launcher [Why: Standard utility to invoke system handlers for web links] |
+| **Notice Resolver** | `webview_flutter: ^4.10.0` | In-app authenticated WebView for resolving MetNet notices & pop-ups [Why: Allows employees to interact directly with MetNet popups without leaving the app or re-entering credentials] |
+| **Formatting** | `intl: ^0.19.0` | Date formatting and timeline parsing [Why: Reliably handles diverse date string formats used across government records (`dd-MM-yyyy`, `dd/MM/yyyy`, etc.)] |
 
 ---
 
 ## 3. Core Architecture & Mechanical Logic
 
 ### A. Secure RSA Login Bypass
-1. **Initial Handshake:** Hits `https://metnet.imd.gov.in/Welcome_to_Intra-IMD/welcome.php` to initiate session cookies.
+[Why: MetNet does not provide a public REST API; instead, it uses a multi-step PHP authentication flow with dynamic RSA public keys that change on every page load to prevent replay attacks.]
+
+1. **Initial Handshake:** Hits `https://metnet.imd.gov.in/Welcome_to_Intra-IMD/welcome.php` to initiate session cookies. [Why: MetNet requires a valid session cookie before granting access to the login form].
 2. **Dynamic Key Extraction:** Fetches `https://metnet.imd.gov.in/phps/left1.php` and parses:
-   * Dynamic PEM RSA Public Key from `<input id="publicKey" value="...">`
-   * Dynamic security token from `<input name="sc" value="...">`
-3. **RSA PKCS1_v1_5 Encryption:** Encrypts user password using the dynamic public key matching PyCryptodome's `PKCS1_v1_5` cipher, followed by Base64 encoding.
-4. **Spoofed Form Submission:** Dispatches POST request to `https://metnet.imd.gov.in/phps/emplogin.php` with browser headers (`User-Agent`, `Referer`, `Origin`) and form parameters (`login_username`, encrypted `password`, `sc`).
-5. **Session Persistence:** Maintains cookie headers across subsequent requests to `main2.php`, `leave_1.php`, and `circulars_display_2.php`.
+   * Dynamic PEM RSA Public Key from `<input id="publicKey" value="...">` [Why: The server uses this key to encrypt the password before sending].
+   * Dynamic security token from `<input name="sc" value="...">` [Why: MetNet validates this token to prevent automated CSRF attacks].
+3. **RSA PKCS1_v1_5 Encryption:** Encrypts user password using the dynamic public key matching PyCryptodome's `PKCS1_v1_5` cipher, followed by Base64 encoding. [Why: Matches MetNet's internal server-side PHP decryption logic].
+4. **Spoofed Form Submission:** Dispatches POST request to `https://metnet.imd.gov.in/phps/emplogin.php` with browser headers (`User-Agent`, `Referer`, `Origin`) and form parameters (`login_username`, encrypted `password`, `sc`). [Why: Mimics an authentic desktop web browser to prevent anti-bot security blocks].
+5. **Session Persistence:** Maintains cookie headers across subsequent requests to `main2.php`, `leave_1.php`, and `circulars_display_2.php`. [Why: Ensures authenticated state remains valid across all departmental subpages].
 
 ### B. Leave Extraction & Expiry Calculation (`leave_1.php`)
+[Why: Staff need instant clarity on how many leaves they have left and which ones are about to expire so they don't forfeit them.]
+
 * **Balances:** Extracted using regular expressions targeting:
-  * `Casual Leaves.*?Balance\s*=\s*(\d+)`
-  * `Restricted Holidays.*?Balance\s*=\s*(\d+)`
-  * `Compensatory Off.*?Balance\s*=\s*(\d+)`
+  * `Casual Leaves.*?Balance\s*=\s*(\d+)` [Why: Fast regex handles whitespace differences in portal HTML].
+  * `Restricted Holidays.*?Balance\s*=\s*(\d+)` [Why: Captures remaining RH quota for the calendar year].
+  * `Compensatory Off.*?Balance\s*=\s*(\d+)` [Why: Tracks active earned C-Offs from weekend or holiday duties].
 * **C-Off Expiry Math:**
-  * Targets table rows (`tr[bgcolor="#ffffff"]`, `tr[bgcolor="#f5f5f5"]`) with `>= 10` columns.
-  * Filters unavailed C-Offs where status column is empty and credit date matches `dd-MM-yyyy`.
-  * Computes: $\text{Expiry Date} = \text{Credit Date} + 6 \text{ months}$.
-  * Calculates exact $\text{Days Left} = \text{Expiry Date} - \text{Current Date}$.
+  * Targets table rows (`tr[bgcolor="#ffffff"]`, `tr[bgcolor="#f5f5f5"]`) with `>= 10` columns. [Why: MetNet displays C-Off credit history in alternating striped table rows].
+  * Filters unavailed C-Offs where status column is empty and credit date matches `dd-MM-yyyy`. [Why: Avoids calculating expiry for leaves that were already taken or canceled].
+  * Computes: $\text{Expiry Date} = \text{Credit Date} + 6 \text{ months}$. [Why: Departmental rules stipulate that Compensatory Offs strictly lapse 6 months after the duty date].
+  * Calculates exact $\text{Days Left} = \text{Expiry Date} - \text{Current Date}$. [Why: Gives the employee a real-time countdown to plan their leaves before they are lost].
 
 ### C. Advanced Fast-Path & On-Device Devanagari OCR Circular Engine
+[Why: MetNet publishes an overwhelming volume of notices. Processing every single PDF with AI OCR would be slow and data-heavy; this two-tier engine filters 90% instantly and only uses OCR when strictly necessary.]
 
 ```
                        [ Incoming Circular from Portal HTML ]
@@ -90,6 +95,7 @@
                    ▼                                           ▼
        Matches a Junk Keyword?                     Matches a VIP Keyword?
    (driver, canteen, mts, etc.)              (transfer, promotion, S.A., etc.)
+   [Why: Drops irrelevant notices]           [Why: Stars high-priority notices]
                    │                                           │
                    ▼                                           ▼
           [ DISCARD IMMEDIATELY ]                     [ MARK AS VIP STARRED ]
@@ -98,189 +104,98 @@
                                          ▼
                          Title is Ambiguous / Vague?
                      ("Office Order 54/2024", "Circular", etc.)
+                   [Why: Scanned orders need deep inspection]
                                          │
                                          ▼
                          Already in Local Cache Registry?
-                           ├── YES ➔ Use cached result (Skip)
+                           ├── YES ➔ Use cached result (Skip) [Why: Saves mobile data]
                            └── NO  ➔ Download Page 1 & Run Local Devanagari OCR
 ```
 
-1. **Title Pre-Filter (Fast-Path):**
-   * Scans the HTML table subject text against active VIP and Junk lists before touching network downloads.
-   * Resolves ~90% of circulars instantly in less than 0.05 seconds.
-2. **On-Device Devanagari OCR (Slow-Path):**
-   * When a title is vague (e.g. *"Office Order 45/2024"* or *"कार्यालय ज्ञापन"*), downloads only Page 1.
-   * Converts the page to an in-memory image via Android's native `PdfRenderer`.
-   * Passes the image to Google ML Kit Text Recognition with the **Devanagari script model** (`TextRecognitionScript.devanagari`), extracting Hindi and English text simultaneously.
-   * Searches the extracted document body for active VIP keywords.
-3. **Never-Download-Twice Cache Registry:**
-   * Keeps a lightweight index (`processed_circulars_cache`) mapping PDF URLs to their classification.
-   * Any previously processed circular is never re-downloaded or re-parsed.
-   * Total storage footprint remains under 2 MB.
-4. **Last One Month Rolling Circular Filter & Chronological Sorting:**
-   * Automatically parses diverse portal upload date strings (`dd-MM-yyyy`, `dd/MM/yyyy`, `dd.MM.yyyy`, `dd-MMM-yyyy`, `yyyy-MM-dd`) via enhanced `parseCircularDate()`.
-   * Enforces a rolling 30-day cutoff ($\text{Upload Date} \ge \text{Current Date} - 31\text{ days}$).
-   * Circulars across all sections are merged, deduplicated by URL and subject, and sorted chronologically descending (newest uploads on top).
-5. **Multi-Category Portal Discovery (Looking in Every Place):**
-   * Automatically scrapes all departmental circular sections on MetNet rather than restricting queries to only General circulars.
-   * Scans and aggregates:
-     * **General Circulars** (`circulars_display_2.php?type=GENERAL`)
-     * **Establishment Circulars** (`circulars_display_2.php?type=ESTABLISHMENT`)
-     * **Office Orders & Administrative Notices** (`circulars_display_2.php?type=OFFICE_ORDER`)
-     * **Transfers & Postings** (`circulars_display_2.php?type=TRANSFER`)
-     * Dynamic portal links matching `circular`, `order`, or bilingual terms (`परिपत्र`, `आदेश`).
-6. **RFC-Compliant Link Resolution & Android 11+ Package Visibility:**
-   * Resolves relative and root-relative PDF links using `Uri.parse(sourceBaseUrl).resolve(rawHref).toString()`, completely preventing broken URL string concatenation bugs (e.g. invalid domains).
-   * Declares explicit `<queries>` for `http` and `https` in `AndroidManifest.xml` ensuring `canLaunchUrl` operates smoothly on Android 11, 12, 13, 14, and 15 devices.
-7. **Intelligent In-App Downloader & Sibling Fallback (`CircularService.dart`):**
-   * Eliminates unauthenticated browser redirects that triggered Apache 404 "Not Found" errors.
-   * **Pre-flight Magic Bytes Verification:** Inspects downloaded byte streams for the `%PDF` signature (`0x25 0x50 0x44 0x46`), discarding deceptive HTML error pages that return HTTP 200.
-   * **Intelligent Sibling Path Probing:** If a document link returns 404, automatically tests alternative MetNet server paths in milliseconds:
-     * `https://metnet.imd.gov.in/docs/<filename>`
-     * `https://metnet.imd.gov.in/phps/docs/<filename>`
-     * `https://metnet.imd.gov.in/Welcome_to_Intra-IMD/docs/<filename>`
-     * Decoded URI representations (preventing double-encoded `%20` space anomalies).
-   * **Authenticated Intranet Session Fallback:** If public requests fail, dispatches requests through `SessionHttpClient` with valid employee `PHPSESSID` session cookies.
-8. **Graceful Handling of Withdrawn / Removed Notices (404 Interception):**
-   * Catches instances where portal database entries exist but physical PDF files have been withdrawn or deleted by departmental staff.
-   * Instead of dumping users onto an external browser error page, displays an in-app informative dialog: **⚠️ Notice Unavailable on Server** (*"This document was listed on MetNet, but the PDF file has been removed or withdrawn from the server by the department"*).
-   * Updates state with `item.isUnavailable = true`, showing an amber warning icon, strikethrough title, and `⚠️ Withdrawn on Portal` badge.
-9. **Native PDF Launch via Android FileProvider & Local Offline Cache:**
-   * Caches verified PDF files in the app's external cache (`/circulars/`) ensuring documents open offline instantaneously on future taps.
-   * Directly invokes the user's preferred PDF viewer (Drive PDF Viewer, Adobe Acrobat, etc.) via Android `FileProvider` (`com.example.imd_portal.fileprovider`) and `ACTION_VIEW` (`application/pdf`) without leaving the app environment.
+1. **Title Pre-Filter (Fast-Path):** [Why: Checks the HTML table title text first; resolves 90% of notices in under 0.05 seconds with zero network downloads].
+2. **On-Device Devanagari OCR (Slow-Path):** [Why: Reads ambiguous scanned orders locally using Google ML Kit Hindi OCR without sending sensitive government circulars to external cloud servers].
+3. **Never-Download-Twice Cache Registry:** [Why: Remembers every previously analyzed PDF so daily syncs stay under 3 seconds and mobile data usage stays under 100 KB].
+4. **Last One Month Rolling Circular Filter & Chronological Sorting:** [Why: Focuses on currently active, actionable circulars while hiding outdated months-old records].
+5. **Multi-Category Portal Discovery (Looking in Every Place):** [Why: MetNet scatters orders across General, Establishment, Office Orders, and Transfers; querying all categories ensures no critical transfer or promotion order is ever missed].
+6. **RFC-Compliant Link Resolution & Android 11+ Package Visibility:** [Why: Fixes broken relative link concatenation bugs and ensures the app has OS permissions to open PDF links on modern Android devices].
+7. **Intelligent In-App Downloader & Sibling Fallback (`CircularService.dart`):** [Why: External browsers like Chrome lack the app's login cookies and fail with 404 Not Found; this service downloads documents using the app's authenticated session].
+   * **Pre-flight Magic Bytes Verification:** [Why: Inspects the first 4 bytes for `%PDF` (`0x25 0x50 0x44 0x46`) to discard deceptive HTML error pages that pretend to be 200 OK].
+   * **Intelligent Sibling Path Probing:** [Why: If a link has a folder mismatch on MetNet, automatically tests alternate paths (`/docs/`, `/phps/docs/`, `/Welcome_to_Intra-IMD/docs/`) in milliseconds].
+8. **Graceful Handling of Withdrawn / Removed Notices (404 Interception):** [Why: Department staff sometimes revoke orders by deleting the PDF file while leaving the title on the portal; catching this in-app prevents ugly browser crashes and clearly informs the user: `⚠️ Notice Unavailable on Server`].
+9. **Native PDF Launch via Android FileProvider & Local Offline Cache:** [Why: Saves verified circulars in the device cache so colleagues can view them offline at any time without re-downloading].
 
 ---
 
 ## 4. UI / UX Features & Keyword Customization
 
-1. **Material 3 Theme:** Dark Theme (`#121212` background, `#1E1E1E` cards) with one-tap Light/Dark theme toggle.
-2. **Leave Balance Cards:** Horizontally scrollable row displaying Casual Leave, Restricted Holiday, and Compensatory Off with threshold-based color coding (Green/Orange/Blue).
-3. **12-Month Alert Grid:** Interactive horizontal grid displaying expiring C-Off counts for the next 12 rolling months with amber warning borders.
-4. **Interactive Month Calendar Screen (`month_calendar_screen.dart`):**
-   * Tapping any month box opens a full-screen, dedicated monthly calendar.
-   * Days with expiring C-Offs are marked with an amber border and red badge counter.
-   * A detailed breakdown card lists each expiring C-Off, the date it was credited, and remaining days.
-5. **Custom Keyword Filter in Settings (`settings_dialog.dart`):**
-   * **VIP Watchlist Chips:** Visual tags with one-tap `[✕]` deletion (e.g., `[Scientific Assistant ✕]`, `[Transfer ✕]`, `[MACP ✕]`).
-   * **Junk List Chips:** Visual tags for ignored circulars (`[Driver ✕]`, `[Canteen ✕]`, `[MTS ✕]`).
-   * **Add Custom Term `(+)`:** Input box supporting English and Hindi words (e.g. adding station name `Pune` / `पुणे`, employee name, or specialized divisions).
-   * **"Reset to Defaults" Button:** Restores standard default keywords instantly.
-6. **Tabbed Circulars Section:** Dedicated tabs separating **VIP Circulars** (⭐) and **Other Notifications** (📄) with click-to-open PDF link launching.
-7. **Sync Controls:** Floating Action Button (FAB) and Pull-to-Refresh with animated circular progress indicators and status SnackBars.
-8. **Settings Panel (4 Tabs):**
-   * **Tab 1: Account** — MetNet Intranet credentials configuration.
-   * **Tab 2: VIP Filter** — Custom keywords for starred circulars.
-   * **Tab 3: Junk Filter** — Custom terms for auto-discarding notices.
-   * **Tab 4: About & Updates** — Theme toggle, Free edition badge, OTA update launcher, and app documentation.
+1. **Material 3 Theme:** [Why: Modern, battery-saving dark interface that reduces eye strain during night-shift duty operations]. Dark Theme (`#121212` background, `#1E1E1E` cards) with one-tap Light/Dark theme toggle.
+2. **Leave Balance Cards:** [Why: Clean visual hierarchy letting staff see their CL, RH, and C-Off balances within one second of unlocking the app].
+3. **12-Month Alert Grid:** [Why: Visual warning matrix showing which upcoming months have expiring C-Offs so employees can plan leave applications in advance].
+4. **Interactive Month Calendar Screen (`month_calendar_screen.dart`):** [Why: Provides an intuitive calendar view where days with expiring leaves are marked with alert borders and day counters].
+5. **Custom Keyword Filter in Settings (`settings_dialog.dart`):** [Why: Empowers each employee to personalize their notice board by tracking their own station, name, or cadre while hiding unwanted notices].
+6. **Tabbed Circulars Section:** [Why: Separates urgent starred notices from general announcements so users can prioritize what to read first].
+7. **Sync Controls:** [Why: Gives users immediate visual feedback with animated spinners and SnackBars while data is refreshing from MetNet].
+8. **Settings Panel (4 Tabs):** [Why: Organizes credentials, VIP filters, junk terms, and app updates into logical tabs for effortless navigation].
 
 ---
 
 ## 5. Security & Biometric Protection
 
-* **App Launch Lock:** Whenever the app is launched or resumed from the background, the user is prompted for **Fingerprint, Face Unlock, or Device PIN/Pattern/Password**. If unauthorized or canceled, a clean lock screen blocks access.
-* **Credentials Settings Gate:** Accessing **Settings (⚙️)** or "Configure Credentials" requires explicit biometric/PIN verification before credentials fields or keyword settings are displayed or edited.
-* **Fallback Guarantee:** Utilizes `AuthenticationOptions(biometricOnly: false)` ensuring users with wet or unrecognized fingerprints can always authenticate using their phone's standard lock-screen PIN or pattern.
-* **Kotlin Integration:** `MainActivity` inherits from `FlutterFragmentActivity` and manifests declare `android.permission.USE_BIOMETRIC`.
+* **App Launch Lock:** [Why: Departmental intranet credentials and personal leave records must remain confidential if a colleague or family member borrows the phone]. Requires Fingerprint, Face Unlock, or Device PIN on launch.
+* **Credentials Settings Gate:** [Why: Prevents unauthorized viewing or modification of stored MetNet passwords in Settings].
+* **Fallback Guarantee (`biometricOnly: false`):** [Why: Ensures employees with wet, cold, or worn fingerprints can always unlock the app using their standard phone PIN or pattern].
+* **Kotlin Integration (`FlutterFragmentActivity`):** [Why: Standard Android architecture requirement to support native `BiometricPrompt` dialogs].
 
 ---
 
 ## 6. Background Automation & Notifications
 
-* **WorkManager Daily Sync:** Silent background task scheduled at **18:00 hrs (6:00 PM)** daily.
-* **Intelligent Change Detection:** Reads cached data, scrapes live portal, applies custom keyword filters, and compares leave balances and circular titles.
-* **Push Notification Triggers:**
-  * **Data Updates:** Triggers `IMD Dashboard: New Data Available` when circulars change or leaves are credited/debited.
-  * **Start-of-Month Reminder:** On days 1, 2, and 3 of every month, if unavailed RH or C-Off balances exist, it sends: `📅 Monthly Leave Reminder: You have X C-Off(s) and Y RH remaining. Plan your leaves before they lapse!`.
+* **WorkManager Daily Sync (18:00 hrs):** [Why: Most departmental circulars and daily duty rosters are issued by late afternoon; syncing at 6:00 PM ensures employees receive the freshest data as they finish their shifts].
+* **Intelligent Change Detection:** [Why: Compares newly fetched records with cached data so the app only notifies the user when something actually changed, avoiding annoying spam].
+* **Start-of-Month Leave Reminders:** [Why: Reminds staff on the 1st, 2nd, and 3rd of each month if they have pending C-Offs or RHs to plan for].
 
 ---
 
 ## 7. Multiple Native Home Screen Widgets
 
-The app features two distinct native Android home screen widgets engineered for 100% `RemoteViews` compatibility:
+[Why: Staff often just want to check their leave balances quickly; widgets display real-time numbers right on the home screen without needing to launch the app.]
 
-### Widget 1: Full Card Multi-Metric Widget (2x2)
-* **Provider:** `ImdAppWidgetProvider.kt` | **Layout:** `imd_app_widget.xml`
-* **Header:** Title + Last Synced timestamp.
-* **Middle Section (3-in-1):** Side-by-side metric columns for **CL** (Sky Blue), **RH** (Amber), and **C-Off** (Teal).
-* **Bottom Banner:** Real-time expiry warning (e.g. `⚠️ 45d left (Exp: 15-11-2024)` or `No active C-Off expiring`).
-* **Interaction:** Tapping the widget opens the app immediately.
-
-### Widget 2: Compact Quick-View Widget (1x1)
-* **Provider:** `ImdCompactWidgetProvider.kt` | **Layout:** `imd_compact_widget.xml`
-* **Display:** Compact single-cell widget displaying bold C-Off balance and label.
-* **Styling:** Custom dark rounded shape drawable (`widget_background.xml`).
+* **Widget 1: Full Card Multi-Metric Widget (2x2):** [Why: Shows all 3 leave metrics (CL, RH, C-Off) along with the earliest expiring date and timestamp at a glance].
+* **Widget 2: Compact Quick-View Widget (1x1):** [Why: Minimalist single-cell tile showing active C-Off balance for employees with crowded home screen setups].
 
 ---
 
 ## 8. In-App MetNet Notice Resolver WebView ("Open MetNet to Resolve")
 
-### The Challenge
-MetNet intranet occasionally redirects active sessions away from the normal portal homepage (`main2.php`) to:
-1. Mandatory internal inbox messages requiring read confirmation.
-2. Shift duty rostering notices and seasonal declarations.
-3. Administrative pop-ups and session checkpoints.
+[Why: MetNet intranet frequently blocks automated scrapers by showing mandatory popups, unread inbox messages, or duty roster declarations that require manual acknowledgement.]
 
-When this occurs, standard leave/circular links are missing from the response HTML, causing headless scrapers to fail.
-
-### The Two-Tiered Solution
-* **Status Detection:** When `ScraperEngine` detects missing dashboard links, it returns a distinct `needsNoticeResolution: true` flag.
-* **Amber Action Card:** The main dashboard displays:
-  > `⚠️ MetNet Notice or Action Required`  
-  > `[Open MetNet to Resolve]`
-* **Authenticated In-App WebView:** Tapping the button launches `NoticeResolverWebView`:
-  1. Injects the active session cookie (`PHPSESSID`) or auto-fills login credentials without requiring manual password entry.
-  2. Displays the exact intranet page / message / modal dialog for the employee to read, acknowledge, or dismiss.
-  3. **Auto-Close & Re-Sync:** Monitors URL navigation changes via `NavigationDelegate`. The instant MetNet navigates back to `main2.php`, the WebView automatically closes itself and triggers an immediate background dashboard synchronization.
+* **Status Detection:** [Why: Detects when dashboard links are missing due to an active portal notice].
+* **Amber Action Card:** [Why: Clearly alerts the employee: `⚠️ MetNet Notice or Action Required` with a 1-tap resolution button].
+* **Authenticated In-App WebView:** [Why: Seamlessly injects session cookies so the employee can read and dismiss the notice directly in the app, automatically closing and re-syncing when done].
 
 ---
 
 ## 9. Over-The-Air (OTA) & Internet Update Architecture
 
-### How Sideloaded / Direct APK Mobile Apps Update
-Because the IMD Portal app is distributed directly to colleagues via APK rather than the public Google Play Store, updates occur over the air using GitHub Releases:
+[Why: Because this app is distributed directly as an APK to colleagues, it requires an intelligent, self-updating system so everyone stays on the latest, bug-free version without manual downloads.]
 
-1. **Automated Cloud Compilation:**  
-   Every code push or feature update committed to the repository triggers the GitHub Actions CI/CD runner, compiling a new production APK (`app-release.apk`).
-2. **Release Tagging (`v1.x.x`):**  
-   New versions are tagged and published in GitHub Releases (e.g., `v1.2.0`, `v1.3.0`).
-3. **On-Launch High-Urgency Update Prompt (`UpdateService.dart`):**  
-   Every time an employee opens and unlocks the app, `UpdateService` silently queries GitHub's public API (`/releases/latest`). If a newer version exists:
-   * Displays a prominent, unmissable alert: **🚨 Critical Update Required**.
-   * Employs industry-tested psychological urgency (fear of MetNet session failures, corrupted leave balance calculations, and missing critical transfer circulars).
-   * If the user taps **"Remind Me Next Time"**, the update is NOT permanently dismissed; it prompts them again every single time the app is reopened until updated.
-4. **Seamless Background Download & Native Package Installer Bridge:**  
-   Tapping **"Update Now (Background)"** starts an asynchronous in-app background download:
-   * A persistent bottom progress banner displays live percentage progress: `⬇️ Downloading update in background (XX%)... You can continue using the app normally.`
-   * The user can freely navigate circulars, leaves, calendar, and settings without interruption.
-   * Upon reaching 100%, the banner transitions to green: `✅ Update Downloaded & Ready to Install!` with a 1-tap **Install** action.
-   * Downloads to high-compatibility external cache (`getExternalCacheDirectories()`) with explicit world-readable flags for OEM Android package installers.
-   * Employs native Android `FileProvider` (`com.example.imd_portal.fileprovider`), `REQUEST_INSTALL_PACKAGES` permission, and custom MethodChannel (`com.imd.portal/installer`) in `MainActivity.kt`.
-   * **Auto-Resume Flow (v1.3.3):** If the user needs to grant "Install unknown apps" permission, `MainActivity` remembers the pending APK and automatically resumes the system installation dialog the moment the user toggles the switch and returns to the app.
-   * Presents the standard system update prompt: *"Do you want to update this app? Your existing data will not be lost."* No external browser redirects.
-5. **Push Notification-Driven Updates (`NotificationService.dart`):**  
-   * **Update Available Notification:** When a new release is detected (either on app launch or during the automated 18:00 daily background sync worker), an Android system notification is posted: `🚨 Update Available: vX.X.X - Tap to download and install`. Tapping it launches the app and begins the download immediately.
-   * **Update Ready Notification (1-Tap Install):** When the background download reaches 100%, an Android system notification is triggered: `✅ Update Ready to Install - Tap here to install the update now`. Tapping this notification from the Android notification tray immediately launches the native Android package installer without requiring the user to navigate the app.
-6. **Manual In-App Check in Settings:**  
-   Colleagues can also open Settings &rarr; **About & Updates** &rarr; tap **Check for Updates / Download Latest APK** for an instant real-time version check.
-7. **Android Package Installation Barrier (OS Security):**  
-   Android OS architecture enforces that while downloading can occur 100% in the background, executing an APK installation *always* triggers a system confirmation dialog (`"Do you want to install an update to this application?"`). This is a fundamental Android OS security boundary that protects users. Once confirmed, the update replaces the existing installation in-place, preserving all cached balances and saved credentials without requiring re-login.
-8. **Permanent Cryptographic Release Signing (`release.keystore`):**  
-   Android enforces strict cryptographic signature matching across updates: if an update APK is signed with a different key than the installed app, Android blocks the installation with **"App not installed as package conflicts with an existing package"** (`INSTALL_FAILED_UPDATE_INCOMPATIBLE`). To permanently eliminate this issue across ephemeral GitHub Actions CI/CD runners:
-   * Configured a permanent 30-year production release keystore (`android/app/release.keystore`, alias `metnetkey`).
-   * Configured `signingConfigs.release` in `android/app/build.gradle` so every automated cloud build uses the exact same cryptographic certificate.
-   * Created a dedicated white-alpha vector notification icon (`ic_stat_notification.xml`) and integrated runtime permission prompting (`requestPermission()`) on Android 13+ (API 33+).
+1. **Automated Cloud Compilation:** [Why: GitHub Actions automatically compiles the production APK on push, ensuring clean, verifiable builds without local toolchain dependencies].
+2. **On-Launch High-Urgency Update Prompt:** [Why: Uses psychological urgency triggers to ensure colleagues don't ignore critical bug fixes or scraper engine updates].
+3. **Seamless Background Download:** [Why: Downloads the 48 MB update file asynchronously while letting the employee continue reading circulars and checking leaves without disruption].
+4. **Native Package Installer Bridge (`MainActivity.kt`):** [Why: Bypasses Android 11+ web URL blocking by handing the downloaded APK directly to Android's system package installer via `FileProvider`].
+5. **Auto-Resume Permission Flow:** [Why: If Android asks the user to toggle "Allow from this source", the app remembers the pending file and automatically pops up the installation dialog the moment they tap Back].
+6. **Dual Push Notification System (`NotificationService.dart`):** [Why: Lets users update directly from their notification tray with a single tap, even if they haven't opened the app].
+   * **Notification 201:** `🚨 Update Available` [Why: Informs users a new release is waiting].
+   * **Notification 202:** `✅ Update Ready to Install` [Why: 1-tap install directly from the notification shade].
+7. **Permanent Cryptographic Release Signing (`release.keystore`):** [Why: Android requires all updates to be signed with the exact same certificate. Using a permanent 30-year release key permanently eliminates the *"App not installed as package conflicts with an existing package"* error across all future updates].
 
 ---
 
 ## 10. Automated Cloud Build & CI/CD Pipeline
 
-* **Repository:** Hosted on GitHub (`Aman6390/imd-portal`).
-* **Workflow (`.github/workflows/build_apk.yml`):**
-  * Triggered automatically on Git push to `main`.
-  * Runs on `ubuntu-latest` with Zulu JDK 17 and Flutter `3.24.3`.
-  * Executes `flutter build apk --release` with 4GB heap allocation.
-  * Automatically uploads the compiled APK as a build artifact (`IMD-Portal-Release-APK`).
-* **Hands-Off Local Integration:** GitHub CLI (`gh`) and automated scripts allow local downloading of the compiled release APK directly into `build_output/IMD-Portal-Release-APK/app-release.apk` without requiring local Flutter SDK or Android Studio installations.
+* **Repository (`Aman6390/imd-portal`):** [Why: Secure central hosting for code, documentation, and releases].
+* **GitHub Actions Workflow (`build_apk.yml`):** [Why: Runs on `ubuntu-latest` with Zulu JDK 17 and Flutter `3.24.3`, allocating 4GB heap to compile production APKs in under 5 minutes].
+* **Artifact Upload & Release Management:** [Why: Makes compiled APKs immediately downloadable via GitHub CLI (`gh`) for testing and instant release creation].
 
 ---
 
@@ -290,78 +205,80 @@ Because the IMD Portal app is distributed directly to colleagues via APK rather 
 E:\imd portal\
 ├── .github\
 │   └── workflows\
-│       └── build_apk.yml                     # GitHub Actions Cloud APK Build workflow
+│       └── build_apk.yml                     # GitHub Actions Cloud APK Build workflow [Why: Automates cloud compilation]
 ├── android\
 │   ├── app\
-│   │   ├── build.gradle                      # Android app build configuration & dependencies
+│   │   ├── build.gradle                      # Android build config & permanent release signing [Why: Manages dependencies & keystore]
+│   │   ├── release.keystore                  # Permanent 30-year production cryptographic key [Why: Eliminates signature conflicts]
 │   │   └── src\main\
-│   │       ├── AndroidManifest.xml           # Permissions, activities, & widget receivers
+│   │       ├── AndroidManifest.xml           # Permissions, activities, & widget receivers [Why: Declares Android OS capabilities]
 │   │       ├── kotlin\com\example\imd_portal\
-│   │       │   ├── MainActivity.kt           # FlutterFragmentActivity & native PdfRenderer channel
-│   │       │   ├── ImdAppWidgetProvider.kt   # 2x2 multi-metric widget provider
-│   │       │   └── ImdCompactWidgetProvider.kt # 1x1 compact widget provider
+│   │       │   ├── MainActivity.kt           # Native FileProvider, PdfRenderer & installer bridge [Why: Executes native Android tasks]
+│   │       │   ├── ImdAppWidgetProvider.kt   # 2x2 multi-metric widget provider [Why: Renders 2x2 home screen card]
+│   │       │   └── ImdCompactWidgetProvider.kt # 1x1 compact widget provider [Why: Renders 1x1 home screen tile]
 │   │       └── res\
 │   │           ├── drawable\
-│   │           │   └── widget_background.xml # Native rounded dark shape drawable
+│   │           │   ├── ic_stat_notification.xml # Dedicated vector notification icon [Why: Conforms to Android status bar specs]
+│   │           │   └── widget_background.xml # Native rounded dark shape drawable [Why: Consistent dark styling]
 │   │           ├── layout\
-│   │           │   ├── imd_app_widget.xml    # 2x2 widget RemoteViews layout
-│   │           │   └── imd_compact_widget.xml # 1x1 compact widget layout
+│   │           │   ├── imd_app_widget.xml    # 2x2 widget RemoteViews layout [Why: Native Android widget UI structure]
+│   │           │   └── imd_compact_widget.xml # 1x1 compact widget layout [Why: Minimalist widget UI structure]
 │   │           ├── values\
-│   │           │   ├── strings.xml           # App & widget string definitions
-│   │           │   └── styles.xml            # LaunchTheme and NormalTheme styles
+│   │           │   ├── strings.xml           # App & widget string definitions [Why: Centralized string labels]
+│   │           │   └── styles.xml            # LaunchTheme and NormalTheme styles [Why: Native splash screen transition]
 │   │           └── xml\
-│   │               ├── file_paths.xml            # Secure FileProvider paths for OTA APK installation
-│   │               ├── imd_app_widget_info.xml   # 2x2 widget metadata
-│   │               └── imd_compact_widget_info.xml # 1x1 widget metadata
-│   ├── build.gradle                          # Root Gradle configuration
-│   ├── gradle.properties                     # AndroidX & Jetifier flags
-│   └── settings.gradle                       # Gradle project settings
+│   │               ├── file_paths.xml        # Secure FileProvider paths for APK & PDF sharing [Why: Grants temporary file access to OS]
+│   │               ├── imd_app_widget_info.xml # 2x2 widget metadata [Why: Android widget dimension & resize config]
+│   │               └── imd_compact_widget_info.xml # 1x1 widget metadata [Why: Android 1x1 cell config]
+│   ├── build.gradle                          # Root Gradle configuration [Why: Builds Android project dependencies]
+│   ├── gradle.properties                     # AndroidX & Jetifier flags [Why: AndroidX compatibility]
+│   └── settings.gradle                       # Gradle project settings [Why: Multi-module Gradle routing]
 ├── lib\
-│   ├── main.dart                             # App entry, Material 3 theme manager
+│   ├── main.dart                             # App entry, Material 3 theme manager [Why: Initializes services & boots UI]
 │   ├── models\
-│   │   └── dashboard_data.dart               # Models: DashboardData, CircularItem, LapsingAlert
+│   │   └── dashboard_data.dart               # Models: DashboardData, CircularItem, LapsingAlert [Why: Type-safe JSON serialization]
 │   ├── services\
-│   │   ├── auth_service.dart                 # Local biometrics & PIN authentication service
-│   │   ├── background_sync_service.dart      # WorkManager 18:00 worker & reminder logic
-│   │   ├── circular_service.dart             # Pre-flight verified PDF downloader, sibling fallback & cache
-│   │   ├── notification_service.dart         # Android notification channels & dispatcher
-│   │   ├── ocr_service.dart                  # On-Device Google ML Kit Devanagari OCR service
-│   │   ├── rsa_crypto.dart                   # RSA PKCS1_v1_5 dynamic password encrypter
-│   │   ├── scraper_engine.dart               # Fast-path pre-filter, session scraper & retries
-│   │   ├── storage_service.dart              # SharedPreferences for credentials, keywords & OCR cache
-│   │   ├── update_service.dart               # GitHub Releases automated update checker & installer
-│   │   └── widget_service.dart               # HomeWidget multi-provider updater
+│   │   ├── auth_service.dart                 # Local biometrics & PIN authentication service [Why: Manages device lock security]
+│   │   ├── background_sync_service.dart      # WorkManager 18:00 worker & reminder logic [Why: Manages daily background automation]
+│   │   ├── circular_service.dart             # Pre-flight verified PDF downloader, sibling fallback & cache [Why: Fixes 404 & loads PDFs]
+│   │   ├── notification_service.dart         # Android notification channels & dispatcher [Why: Posts system push notifications]
+│   │   ├── ocr_service.dart                  # On-Device Google ML Kit Devanagari OCR service [Why: Scans ambiguous Hindi orders]
+│   │   ├── rsa_crypto.dart                   # RSA PKCS1_v1_5 dynamic password encrypter [Why: Bypasses MetNet login encryption]
+│   │   ├── scraper_engine.dart               # Fast-path pre-filter, session scraper & retries [Why: Scrapes portal data & circulars]
+│   │   ├── storage_service.dart              # SharedPreferences for credentials, keywords & cache [Why: Persistent local storage]
+│   │   ├── update_service.dart               # GitHub Releases automated update checker & installer [Why: Handles OTA background updates]
+│   │   └── widget_service.dart               # HomeWidget multi-provider updater [Why: Synchronizes data to home widgets]
 │   └── ui\
-│       ├── dashboard_screen.dart             # Main dashboard view, lock screen, notice banner & FAB
-│       ├── month_calendar_screen.dart        # Interactive monthly calendar expiry view
+│       ├── dashboard_screen.dart             # Main dashboard view, lock screen, notice banner & FAB [Why: Core app user interface]
+│       ├── month_calendar_screen.dart        # Interactive monthly calendar expiry view [Why: Dedicated C-Off expiry calendar]
 │       └── widgets\
-│           ├── alert_grid.dart               # 12-Month alert grid with tap navigation
-│           ├── circular_tabs.dart            # Tabbed VIP & FOMO circulars
-│           ├── leave_card.dart               # Horizontal color-coded leave cards
-│           ├── notice_resolver_webview.dart  # In-App MetNet Notice Resolver WebView
-│           └── settings_dialog.dart          # 4-Tab settings: Account, VIP, Junk, About & Updates
-├── .gitignore                                # Build & artifact ignore rules
-├── analysis_options.yaml                     # Dart analyzer configuration
-├── pubspec.yaml                              # Flutter dependencies & metadata
-└── MetNet Scraper+web Dashboard.md           # Master Project Blueprint & Documentation
+│           ├── alert_grid.dart               # 12-Month alert grid with tap navigation [Why: 12-month visual leave matrix]
+│           ├── circular_tabs.dart            # Tabbed VIP & FOMO circulars with status badges [Why: Organizes & displays circulars]
+│           ├── leave_card.dart               # Horizontal color-coded leave cards [Why: Displays CL, RH, C-Off balances]
+│           ├── notice_resolver_webview.dart  # In-App MetNet Notice Resolver WebView [Why: Dismisses portal blocking popups]
+│           └── settings_dialog.dart          # 4-Tab settings: Account, VIP, Junk, About & Updates [Why: User configuration modal]
+├── .gitignore                                # Build & artifact ignore rules [Why: Prevents binary files in git]
+├── analysis_options.yaml                     # Dart analyzer configuration [Why: Enforces Dart code quality standards]
+├── pubspec.yaml                              # Flutter dependencies & metadata [Why: Defines app version & third-party packages]
+└── MetNet Scraper+web Dashboard.md           # Master Project Blueprint & Documentation [Why: Single source of truth for the project]
 ```
 
 ---
 
 ## 12. Version History & Release Changelog
 
-| Version | Build Code | Date | Key Architectural Changes & Feature Highlights |
+| Version | Build Code | Date | Key Architectural Changes & [Why We Made Them] |
 | :--- | :--- | :--- | :--- |
-| **v1.0.0** | `1.0.0+1` | Oct 2026 | Initial Flutter/Dart production port from Python prototype. Implemented dynamic RSA PKCS1_v1_5 encryption handshake, leave balance extraction, 6-month C-Off expiry math, and 12-month visual alert timeline. |
-| **v1.1.0** | `1.1.0+2` | Oct 2026 | Added Android native biometrics (`local_auth`), 2x2 and 1x1 home screen widgets (`home_widget`), WorkManager 18:00 daily sync, and on-device Devanagari OCR (`google_mlkit_text_recognition`). |
-| **v1.2.0** | `1.2.0+3` | Oct 2026 | **100% Free Edition:** Completely stripped all license validation, Pro tags, and paywall code. Introduced GitHub Releases-based Over-The-Air (OTA) update checking. |
-| **v1.3.0** | `1.3.0+4` | Oct 2026 | Renamed user-facing branding to **Meteorological Portal**. Added visual progress indicator on update checking and high-urgency update modal prompt. |
-| **v1.3.1** | `1.3.1+4` | Oct 2026 | **Comprehensive Circular Scraper:** Scrapes General, Establishment, Office Orders, and Transfers. Added RFC-compliant `Uri.resolve()` for relative paths, 4-tier PDF opening chain, and Android 11+ `<queries>` package visibility. |
-| **v1.3.2** | `1.3.2+5` | Oct 2026 | **Native Package Installer Bridge:** Integrated `FileProvider`, `file_paths.xml`, and `REQUEST_INSTALL_PACKAGES` permission in `MainActivity.kt` to replace web URL redirects with direct system installation. |
-| **v1.3.3** | `1.3.3+6` | Oct 2026 | **Auto-Resume Permission Flow:** Added `checkAndResumePendingInstall()`, `onResume()`, and `onActivityResult()` in `MainActivity.kt`. Automatically triggers installation upon returning from Android's "Allow from this source" settings. Switched to external cache for broad OEM compatibility. |
-| **v1.3.4** | `1.3.4+7` | Oct 2026 | **Push Notification-Driven Updates:** Introduced system notification shade integration via `NotificationService.dart` & `BackgroundSyncService.dart`. Notification 201 prompts download; Notification 202 provides 1-tap install directly from the notification tray. |
-| **v1.3.5** | `1.3.5+8` | Oct 2026 | **Intelligent Circular Downloader & Sibling Fallback:** Introduced `CircularService.dart`. Added `%PDF` magic byte verification, automatic multi-path sibling URL discovery (`/docs/`, `/phps/docs/`, `/Welcome_to_Intra-IMD/docs/`), authenticated session fallback, in-app modal handling for 404 withdrawn circulars, and native PDF launching via `FileProvider`. |
-| **v1.3.6** | `1.3.6+9` | Oct 2026 | **Permanent Release Signing & Notification Hardening:** Configured permanent 30-year `release.keystore` to permanently eliminate Android signature conflict (`INSTALL_FAILED_UPDATE_INCOMPATIBLE`). Added dedicated vector notification icon `ic_stat_notification.xml` and runtime notification permission request on Android 13+. |
+| **v1.0.0** | `1.0.0+1` | Oct 2026 | **Initial Flutter Port:** Dynamic RSA PKCS1_v1_5 encryption handshake, leave balance extraction, 6-month C-Off expiry calculation, and 12-month visual alert timeline. [Why: Replaced Python desktop prototype with a native mobile app for staff smartphones] |
+| **v1.1.0** | `1.1.0+2` | Oct 2026 | **Biometrics, Widgets & Background Worker:** Added Android native biometrics (`local_auth`), 2x2 and 1x1 home screen widgets (`home_widget`), WorkManager 18:00 daily sync, and on-device Devanagari OCR (`google_mlkit_text_recognition`). [Why: Provided phone-level security and allowed users to check balances without opening the app] |
+| **v1.2.0** | `1.2.0+3` | Oct 2026 | **100% Free Edition:** Completely stripped all license validation, Pro tags, and paywall code. Introduced GitHub Releases-based Over-The-Air (OTA) update checking. [Why: User requested the app to be completely free and accessible to all meteorological staff without barriers] |
+| **v1.3.0** | `1.3.0+4` | Oct 2026 | **Branding Neutralization:** Renamed user-facing branding to **Meteorological Portal**. Added visual progress indicator on update checking and high-urgency update modal prompt. [Why: Avoided proprietary IMD naming risks and created psychological urgency so staff don't ignore critical updates] |
+| **v1.3.1** | `1.3.1+4` | Oct 2026 | **Comprehensive Circular Scraper:** Scrapes General, Establishment, Office Orders, and Transfers. Added RFC-compliant `Uri.resolve()` for relative paths, 4-tier PDF opening chain, and Android 11+ `<queries>` package visibility. [Why: Prevented missed notices across MetNet categories and resolved broken relative links] |
+| **v1.3.2** | `1.3.2+5` | Oct 2026 | **Native Package Installer Bridge:** Integrated `FileProvider`, `file_paths.xml`, and `REQUEST_INSTALL_PACKAGES` permission in `MainActivity.kt` to replace web URL redirects with direct system installation. [Why: Fixed the stuck 'Install' button by invoking Android's system package installer natively] |
+| **v1.3.3** | `1.3.3+6` | Oct 2026 | **Auto-Resume Permission Flow:** Added `checkAndResumePendingInstall()`, `onResume()`, and `onActivityResult()` in `MainActivity.kt`. Switched to external cache for broad OEM compatibility. [Why: Eliminated confusion when Android redirected users to 'Allow from this source' settings by auto-resuming the install upon returning] |
+| **v1.3.4** | `1.3.4+7` | Oct 2026 | **Push Notification-Driven Updates:** Introduced system notification shade integration via `NotificationService.dart` & `BackgroundSyncService.dart`. Notification 201 prompts download; Notification 202 provides 1-tap install directly from the notification tray. [Why: Allowed colleagues to update the app directly from their notification shade with one tap] |
+| **v1.3.5** | `1.3.5+8` | Oct 2026 | **Intelligent Circular Downloader & Sibling Fallback (Step 1):** Introduced `CircularService.dart`. Added `%PDF` magic byte verification, automatic multi-path sibling URL discovery (`/docs/`, `/phps/docs/`, `/Welcome_to_Intra-IMD/docs/`), authenticated session fallback, in-app modal handling for 404 withdrawn circulars, and native PDF launching via `FileProvider`. [Why: Completely solved the 'Not Found' Apache error when tapping circulars, and badged withdrawn notices clearly] |
+| **v1.3.6** | `1.3.6+9` | Oct 2026 | **Permanent Release Keystore Signing:** Generated official 30-year `release.keystore` (alias `metnetkey`, valid until 2054) and configured `signingConfigs.release` in Gradle. Added dedicated vector icon `ic_stat_notification.xml` and runtime notification permission request. [Why: Permanently fixed 'App not installed as package conflicts with an existing package' caused by ephemeral cloud runner debug keys] |
 
 ---
 
