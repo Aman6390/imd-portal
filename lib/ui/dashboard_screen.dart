@@ -3,6 +3,7 @@ import '../models/dashboard_data.dart';
 import '../services/auth_service.dart';
 import '../services/scraper_engine.dart';
 import '../services/storage_service.dart';
+import '../services/update_service.dart';
 import '../services/widget_service.dart';
 import 'widgets/alert_grid.dart';
 import 'widgets/circular_tabs.dart';
@@ -77,6 +78,16 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
       setState(() {
         _isAppUnlocked = authenticated;
       });
+      if (authenticated) {
+        _checkForUpdateSilently();
+      }
+    }
+  }
+
+  Future<void> _checkForUpdateSilently() async {
+    final update = await UpdateService.checkForUpdate();
+    if (update != null && update.hasUpdate && mounted) {
+      UpdateService.showUpdateDialog(context, update);
     }
   }
 

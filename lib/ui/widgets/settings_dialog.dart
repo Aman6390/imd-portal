@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../../services/storage_service.dart';
+import '../../services/update_service.dart';
 
 class SettingsDialog extends StatefulWidget {
   final VoidCallback onSaved;
@@ -416,9 +417,30 @@ class _SettingsDialogState extends State<SettingsDialog> {
                       icon: const Icon(Icons.system_update_alt, size: 18),
                       label: const Text('Check for Updates / Download Latest APK'),
                       onPressed: () async {
-                        final uri = Uri.parse('https://github.com/Aman6390/imd-portal/releases');
-                        if (await canLaunchUrl(uri)) {
-                          await launchUrl(uri, mode: LaunchMode.externalApplication);
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                            content: Text('Checking for updates online...'),
+                            duration: Duration(seconds: 1),
+                          ),
+                        );
+                        final update = await UpdateService.checkForUpdate();
+                        if (!context.mounted) return;
+                        if (update != null && update.hasUpdate) {
+                          UpdateService.showUpdateDialog(context, update);
+                        } else if (update != null) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text('✅ You are on the latest version (v${UpdateService.currentVersion})!'),
+                              backgroundColor: Colors.green,
+                              duration: Duration(seconds: 3),
+                            ),
+                          );
+                        } else {
+                          // Offline or error fallback: open releases page directly
+                          final uri = Uri.parse('https://github.com/Aman6390/imd-portal/releases');
+                          if (await canLaunchUrl(uri)) {
+                            await launchUrl(uri, mode: LaunchMode.externalApplication);
+                          }
                         }
                       },
                     ),

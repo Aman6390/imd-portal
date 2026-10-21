@@ -169,7 +169,56 @@ class ScraperEngine {
     return (balances, lapsingAlerts);
   }
 
-  /// Parses circulars using Title Pre-Filter (Fast-Path), OCR Cache, and on-device Devanagari OCR (Slow-Path)
+  /// Parses various date formats commonly used in MetNet circulars (e.g. 15-10-2026, 15/10/2026, 15-Oct-2026)
+  static DateTime? parseCircularDate(String dateStr) {
+    final clean = dateStr.trim();
+    if (clean.isEmpty) return null;
+
+    final formats = [
+      'dd-MM-yyyy',
+      'dd/MM/yyyy',
+      'd-M-yyyy',
+      'd/M/yyyy',
+      'dd-MMM-yyyy',
+      'dd/MMM/yyyy',
+      'yyyy-MM-dd',
+      'yyyy/MM/dd',
+    ];
+
+    for (final fmt in formats) {
+      try {
+        return DateFormat(fmt).parseLoose(clean);
+      } catch (_) {}
+    }
+
+    final match = RegExp(r'(\d{1,2})[-/ ]([A-Za-z]+|\d{1,2})[-/ ](\d{2,4})').firstMatch(clean);
+    if (match != null) {
+      final day = int.tryParse(match.group(1)!) ?? 1;
+      final yearStr = match.group(3)!;
+      final year = int.tryParse(yearStr.length == 2 ? '20$yearStr' : yearStr) ?? DateTime.now().year;
+      final monthPart = match.group(2)!;
+      int? month = int.tryParse(monthPart);
+      if (month == null) {
+        const monthMap = {
+          'jan': 1, 'feb': 2, 'mar': 3, 'apr': 4, 'may': 5, 'jun': 6,
+          'jul': 7, 'aug': 8, 'sep': 9, 'oct': 10, 'nov': 11, 'dec': 12
+        };
+        final mLower = monthPart.toLowerCase();
+        for (final entry in monthMap.entries) {
+          if (mLower.startsWith(entry.key)) {
+            month = entry.value;
+            break;
+          }
+        }
+      }
+      if (month != null) {
+        return DateTime(year, month, day);
+      }
+    }
+    return null;
+  }
+
+  /// Parses circulars of the last one month using Title Pre-Filter (Fast-Path), OCR Cache, and on-device Devanagari OCR (Slow-Path)
   static Future<(List<CircularItem>, List<CircularItem>)> parseCirculars(
     dom.Document soup,
     SessionHttpClient session,
@@ -181,11 +230,16 @@ class ScraperEngine {
     final dynamicJunkKeywords = await StorageService.loadJunkKeywords();
     final ocrCache = await StorageService.loadOcrCache();
 
+    // Calculate cutoff date: exactly 1 month (31 days) ago
+    final oneMonthAgo = DateTime.now().subtract(const Duration(days: 31));
+
     final rows = soup.querySelectorAll('tr[bgcolor="#ffffff"], tr[bgcolor="#f5f5f5"]');
     int uncachedOcrCount = 0;
-    const maxUncachedOcrPerSync = 8; // Cap OCR scans per sync run to keep sync snappy
+    const maxUncachedOcrPerSync = 15; // Increased to accommodate full month circulars
 
+    int rowIndex = 0;
     for (final row in rows) {
+      rowIndex++;
       final cols = row.querySelectorAll('td');
       if (cols.length >= 4) {
         final aTag = cols[1].querySelector('a');
@@ -195,6 +249,18 @@ class ScraperEngine {
           final link = 'https://metnet.imd.gov.in' + rawHref.replaceAll('..', '');
           final uploadDate = cols[3].text.trim();
           final titleLower = title.toLowerCase();
+
+          // Filter by Date: only keep circulars from the last one month
+          final parsedDate = parseCircularDate(uploadDate);
+          if (parsedDate != null) {
+            if (parsedDate.isBefore(oneMonthAgo)) {
+              // Circular is older than 1 month -> skip
+              continue;
+            }
+          } else if (rowIndex > 40) {
+            // Safety fallback: if date is unparseable and deep in table, skip
+            continue;
+          }
 
           // 1. FAST-PATH: Title Pre-Filter (Junk)
           if (dynamicJunkKeywords.any((junk) => titleLower.contains(junk.toLowerCase()))) {
@@ -381,8 +447,8 @@ class ScraperEngine {
           lastUpdated: nowFormatted,
           leaves: leaveBalances,
           alerts: lapsingAlerts,
-          vipCirculars: vipCirc.take(10).toList(),
-          fomoCirculars: fomoCirc.take(15).toList(),
+          vipCirculars: vipCirc,
+          fomoCirculars: fomoCirc,
         );
 
         session.close();

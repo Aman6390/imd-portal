@@ -117,6 +117,10 @@
    * Keeps a lightweight index (`processed_circulars_cache`) mapping PDF URLs to their classification.
    * Any previously processed circular is never re-downloaded or re-parsed.
    * Total storage footprint remains under 2 MB.
+4. **Last One Month Rolling Circular Filter:**
+   * Automatically parses diverse portal upload date strings (`dd-MM-yyyy`, `dd/MM/yyyy`, `dd-MMM-yyyy`, `yyyy-MM-dd`) via `parseCircularDate()`.
+   * Enforces a rolling 30-day cutoff ($\text{Upload Date} \ge \text{Current Date} - 31\text{ days}$).
+   * All departmental orders, VIP notices, and circulars within the last month are displayed with full scrolling access, completely removing artificial truncation limits.
 
 ---
 
@@ -211,11 +215,13 @@ Because the IMD Portal app is distributed directly to colleagues via APK rather 
 1. **Automated Cloud Compilation:**  
    Every code push or feature update committed to the repository triggers the GitHub Actions CI/CD runner, compiling a new production APK (`app-release.apk`).
 2. **Release Tagging (`v1.x.x`):**  
-   New versions are tagged in GitHub Releases (e.g., `v1.2.0`, `v1.3.0`).
-3. **In-App Update Button & Check:**  
-   Colleagues can open Settings &rarr; **About & Updates** &rarr; tap **Check for Updates / Download Latest APK**.
-4. **Direct Browser / Package Installation:**  
-   Android automatically downloads the new release APK and prompts:  
+   New versions are tagged and published in GitHub Releases (e.g., `v1.2.0`, `v1.3.0`).
+3. **On-Launch Automated Update Check (`UpdateService.dart`):**  
+   Every time an employee launches and unlocks the app, `UpdateService` silently queries GitHub's public API (`/releases/latest`). If a newer version exists, an **Update Available** alert dialog immediately greets the user displaying release highlights and a one-tap **Update Now** button.
+4. **Manual In-App Check in Settings:**  
+   Colleagues can also open Settings &rarr; **About & Updates** &rarr; tap **Check for Updates / Download Latest APK** for an instant real-time version check.
+5. **Direct Browser / Package Installation:**  
+   Tapping Update downloads the latest APK and launches the Android native package installer:  
    *"Do you want to install an update to this application?"*  
    Tapping **Install** preserves all user settings, saved credentials, cached circulars, and history without data loss.
 
@@ -276,6 +282,7 @@ E:\imd portal\
 │   │   ├── rsa_crypto.dart                   # RSA PKCS1_v1_5 dynamic password encrypter
 │   │   ├── scraper_engine.dart               # Fast-path pre-filter, session scraper & retries
 │   │   ├── storage_service.dart              # SharedPreferences for credentials, keywords & OCR cache
+│   │   ├── update_service.dart               # GitHub Releases automated update checker & installer
 │   │   └── widget_service.dart               # HomeWidget multi-provider updater
 │   └── ui\
 │       ├── dashboard_screen.dart             # Main dashboard view, lock screen, notice banner & FAB
