@@ -42,6 +42,7 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
   bool _isDownloadingUpdate = false;
   bool _downloadCompleted = false;
   String? _apkDownloadUrl;
+  String? _downloadedApkPath;
 
   @override
   void initState() {
@@ -56,6 +57,9 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
           _downloadProgress = progress.progress;
           _isDownloadingUpdate = !progress.isCompleted && progress.error == null;
           _downloadCompleted = progress.isCompleted;
+          if (progress.filePath != null && progress.filePath!.isNotEmpty) {
+            _downloadedApkPath = progress.filePath;
+          }
         });
       }
     });
@@ -613,9 +617,13 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
                   backgroundColor: Colors.white,
                   foregroundColor: Colors.green.shade900,
                 ),
-                onPressed: () {
-                  if (_apkDownloadUrl != null) {
-                    UpdateService.launchExternalApk(_apkDownloadUrl!);
+                onPressed: () async {
+                  bool installed = false;
+                  if (_downloadedApkPath != null) {
+                    installed = await UpdateService.installDownloadedApk(_downloadedApkPath!);
+                  }
+                  if (!installed && _apkDownloadUrl != null) {
+                    await UpdateService.launchExternalApk(_apkDownloadUrl!);
                   }
                 },
                 child: const Text('Install', style: TextStyle(fontWeight: FontWeight.bold)),

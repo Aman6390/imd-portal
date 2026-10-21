@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:http/http.dart' as http;
 import 'package:path_provider/path_provider.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -42,7 +43,7 @@ class UpdateDownloadProgress {
 /// and manage background APK downloading without interrupting user experience.
 class UpdateService {
   /// Current app version
-  static const String currentVersion = '1.3.1';
+  static const String currentVersion = '1.3.2';
 
   /// GitHub public releases endpoint
   static const String latestReleaseApi =
@@ -163,8 +164,11 @@ class UpdateService {
           filePath: file.path,
         ));
 
-        // Launch package installer / external APK handler
-        await launchExternalApk(downloadUrl);
+        // Automatically launch native package installer with downloaded APK file
+        final installed = await installDownloadedApk(file.path);
+        if (!installed) {
+          await launchExternalApk(downloadUrl);
+        }
       } else {
         isDownloading = false;
         await launchExternalApk(downloadUrl);
@@ -181,12 +185,35 @@ class UpdateService {
     }
   }
 
+  static const MethodChannel _installerChannel = MethodChannel('com.imd.portal/installer');
+
+  /// Installs the downloaded APK file via native Android package installer
+  static Future<bool> installDownloadedApk(String filePath) async {
+    try {
+      final file = File(filePath);
+      if (!await file.exists()) {
+        return false;
+      }
+      final String? response = await _installerChannel.invokeMethod<String>(
+        'installApk',
+        {'apkPath': filePath},
+      );
+      return response == 'SUCCESS' || response == 'PERMISSION_REQUESTED';
+    } catch (e) {
+      print('Native APK installation error: $e');
+      return false;
+    }
+  }
+
   /// Opens APK via system download/installer
   static Future<void> launchExternalApk(String url) async {
     try {
-      final uri = Uri.parse(url);
+      final cleanUrl = Uri.encodeFull(url.trim());
+      final uri = Uri.parse(cleanUrl);
       if (await canLaunchUrl(uri)) {
         await launchUrl(uri, mode: LaunchMode.externalApplication);
+      } else {
+        await launchUrl(uri, mode: LaunchMode.platformDefault);
       }
     } catch (_) {}
   }

@@ -1,6 +1,6 @@
 # 🚀 PROJECT MASTER BLUEPRINT: Meteorological Portal Android Application
 
-> **Project Status:** Production Ready — 100% Free & Open Edition (v1.3.1)  
+> **Project Status:** Production Ready — 100% Free & Open Edition (v1.3.2)  
 > **Target Platform:** Native Android (Flutter / Kotlin)  
 > **Output Release Artifact:** `build/app/outputs/flutter-apk/app-release.apk`  
 > **CI/CD Pipeline:** GitHub Actions Automated Cloud Build (`Aman6390/imd-portal`)  
@@ -233,15 +233,17 @@ Because the IMD Portal app is distributed directly to colleagues via APK rather 
    * Displays a prominent, unmissable alert: **🚨 Critical Update Required**.
    * Employs industry-tested psychological urgency (fear of MetNet session failures, corrupted leave balance calculations, and missing critical transfer circulars).
    * If the user taps **"Remind Me Next Time"**, the update is NOT permanently dismissed; it prompts them again every single time the app is reopened until updated.
-4. **Seamless Background Download (Zero-Interruption Experience):**  
+4. **Seamless Background Download & Native Package Installer Bridge:**  
    Tapping **"Update Now (Background)"** starts an asynchronous in-app background download:
    * A persistent bottom progress banner displays live percentage progress: `⬇️ Downloading update in background (XX%)... You can continue using the app normally.`
    * The user can freely navigate circulars, leaves, calendar, and settings without interruption.
-   * Upon reaching 100%, the banner transitions to `✅ Update Downloaded & Ready to Install!` with a 1-tap **Install** action that triggers the native Android package installer.
+   * Upon reaching 100%, the banner transitions to green: `✅ Update Downloaded & Ready to Install!` with a 1-tap **Install** action.
+   * Employs native Android `FileProvider` (`com.example.imd_portal.fileprovider`), `REQUEST_INSTALL_PACKAGES` permission, and custom MethodChannel (`com.imd.portal/installer`) in `MainActivity.kt`.
+   * Automatically invokes the Android Package Installer directly with the downloaded `.apk` file (prompting for "Install unknown apps" permission toggle if needed on Android 8.0+), presenting the standard system update prompt: *"Do you want to update this app? Your existing data will not be lost."*
 5. **Manual In-App Check in Settings:**  
    Colleagues can also open Settings &rarr; **About & Updates** &rarr; tap **Check for Updates / Download Latest APK** for an instant real-time version check.
 6. **Android Package Installation Barrier (OS Security):**  
-   Android OS architecture enforces that while downloading can occur 100% in the background, executing an APK installation *always* triggers a system confirmation dialog (`"Do you want to install an update to this application?"`). This is a fundamental Android OS security boundary that cannot be bypassed by non-system apps.
+   Android OS architecture enforces that while downloading can occur 100% in the background, executing an APK installation *always* triggers a system confirmation dialog (`"Do you want to install an update to this application?"`). This is a fundamental Android OS security boundary that protects users. Once confirmed, the update replaces the existing installation in-place, preserving all cached balances and saved credentials without requiring re-login.
 
 ---
 

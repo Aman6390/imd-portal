@@ -1,8 +1,13 @@
 package com.example.imd_portal
 
+import android.content.Intent
 import android.graphics.Bitmap
 import android.graphics.pdf.PdfRenderer
+import android.net.Uri
+import android.os.Build
 import android.os.ParcelFileDescriptor
+import android.provider.Settings
+import androidx.core.content.FileProvider
 import io.flutter.embedding.android.FlutterFragmentActivity
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.MethodChannel
@@ -10,11 +15,14 @@ import java.io.File
 import java.io.FileOutputStream
 
 class MainActivity: FlutterFragmentActivity() {
-    private val CHANNEL = "com.imd.portal/pdf_renderer"
+    private val PDF_CHANNEL = "com.imd.portal/pdf_renderer"
+    private val INSTALL_CHANNEL = "com.imd.portal/installer"
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
-        MethodChannel(flutterEngine.dartExecutor.binaryMessenger, CHANNEL).setMethodCallHandler { call, result ->
+
+        // PDF First-page rendering channel for Devanagari OCR
+        MethodChannel(flutterEngine.dartExecutor.binaryMessenger, PDF_CHANNEL).setMethodCallHandler { call, result ->
             if (call.method == "renderFirstPage") {
                 val pdfPath = call.argument<String>("pdfPath")
                 if (pdfPath == null) {
@@ -53,6 +61,56 @@ class MainActivity: FlutterFragmentActivity() {
                     }
                 } catch (e: Exception) {
                     result.error("RENDER_ERROR", e.localizedMessage ?: "Unknown rendering error", null)
+                }
+            } else {
+                result.notImplemented()
+            }
+        }
+
+        // Native Android APK Installer Channel
+        MethodChannel(flutterEngine.dartExecutor.binaryMessenger, INSTALL_CHANNEL).setMethodCallHandler { call, result ->
+            if (call.method == "installApk") {
+                val apkPath = call.argument<String>("apkPath")
+                if (apkPath == null) {
+                    result.error("INVALID_PATH", "APK path cannot be null", null)
+                    return@setMethodCallHandler
+                }
+
+                try {
+                    val apkFile = File(apkPath)
+                    if (!apkFile.exists() || apkFile.length() == 0L) {
+                        result.error("FILE_NOT_FOUND", "APK file does not exist", null)
+                        return@setMethodCallHandler
+                    }
+
+                    // On Android 8.0+ (Oreo), check if app is permitted to install unknown apps
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                        if (!packageManager.canRequestPackageInstalls()) {
+                            val permIntent = Intent(Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES).apply {
+                                data = Uri.parse("package:$packageName")
+                                flags = Intent.FLAG_ACTIVITY_NEW_TASK
+                            }
+                            startActivity(permIntent)
+                            result.success("PERMISSION_REQUESTED")
+                            return@setMethodCallHandler
+                        }
+                    }
+
+                    // Generate secure content:// URI via FileProvider
+                    val contentUri = FileProvider.getUriForFile(
+                        this,
+                        "$packageName.fileprovider",
+                        apkFile
+                    )
+
+                    val installIntent = Intent(Intent.ACTION_VIEW).apply {
+                        setDataAndType(contentUri, "application/vnd.android.package-archive")
+                        flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_GRANT_READ_URI_PERMISSION
+                    }
+                    startActivity(installIntent)
+                    result.success("SUCCESS")
+                } catch (e: Exception) {
+                    result.error("INSTALL_ERROR", e.localizedMessage ?: "Unknown installation error", null)
                 }
             } else {
                 result.notImplemented()
