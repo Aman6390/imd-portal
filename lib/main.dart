@@ -16,8 +16,9 @@ void main() async {
     ),
   );
 
-  // Initialize Local Notifications
+  // Initialize Local Notifications & notification tap handlers
   await NotificationService.initialize();
+  await NotificationService.checkAppLaunchNotification();
 
   // Initialize WorkManager background sync (18:00 hrs daily schedule)
   await BackgroundSyncService.initialize();

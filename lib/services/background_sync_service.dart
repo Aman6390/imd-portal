@@ -7,6 +7,7 @@ import '../models/dashboard_data.dart';
 import 'notification_service.dart';
 import 'scraper_engine.dart';
 import 'storage_service.dart';
+import 'update_service.dart';
 import 'widget_service.dart';
 
 const String imdDailySyncTask = 'com.imd.portal.dailySyncTask';
@@ -84,6 +85,11 @@ void callbackDispatcher() {
           // Update Home Screen Widget
           await WidgetService.updateFromDashboard(freshData);
         }
+
+        // Check for app updates in background and notify if a new version is available
+        try {
+          await UpdateService.checkForUpdate();
+        } catch (_) {}
       }
       return Future.value(true);
     } catch (_) {

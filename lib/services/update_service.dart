@@ -6,6 +6,7 @@ import 'package:flutter/services.dart';
 import 'package:http/http.dart' as http;
 import 'package:path_provider/path_provider.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'notification_service.dart';
 
 class UpdateInfo {
   final bool hasUpdate;
@@ -43,7 +44,7 @@ class UpdateDownloadProgress {
 /// and manage background APK downloading without interrupting user experience.
 class UpdateService {
   /// Current app version
-  static const String currentVersion = '1.3.3';
+  static const String currentVersion = '1.3.4';
 
   /// GitHub public releases endpoint
   static const String latestReleaseApi =
@@ -92,6 +93,12 @@ class UpdateService {
         }
 
         final isNewer = _isVersionGreater(rawVersion, currentVersion);
+        if (isNewer) {
+          NotificationService.showUpdateAvailableNotification(
+            version: rawVersion,
+            downloadUrl: apkDownloadUrl,
+          );
+        }
         return UpdateInfo(
           hasUpdate: isNewer,
           latestVersion: tagName.isNotEmpty ? tagName : 'v$rawVersion',
@@ -175,6 +182,11 @@ class UpdateService {
           isCompleted: true,
           filePath: file.path,
         ));
+
+        // Show Android system notification with 1-tap install action
+        await NotificationService.showUpdateDownloadedNotification(
+          filePath: file.path,
+        );
 
         // Automatically trigger native package installer with downloaded APK file
         await installDownloadedApk(file.path);

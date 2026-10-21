@@ -1,6 +1,6 @@
 # 🚀 PROJECT MASTER BLUEPRINT: Meteorological Portal Android Application
 
-> **Project Status:** Production Ready — 100% Free & Open Edition (v1.3.3)  
+> **Project Status:** Production Ready — 100% Free & Open Edition (v1.3.4)  
 > **Target Platform:** Native Android (Flutter / Kotlin)  
 > **Output Release Artifact:** `build/app/outputs/flutter-apk/app-release.apk`  
 > **CI/CD Pipeline:** GitHub Actions Automated Cloud Build (`Aman6390/imd-portal`)  
@@ -242,9 +242,12 @@ Because the IMD Portal app is distributed directly to colleagues via APK rather 
    * Employs native Android `FileProvider` (`com.example.imd_portal.fileprovider`), `REQUEST_INSTALL_PACKAGES` permission, and custom MethodChannel (`com.imd.portal/installer`) in `MainActivity.kt`.
    * **Auto-Resume Flow (v1.3.3):** If the user needs to grant "Install unknown apps" permission, `MainActivity` remembers the pending APK and automatically resumes the system installation dialog the moment the user toggles the switch and returns to the app.
    * Presents the standard system update prompt: *"Do you want to update this app? Your existing data will not be lost."* No external browser redirects.
-5. **Manual In-App Check in Settings:**  
+5. **Push Notification-Driven Updates (`NotificationService.dart`):**  
+   * **Update Available Notification:** When a new release is detected (either on app launch or during the automated 18:00 daily background sync worker), an Android system notification is posted: `🚨 Update Available: vX.X.X - Tap to download and install`. Tapping it launches the app and begins the download immediately.
+   * **Update Ready Notification (1-Tap Install):** When the background download reaches 100%, an Android system notification is triggered: `✅ Update Ready to Install - Tap here to install the update now`. Tapping this notification from the Android notification tray immediately launches the native Android package installer without requiring the user to navigate the app.
+6. **Manual In-App Check in Settings:**  
    Colleagues can also open Settings &rarr; **About & Updates** &rarr; tap **Check for Updates / Download Latest APK** for an instant real-time version check.
-6. **Android Package Installation Barrier (OS Security):**  
+7. **Android Package Installation Barrier (OS Security):**  
    Android OS architecture enforces that while downloading can occur 100% in the background, executing an APK installation *always* triggers a system confirmation dialog (`"Do you want to install an update to this application?"`). This is a fundamental Android OS security boundary that protects users. Once confirmed, the update replaces the existing installation in-place, preserving all cached balances and saved credentials without requiring re-login.
 
 ---
