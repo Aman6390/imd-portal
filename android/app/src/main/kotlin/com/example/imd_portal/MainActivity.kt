@@ -32,55 +32,59 @@ class MainActivity: FlutterFragmentActivity() {
                     result.error("INVALID_PATH", "PDF path cannot be null", null)
                     return@setMethodCallHandler
                 }
-                var fileDescriptor: ParcelFileDescriptor? = null
-                var renderer: PdfRenderer? = null
-                var page: PdfRenderer.Page? = null
-                var bitmap: Bitmap? = null
-                try {
-                    val pdfFile = File(pdfPath)
-                    if (!pdfFile.exists() || pdfFile.length() == 0L) {
-                        result.error("FILE_NOT_FOUND", "PDF file does not exist or is empty", null)
-                        return@setMethodCallHandler
-                    }
-                    fileDescriptor = ParcelFileDescriptor.open(pdfFile, ParcelFileDescriptor.MODE_READ_ONLY)
-                    renderer = PdfRenderer(fileDescriptor)
-                    if (renderer.pageCount > 0) {
-                        page = renderer.openPage(0)
 
-                        // Optimal dimension scaling to prevent OutOfMemoryError and maximize OCR accuracy
-                        val maxDim = 1600
-                        val rawW = page.width
-                        val rawH = page.height
-                        val scale = if (rawW > rawH) {
-                            if (rawW > maxDim) maxDim.toFloat() / rawW else 1.5f
-                        } else {
-                            if (rawH > maxDim) maxDim.toFloat() / rawH else 1.5f
+                // Render in a background thread to prevent any UI blocking
+                Thread {
+                    var fileDescriptor: ParcelFileDescriptor? = null
+                    var renderer: PdfRenderer? = null
+                    var page: PdfRenderer.Page? = null
+                    var bitmap: Bitmap? = null
+                    try {
+                        val pdfFile = File(pdfPath)
+                        if (!pdfFile.exists() || pdfFile.length() == 0L) {
+                            runOnUiThread { result.error("FILE_NOT_FOUND", "PDF file does not exist or is empty", null) }
+                            return@Thread
                         }
-                        val targetW = (rawW * scale).toInt().coerceAtLeast(1)
-                        val targetH = (rawH * scale).toInt().coerceAtLeast(1)
+                        fileDescriptor = ParcelFileDescriptor.open(pdfFile, ParcelFileDescriptor.MODE_READ_ONLY)
+                        renderer = PdfRenderer(fileDescriptor)
+                        if (renderer.pageCount > 0) {
+                            page = renderer.openPage(0)
 
-                        bitmap = Bitmap.createBitmap(targetW, targetH, Bitmap.Config.ARGB_8888)
-                        bitmap.eraseColor(android.graphics.Color.WHITE)
-                        page.render(bitmap, null, null, PdfRenderer.Page.RENDER_MODE_FOR_DISPLAY)
+                            // Optimal dimension scaling to prevent OutOfMemoryError and maximize OCR accuracy
+                            val maxDim = 1600
+                            val rawW = page.width
+                            val rawH = page.height
+                            val scale = if (rawW > rawH) {
+                                if (rawW > maxDim) maxDim.toFloat() / rawW else 1.5f
+                            } else {
+                                if (rawH > maxDim) maxDim.toFloat() / rawH else 1.5f
+                            }
+                            val targetW = (rawW * scale).toInt().coerceAtLeast(1)
+                            val targetH = (rawH * scale).toInt().coerceAtLeast(1)
 
-                        val outputFile = File(cacheDir, "ocr_page_0.jpg")
-                        val fos = FileOutputStream(outputFile)
-                        bitmap.compress(Bitmap.CompressFormat.JPEG, 90, fos)
-                        fos.flush()
-                        fos.close()
+                            bitmap = Bitmap.createBitmap(targetW, targetH, Bitmap.Config.ARGB_8888)
+                            bitmap.eraseColor(android.graphics.Color.WHITE)
+                            page.render(bitmap, null, null, PdfRenderer.Page.RENDER_MODE_FOR_DISPLAY)
 
-                        result.success(outputFile.absolutePath)
-                    } else {
-                        result.error("EMPTY_PDF", "PDF contains no pages", null)
+                            val outputFile = File(cacheDir, "ocr_page_0.jpg")
+                            val fos = FileOutputStream(outputFile)
+                            bitmap.compress(Bitmap.CompressFormat.JPEG, 90, fos)
+                            fos.flush()
+                            fos.close()
+
+                            runOnUiThread { result.success(outputFile.absolutePath) }
+                        } else {
+                            runOnUiThread { result.error("EMPTY_PDF", "PDF contains no pages", null) }
+                        }
+                    } catch (t: Throwable) {
+                        runOnUiThread { result.error("RENDER_ERROR", t.localizedMessage ?: "Unknown rendering error", null) }
+                    } finally {
+                        try { page?.close() } catch (_: Throwable) {}
+                        try { renderer?.close() } catch (_: Throwable) {}
+                        try { fileDescriptor?.close() } catch (_: Throwable) {}
+                        try { bitmap?.recycle() } catch (_: Throwable) {}
                     }
-                } catch (t: Throwable) {
-                    result.error("RENDER_ERROR", t.localizedMessage ?: "Unknown rendering error", null)
-                } finally {
-                    try { page?.close() } catch (_: Throwable) {}
-                    try { renderer?.close() } catch (_: Throwable) {}
-                    try { fileDescriptor?.close() } catch (_: Throwable) {}
-                    try { bitmap?.recycle() } catch (_: Throwable) {}
-                }
+                }.start()
             } else if (call.method == "openPdf") {
                 val pdfPath = call.argument<String>("pdfPath")
                 if (pdfPath == null) {

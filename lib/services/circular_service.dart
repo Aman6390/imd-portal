@@ -472,9 +472,12 @@ class CircularService {
     statusNotifier.value = 'Step 2/2: Extracting Hindi & English text (1-2s)...';
 
     String recognizedText = '';
-    if (await localFile.exists() && await localFile.length() > 500) {
-      recognizedText = await OcrService.processLocalPdfFile(localFile.path);
-    }
+    try {
+      if (await localFile.exists() && await localFile.length() > 500) {
+        recognizedText = await OcrService.processLocalPdfFile(localFile.path)
+            .timeout(const Duration(seconds: 8), onTimeout: () => '');
+      }
+    } catch (_) {}
 
     if (isCancelled) return;
 

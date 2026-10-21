@@ -55,7 +55,7 @@ class OcrService {
     }
   }
 
-  /// Runs on-device OCR directly on a local PDF file with Devanagari & Latin fallback
+  /// Runs on-device OCR directly on a local PDF file with Latin & Devanagari dual-engine
   static Future<String> processLocalPdfFile(String filePath) async {
     try {
       final file = File(filePath);
@@ -66,7 +66,7 @@ class OcrService {
       final String? imagePath = await _pdfChannel.invokeMethod<String>(
         'renderFirstPage',
         {'pdfPath': filePath},
-      ).timeout(const Duration(seconds: 6), onTimeout: () => null);
+      ).timeout(const Duration(seconds: 5), onTimeout: () => null);
 
       if (imagePath == null || imagePath.isEmpty) {
         return '';
@@ -75,29 +75,34 @@ class OcrService {
       final inputImage = InputImage.fromFilePath(imagePath);
       String text = '';
 
-      // 1. Attempt Devanagari OCR with a strict 4-second timeout
+      // 1. High-speed Latin OCR (Pre-bundled worldwide on Android, 100% offline, completes in ~300ms)
+      TextRecognizer? latinRecognizer;
       try {
-        final devanagariRecognizer = TextRecognizer(script: TextRecognitionScript.devanagiri);
-        final RecognizedText recognizedText = await devanagariRecognizer
+        latinRecognizer = TextRecognizer(script: TextRecognitionScript.latin);
+        final RecognizedText recognizedText = await latinRecognizer
             .processImage(inputImage)
-            .timeout(const Duration(seconds: 4));
-        await devanagariRecognizer.close();
+            .timeout(const Duration(seconds: 3));
         text = recognizedText.text;
       } catch (e) {
-        print('Devanagari model pending/timeout, falling back to Latin: $e');
+        print('Latin OCR error: $e');
+      } finally {
+        await latinRecognizer?.close();
       }
 
-      // 2. Fallback: If Devanagari produced nothing or timed out (e.g. model pending download on mobile data),
-      // run instant pre-bundled Latin OCR
+      // 2. If no Latin text found (e.g. pure Hindi scanned document), invoke Devanagari OCR
       if (text.trim().isEmpty) {
+        TextRecognizer? devanagariRecognizer;
         try {
-          final latinRecognizer = TextRecognizer(script: TextRecognitionScript.latin);
-          final RecognizedText recognizedText = await latinRecognizer
+          devanagariRecognizer = TextRecognizer(script: TextRecognitionScript.devanagiri);
+          final RecognizedText recognizedText = await devanagariRecognizer
               .processImage(inputImage)
-              .timeout(const Duration(seconds: 4));
-          await latinRecognizer.close();
+              .timeout(const Duration(seconds: 3));
           text = recognizedText.text;
-        } catch (_) {}
+        } catch (e) {
+          print('Devanagari model pending/timeout: $e');
+        } finally {
+          await devanagariRecognizer?.close();
+        }
       }
 
       // 3. Immediately delete temporary rendered JPEG to prevent storage accumulation
