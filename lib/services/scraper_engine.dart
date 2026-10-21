@@ -169,18 +169,21 @@ class ScraperEngine {
     return (balances, lapsingAlerts);
   }
 
-  /// Parses various date formats commonly used in MetNet circulars (e.g. 15-10-2026, 15/10/2026, 15-Oct-2026)
+  /// Parses various date formats commonly used in MetNet circulars (e.g. 15-10-2026, 15/10/2026, 15-Oct-2026, 2026-10-15)
   static DateTime? parseCircularDate(String dateStr) {
-    final clean = dateStr.trim();
+    final clean = dateStr.trim().replaceAll('\n', ' ');
     if (clean.isEmpty) return null;
 
     final formats = [
       'dd-MM-yyyy',
       'dd/MM/yyyy',
+      'dd.MM.yyyy',
       'd-M-yyyy',
       'd/M/yyyy',
+      'd.M.yyyy',
       'dd-MMM-yyyy',
       'dd/MMM/yyyy',
+      'dd MMM yyyy',
       'yyyy-MM-dd',
       'yyyy/MM/dd',
     ];
@@ -191,7 +194,8 @@ class ScraperEngine {
       } catch (_) {}
     }
 
-    final match = RegExp(r'(\d{1,2})[-/ ]([A-Za-z]+|\d{1,2})[-/ ](\d{2,4})').firstMatch(clean);
+    // Regex extraction for embedded dd-MM-yyyy or dd-MMM-yyyy
+    final match = RegExp(r'(\d{1,2})[-/. ]([A-Za-z]+|\d{1,2})[-/. ](\d{2,4})').firstMatch(clean);
     if (match != null) {
       final day = int.tryParse(match.group(1)!) ?? 1;
       final yearStr = match.group(3)!;
@@ -211,18 +215,32 @@ class ScraperEngine {
           }
         }
       }
-      if (month != null) {
+      if (month != null && month >= 1 && month <= 12 && day >= 1 && day <= 31) {
         return DateTime(year, month, day);
       }
     }
+
+    // Regex extraction for yyyy-MM-dd
+    final matchYmd = RegExp(r'(\d{4})[-/. ](\d{1,2})[-/. ](\d{1,2})').firstMatch(clean);
+    if (matchYmd != null) {
+      final year = int.tryParse(matchYmd.group(1)!) ?? DateTime.now().year;
+      final month = int.tryParse(matchYmd.group(2)!) ?? 1;
+      final day = int.tryParse(matchYmd.group(3)!) ?? 1;
+      if (month >= 1 && month <= 12 && day >= 1 && day <= 31) {
+        return DateTime(year, month, day);
+      }
+    }
+
     return null;
   }
 
   /// Parses circulars of the last one month using Title Pre-Filter (Fast-Path), OCR Cache, and on-device Devanagari OCR (Slow-Path)
   static Future<(List<CircularItem>, List<CircularItem>)> parseCirculars(
     dom.Document soup,
-    SessionHttpClient session,
-  ) async {
+    SessionHttpClient session, {
+    String sourceBaseUrl = 'https://metnet.imd.gov.in/phps/circulars_display_2.php',
+    int maxUncachedOcr = 15,
+  }) async {
     final vipCirculars = <CircularItem>[];
     final fomoCirculars = <CircularItem>[];
 
@@ -233,91 +251,125 @@ class ScraperEngine {
     // Calculate cutoff date: exactly 1 month (31 days) ago
     final oneMonthAgo = DateTime.now().subtract(const Duration(days: 31));
 
-    final rows = soup.querySelectorAll('tr[bgcolor="#ffffff"], tr[bgcolor="#f5f5f5"]');
-    int uncachedOcrCount = 0;
-    const maxUncachedOcrPerSync = 15; // Increased to accommodate full month circulars
+    // Flexible row selector: standard alternating bgcolor first, fallback to any tr with links
+    var rows = soup.querySelectorAll('tr[bgcolor="#ffffff"], tr[bgcolor="#f5f5f5"]');
+    if (rows.isEmpty) {
+      rows = soup
+          .querySelectorAll('table tr')
+          .where((tr) => tr.querySelector('td a[href]') != null)
+          .toList();
+    }
 
+    int uncachedOcrCount = 0;
     int rowIndex = 0;
+
     for (final row in rows) {
       rowIndex++;
       final cols = row.querySelectorAll('td');
-      if (cols.length >= 4) {
-        final aTag = cols[1].querySelector('a');
-        if (aTag != null) {
-          final title = aTag.text.trim().replaceAll('\n', ' ').replaceAll(RegExp(r'\s+'), ' ');
-          final rawHref = aTag.attributes['href'] ?? '';
-          final link = 'https://metnet.imd.gov.in' + rawHref.replaceAll('..', '');
-          final uploadDate = cols[3].text.trim();
-          final titleLower = title.toLowerCase();
+      if (cols.isEmpty) continue;
 
-          // Filter by Date: only keep circulars from the last one month
-          final parsedDate = parseCircularDate(uploadDate);
-          if (parsedDate != null) {
-            if (parsedDate.isBefore(oneMonthAgo)) {
-              // Circular is older than 1 month -> skip
-              continue;
-            }
-          } else if (rowIndex > 40) {
-            // Safety fallback: if date is unparseable and deep in table, skip
-            continue;
-          }
+      // Locate circular link and title anywhere in the row
+      final aTag = row.querySelector('a[href]');
+      if (aTag == null) continue;
 
-          // 1. FAST-PATH: Title Pre-Filter (Junk)
-          if (dynamicJunkKeywords.any((junk) => titleLower.contains(junk.toLowerCase()))) {
-            continue;
-          }
+      final rawTitle = aTag.text.trim();
+      if (rawTitle.isEmpty) continue;
+      final title = rawTitle.replaceAll('\n', ' ').replaceAll(RegExp(r'\s+'), ' ');
 
-          final item = CircularItem(title: title, link: link, date: uploadDate);
+      final rawHref = aTag.attributes['href']?.trim() ?? '';
+      if (rawHref.isEmpty) continue;
 
-          // 2. FAST-PATH: Title Pre-Filter (VIP)
-          if (dynamicVipKeywords.any((vip) => titleLower.contains(vip.toLowerCase()))) {
+      // RFC-compliant URL resolution: solves broken string concatenations and relative paths
+      String link;
+      try {
+        link = Uri.parse(sourceBaseUrl).resolve(rawHref).toString();
+      } catch (_) {
+        link = rawHref;
+      }
+
+      // Locate date across columns (scanned from right to left)
+      String uploadDate = '';
+      DateTime? parsedDate;
+      for (final col in cols.reversed) {
+        final text = col.text.trim();
+        final d = parseCircularDate(text);
+        if (d != null) {
+          parsedDate = d;
+          uploadDate = text;
+          break;
+        }
+      }
+
+      if (uploadDate.isEmpty) {
+        if (cols.length >= 4) {
+          uploadDate = cols[3].text.trim();
+        } else if (cols.length >= 2) {
+          uploadDate = cols.last.text.trim();
+        }
+        parsedDate = parseCircularDate(uploadDate);
+      }
+
+      final titleLower = title.toLowerCase();
+
+      // Filter by Date: only keep circulars from the last one month
+      if (parsedDate != null) {
+        if (parsedDate.isBefore(oneMonthAgo)) {
+          // Circular is older than 31 days -> skip
+          continue;
+        }
+      } else if (rowIndex > 50) {
+        // Deep table fallback limit
+        continue;
+      }
+
+      // 1. FAST-PATH: Title Pre-Filter (Junk)
+      if (dynamicJunkKeywords.any((junk) => titleLower.contains(junk.toLowerCase()))) {
+        continue;
+      }
+
+      final item = CircularItem(title: title, link: link, date: uploadDate);
+
+      // 2. FAST-PATH: Title Pre-Filter (VIP)
+      if (dynamicVipKeywords.any((vip) => titleLower.contains(vip.toLowerCase()))) {
+        vipCirculars.add(item);
+        continue;
+      }
+
+      // 3. SLOW-PATH: Title is ambiguous. Check OCR Cache or execute on-device OCR
+      if (link.isNotEmpty && link.startsWith('http')) {
+        if (ocrCache.containsKey(link)) {
+          final isCachedVip = ocrCache[link] ?? false;
+          if (isCachedVip) {
             vipCirculars.add(item);
-            continue;
-          }
-
-          // 3. SLOW-PATH: Title is ambiguous. Check OCR Cache or execute on-device OCR
-          if (link.isNotEmpty && link.startsWith('http')) {
-            if (ocrCache.containsKey(link)) {
-              // Deduplication cache hit: Never download or parse the same PDF twice
-              final isCachedVip = ocrCache[link] ?? false;
-              if (isCachedVip) {
-                vipCirculars.add(item);
-              } else {
-                fomoCirculars.add(item);
-              }
-            } else if (uncachedOcrCount < maxUncachedOcrPerSync) {
-              // OCR cache miss: Download Page 1 & run on-device Devanagari OCR
-              uncachedOcrCount++;
-              bool isVip = false;
-              try {
-                final extractedText = await OcrService.processPdfFromUrl(link, session);
-                if (extractedText.isNotEmpty) {
-                  final textLower = extractedText.toLowerCase();
-                  if (dynamicVipKeywords.any((vip) => textLower.contains(vip.toLowerCase()))) {
-                    isVip = true;
-                  }
-                }
-              } catch (_) {
-                // Ignore OCR extraction errors and fallback safely
-              }
-
-              // Save result to persistent OCR cache
-              await StorageService.saveOcrCacheEntry(link, isVip);
-              ocrCache[link] = isVip;
-
-              if (isVip) {
-                vipCirculars.add(item);
-              } else {
-                fomoCirculars.add(item);
-              }
-            } else {
-              // Exceeded max uncached per sync, categorize as FOMO for now
-              fomoCirculars.add(item);
-            }
           } else {
             fomoCirculars.add(item);
           }
+        } else if (uncachedOcrCount < maxUncachedOcr) {
+          uncachedOcrCount++;
+          bool isVip = false;
+          try {
+            final extractedText = await OcrService.processPdfFromUrl(link, session);
+            if (extractedText.isNotEmpty) {
+              final textLower = extractedText.toLowerCase();
+              if (dynamicVipKeywords.any((vip) => textLower.contains(vip.toLowerCase()))) {
+                isVip = true;
+              }
+            }
+          } catch (_) {}
+
+          await StorageService.saveOcrCacheEntry(link, isVip);
+          ocrCache[link] = isVip;
+
+          if (isVip) {
+            vipCirculars.add(item);
+          } else {
+            fomoCirculars.add(item);
+          }
+        } else {
+          fomoCirculars.add(item);
         }
+      } else {
+        fomoCirculars.add(item);
       }
     }
 
@@ -409,21 +461,58 @@ class ScraperEngine {
 
         final soupMain = html_parser.parse(mainPage.body);
         String? leaveUrl;
-        String? circularUrl;
         const baseUrl = 'https://metnet.imd.gov.in/phps/';
+
+        // Multi-category circular URL discovery across the portal
+        final circularTargetUrls = <String>{};
 
         for (final a in soupMain.querySelectorAll('a[href]')) {
           final href = a.attributes['href'] ?? '';
+          final hrefLower = href.toLowerCase();
+          final textLower = a.text.toLowerCase();
+
           if (href.contains('leave_1.php') && leaveUrl == null) {
             leaveUrl = Uri.parse(baseUrl).resolve(href).toString();
-          } else if (href.contains('circulars_display_2.php') &&
-              href.contains('GENERAL') &&
-              circularUrl == null) {
-            circularUrl = Uri.parse(baseUrl).resolve(href).toString();
+          }
+
+          if (hrefLower.contains('circular') ||
+              hrefLower.contains('order') ||
+              textLower.contains('circular') ||
+              textLower.contains('order') ||
+              textLower.contains('peripat') ||
+              textLower.contains('aadesh') ||
+              textLower.contains('परिपत्र') ||
+              textLower.contains('आदेश')) {
+            if (hrefLower.contains('.php') &&
+                !hrefLower.contains('leave') &&
+                !hrefLower.contains('logout')) {
+              final fullUrl = Uri.parse(baseUrl).resolve(href).toString();
+              circularTargetUrls.add(fullUrl);
+            }
           }
         }
 
-        if (leaveUrl == null || circularUrl == null) {
+        // Always query standard MetNet circular sections so no transfers, establishment,
+        // or general office orders are missed
+        const standardCategories = [
+          'https://metnet.imd.gov.in/phps/circulars_display_2.php?type=GENERAL',
+          'https://metnet.imd.gov.in/phps/circulars_display_2.php?type=ESTABLISHMENT',
+          'https://metnet.imd.gov.in/phps/circulars_display_2.php?type=OFFICE_ORDER',
+          'https://metnet.imd.gov.in/phps/circulars_display_2.php?type=TRANSFER',
+          'https://metnet.imd.gov.in/phps/circulars_display_2.php',
+        ];
+        circularTargetUrls.addAll(standardCategories);
+
+        // Fallback for leave URL if not found dynamically
+        leaveUrl ??= 'https://metnet.imd.gov.in/phps/leave_1.php';
+
+        // Step 7: Fetch and parse leave balances
+        final leavePage = await session.get(Uri.parse(leaveUrl)).timeout(const Duration(seconds: 25));
+        final (leaveBalances, lapsingAlerts) = parseLeaves(html_parser.parse(leavePage.body));
+
+        // If leave balances could not be parsed and leave link was absent on main,
+        // it means MetNet showed an interstitial notice or mandatory declaration.
+        if (leaveBalances.isEmpty && !mainPage.body.contains('leave_1.php')) {
           return (
             false,
             '⚠️ MetNet Notice or Action Required',
@@ -431,15 +520,56 @@ class ScraperEngine {
           );
         }
 
-        // Step 7: Fetch and parse leave balances
-        final leavePage = await session.get(Uri.parse(leaveUrl)).timeout(const Duration(seconds: 25));
-        final (leaveBalances, lapsingAlerts) = parseLeaves(html_parser.parse(leavePage.body));
+        // Step 8: Multi-Category Circular Scraping & Deduplication
+        final allVipCirculars = <CircularItem>[];
+        final allFomoCirculars = <CircularItem>[];
+        final seenKeys = <String>{};
 
-        // Step 8: Fetch and parse circulars
-        final circularPage =
-            await session.get(Uri.parse(circularUrl)).timeout(const Duration(seconds: 25));
-        final (vipCirc, fomoCirc) =
-            await parseCirculars(html_parser.parse(circularPage.body), session);
+        for (final cUrl in circularTargetUrls) {
+          try {
+            final circularPage =
+                await session.get(Uri.parse(cUrl)).timeout(const Duration(seconds: 15));
+            if (circularPage.statusCode == 200 && circularPage.body.isNotEmpty) {
+              final (vipCirc, fomoCirc) = await parseCirculars(
+                html_parser.parse(circularPage.body),
+                session,
+                sourceBaseUrl: cUrl,
+                maxUncachedOcr: 5,
+              );
+
+              for (final c in vipCirc) {
+                final key = '${c.title.trim().toLowerCase()}_${c.link.trim()}';
+                if (!seenKeys.contains(key)) {
+                  seenKeys.add(key);
+                  allVipCirculars.add(c);
+                }
+              }
+
+              for (final c in fomoCirc) {
+                final key = '${c.title.trim().toLowerCase()}_${c.link.trim()}';
+                if (!seenKeys.contains(key)) {
+                  seenKeys.add(key);
+                  allFomoCirculars.add(c);
+                }
+              }
+            }
+          } catch (_) {
+            // Category query failed or timed out; continue gracefully to next category
+          }
+        }
+
+        // Sort circulars in descending order (newest uploaded first)
+        int circularDateComparator(CircularItem a, CircularItem b) {
+          final da = parseCircularDate(a.date);
+          final db = parseCircularDate(b.date);
+          if (da == null && db == null) return 0;
+          if (da == null) return 1;
+          if (db == null) return -1;
+          return db.compareTo(da);
+        }
+
+        allVipCirculars.sort(circularDateComparator);
+        allFomoCirculars.sort(circularDateComparator);
 
         final nowFormatted = DateFormat('dd-MM-yyyy HH:mm:ss').format(DateTime.now());
 
@@ -447,8 +577,8 @@ class ScraperEngine {
           lastUpdated: nowFormatted,
           leaves: leaveBalances,
           alerts: lapsingAlerts,
-          vipCirculars: vipCirc,
-          fomoCirculars: fomoCirc,
+          vipCirculars: allVipCirculars,
+          fomoCirculars: allFomoCirculars,
         );
 
         session.close();

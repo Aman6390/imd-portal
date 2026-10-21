@@ -1,6 +1,6 @@
 # 🚀 PROJECT MASTER BLUEPRINT: Meteorological Portal Android Application
 
-> **Project Status:** Production Ready — 100% Free & Open Edition (v1.3.0)  
+> **Project Status:** Production Ready — 100% Free & Open Edition (v1.3.1)  
 > **Target Platform:** Native Android (Flutter / Kotlin)  
 > **Output Release Artifact:** `build/app/outputs/flutter-apk/app-release.apk`  
 > **CI/CD Pipeline:** GitHub Actions Automated Cloud Build (`Aman6390/imd-portal`)  
@@ -117,10 +117,22 @@
    * Keeps a lightweight index (`processed_circulars_cache`) mapping PDF URLs to their classification.
    * Any previously processed circular is never re-downloaded or re-parsed.
    * Total storage footprint remains under 2 MB.
-4. **Last One Month Rolling Circular Filter:**
-   * Automatically parses diverse portal upload date strings (`dd-MM-yyyy`, `dd/MM/yyyy`, `dd-MMM-yyyy`, `yyyy-MM-dd`) via `parseCircularDate()`.
+4. **Last One Month Rolling Circular Filter & Chronological Sorting:**
+   * Automatically parses diverse portal upload date strings (`dd-MM-yyyy`, `dd/MM/yyyy`, `dd.MM.yyyy`, `dd-MMM-yyyy`, `yyyy-MM-dd`) via enhanced `parseCircularDate()`.
    * Enforces a rolling 30-day cutoff ($\text{Upload Date} \ge \text{Current Date} - 31\text{ days}$).
-   * All departmental orders, VIP notices, and circulars within the last month are displayed with full scrolling access, completely removing artificial truncation limits.
+   * Circulars across all sections are merged, deduplicated by URL and subject, and sorted chronologically descending (newest uploads on top).
+5. **Multi-Category Portal Discovery (Looking in Every Place):**
+   * Automatically scrapes all departmental circular sections on MetNet rather than restricting queries to only General circulars.
+   * Scans and aggregates:
+     * **General Circulars** (`circulars_display_2.php?type=GENERAL`)
+     * **Establishment Circulars** (`circulars_display_2.php?type=ESTABLISHMENT`)
+     * **Office Orders & Administrative Notices** (`circulars_display_2.php?type=OFFICE_ORDER`)
+     * **Transfers & Postings** (`circulars_display_2.php?type=TRANSFER`)
+     * Dynamic portal links matching `circular`, `order`, or bilingual terms (`परिपत्र`, `आदेश`).
+6. **RFC-Compliant Link Resolution & Android 11+ Package Visibility:**
+   * Resolves relative and root-relative PDF links using `Uri.parse(sourceBaseUrl).resolve(rawHref).toString()`, completely preventing broken URL string concatenation bugs (e.g. invalid domains).
+   * Declares explicit `<queries>` for `http` and `https` in `AndroidManifest.xml` ensuring `canLaunchUrl` operates smoothly on Android 11, 12, 13, 14, and 15 devices.
+   * Implements a 4-tier fail-safe launch chain: External App (Adobe / Drive / Chrome) $\rightarrow$ In-App WebView $\rightarrow$ Platform Default $\rightarrow$ Clipboard Link Copy with one-tap user feedback.
 
 ---
 

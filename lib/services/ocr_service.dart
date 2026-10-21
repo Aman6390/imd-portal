@@ -13,7 +13,8 @@ class OcrService {
   static Future<String> processPdfFromUrl(String pdfUrl, SessionHttpClient session) async {
     File? tempPdf;
     try {
-      final uri = Uri.parse(pdfUrl);
+      final cleanUrl = Uri.encodeFull(pdfUrl.trim());
+      final uri = Uri.parse(cleanUrl);
       final response = await session.get(uri).timeout(const Duration(seconds: 20));
 
       if (response.statusCode != 200 || response.bodyBytes.isEmpty) {
