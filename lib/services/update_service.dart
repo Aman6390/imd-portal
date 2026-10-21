@@ -43,7 +43,7 @@ class UpdateDownloadProgress {
 /// and manage background APK downloading without interrupting user experience.
 class UpdateService {
   /// Current app version
-  static const String currentVersion = '1.3.2';
+  static const String currentVersion = '1.3.3';
 
   /// GitHub public releases endpoint
   static const String latestReleaseApi =
@@ -136,7 +136,19 @@ class UpdateService {
         final totalBytes = response.contentLength ?? 0;
         int receivedBytes = 0;
 
-        final dir = await getTemporaryDirectory();
+        // Use external cache directory if available for maximum package installer compatibility
+        Directory dir;
+        try {
+          final extDirs = await getExternalCacheDirectories();
+          if (extDirs != null && extDirs.isNotEmpty) {
+            dir = extDirs.first;
+          } else {
+            dir = await getTemporaryDirectory();
+          }
+        } catch (_) {
+          dir = await getTemporaryDirectory();
+        }
+
         final file = File('${dir.path}/Meteorological_Portal_Latest.apk');
         final sink = file.openWrite();
 
@@ -164,14 +176,16 @@ class UpdateService {
           filePath: file.path,
         ));
 
-        // Automatically launch native package installer with downloaded APK file
-        final installed = await installDownloadedApk(file.path);
-        if (!installed) {
-          await launchExternalApk(downloadUrl);
-        }
+        // Automatically trigger native package installer with downloaded APK file
+        await installDownloadedApk(file.path);
       } else {
         isDownloading = false;
-        await launchExternalApk(downloadUrl);
+        _progressController.add(UpdateDownloadProgress(
+          receivedBytes: 0,
+          totalBytes: 0,
+          progress: 0.0,
+          error: 'Download server returned HTTP ${response.statusCode}',
+        ));
       }
     } catch (e) {
       isDownloading = false;
@@ -181,27 +195,27 @@ class UpdateService {
         progress: 0.0,
         error: e.toString(),
       ));
-      await launchExternalApk(downloadUrl);
     }
   }
 
   static const MethodChannel _installerChannel = MethodChannel('com.imd.portal/installer');
 
-  /// Installs the downloaded APK file via native Android package installer
-  static Future<bool> installDownloadedApk(String filePath) async {
+  /// Installs the downloaded APK file via native Android package installer.
+  /// Returns 'SUCCESS', 'PERMISSION_REQUESTED', 'FILE_NOT_FOUND', or an error description.
+  static Future<String> installDownloadedApk(String filePath) async {
     try {
       final file = File(filePath);
       if (!await file.exists()) {
-        return false;
+        return 'FILE_NOT_FOUND';
       }
       final String? response = await _installerChannel.invokeMethod<String>(
         'installApk',
         {'apkPath': filePath},
       );
-      return response == 'SUCCESS' || response == 'PERMISSION_REQUESTED';
+      return response ?? 'UNKNOWN';
     } catch (e) {
       print('Native APK installation error: $e');
-      return false;
+      return 'ERROR: $e';
     }
   }
 

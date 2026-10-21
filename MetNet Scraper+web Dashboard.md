@@ -1,6 +1,6 @@
 # 🚀 PROJECT MASTER BLUEPRINT: Meteorological Portal Android Application
 
-> **Project Status:** Production Ready — 100% Free & Open Edition (v1.3.2)  
+> **Project Status:** Production Ready — 100% Free & Open Edition (v1.3.3)  
 > **Target Platform:** Native Android (Flutter / Kotlin)  
 > **Output Release Artifact:** `build/app/outputs/flutter-apk/app-release.apk`  
 > **CI/CD Pipeline:** GitHub Actions Automated Cloud Build (`Aman6390/imd-portal`)  
@@ -238,8 +238,10 @@ Because the IMD Portal app is distributed directly to colleagues via APK rather 
    * A persistent bottom progress banner displays live percentage progress: `⬇️ Downloading update in background (XX%)... You can continue using the app normally.`
    * The user can freely navigate circulars, leaves, calendar, and settings without interruption.
    * Upon reaching 100%, the banner transitions to green: `✅ Update Downloaded & Ready to Install!` with a 1-tap **Install** action.
+   * Downloads to high-compatibility external cache (`getExternalCacheDirectories()`) with explicit world-readable flags for OEM Android package installers.
    * Employs native Android `FileProvider` (`com.example.imd_portal.fileprovider`), `REQUEST_INSTALL_PACKAGES` permission, and custom MethodChannel (`com.imd.portal/installer`) in `MainActivity.kt`.
-   * Automatically invokes the Android Package Installer directly with the downloaded `.apk` file (prompting for "Install unknown apps" permission toggle if needed on Android 8.0+), presenting the standard system update prompt: *"Do you want to update this app? Your existing data will not be lost."*
+   * **Auto-Resume Flow (v1.3.3):** If the user needs to grant "Install unknown apps" permission, `MainActivity` remembers the pending APK and automatically resumes the system installation dialog the moment the user toggles the switch and returns to the app.
+   * Presents the standard system update prompt: *"Do you want to update this app? Your existing data will not be lost."* No external browser redirects.
 5. **Manual In-App Check in Settings:**  
    Colleagues can also open Settings &rarr; **About & Updates** &rarr; tap **Check for Updates / Download Latest APK** for an instant real-time version check.
 6. **Android Package Installation Barrier (OS Security):**  

@@ -618,11 +618,30 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
                   foregroundColor: Colors.green.shade900,
                 ),
                 onPressed: () async {
-                  bool installed = false;
                   if (_downloadedApkPath != null) {
-                    installed = await UpdateService.installDownloadedApk(_downloadedApkPath!);
-                  }
-                  if (!installed && _apkDownloadUrl != null) {
+                    final status = await UpdateService.installDownloadedApk(_downloadedApkPath!);
+                    if (status == 'PERMISSION_REQUESTED' && mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text('Please enable "Allow from this source" — the installation will start automatically!'),
+                          backgroundColor: Colors.blueAccent,
+                          duration: Duration(seconds: 4),
+                        ),
+                      );
+                    } else if (status != 'SUCCESS' && mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Text('Could not start installer ($status).'),
+                          action: _apkDownloadUrl != null
+                              ? SnackBarAction(
+                                  label: 'Open Browser',
+                                  onPressed: () => UpdateService.launchExternalApk(_apkDownloadUrl!),
+                                )
+                              : null,
+                        ),
+                      );
+                    }
+                  } else if (_apkDownloadUrl != null) {
                     await UpdateService.launchExternalApk(_apkDownloadUrl!);
                   }
                 },
