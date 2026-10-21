@@ -327,7 +327,22 @@ E:\imd portal\
 
 ---
 
-## 12. Historical Reference Python Source Code
+## 12. Version History & Release Changelog
+
+| Version | Build Code | Date | Key Architectural Changes & Feature Highlights |
+| :--- | :--- | :--- | :--- |
+| **v1.0.0** | `1.0.0+1` | Oct 2026 | Initial Flutter/Dart production port from Python prototype. Implemented dynamic RSA PKCS1_v1_5 encryption handshake, leave balance extraction, 6-month C-Off expiry math, and 12-month visual alert timeline. |
+| **v1.1.0** | `1.1.0+2` | Oct 2026 | Added Android native biometrics (`local_auth`), 2x2 and 1x1 home screen widgets (`home_widget`), WorkManager 18:00 daily sync, and on-device Devanagari OCR (`google_mlkit_text_recognition`). |
+| **v1.2.0** | `1.2.0+3` | Oct 2026 | **100% Free Edition:** Completely stripped all license validation, Pro tags, and paywall code. Introduced GitHub Releases-based Over-The-Air (OTA) update checking. |
+| **v1.3.0** | `1.3.0+4` | Oct 2026 | Renamed user-facing branding to **Meteorological Portal**. Added visual progress indicator on update checking and high-urgency update modal prompt. |
+| **v1.3.1** | `1.3.1+4` | Oct 2026 | **Comprehensive Circular Scraper:** Scrapes General, Establishment, Office Orders, and Transfers. Added RFC-compliant `Uri.resolve()` for relative paths, 4-tier PDF opening chain, and Android 11+ `<queries>` package visibility. |
+| **v1.3.2** | `1.3.2+5` | Oct 2026 | **Native Package Installer Bridge:** Integrated `FileProvider`, `file_paths.xml`, and `REQUEST_INSTALL_PACKAGES` permission in `MainActivity.kt` to replace web URL redirects with direct system installation. |
+| **v1.3.3** | `1.3.3+6` | Oct 2026 | **Auto-Resume Permission Flow:** Added `checkAndResumePendingInstall()`, `onResume()`, and `onActivityResult()` in `MainActivity.kt`. Automatically triggers installation upon returning from Android's "Allow from this source" settings. Switched to external cache for broad OEM compatibility. |
+| **v1.3.4** | `1.3.4+7` | Oct 2026 | **Push Notification-Driven Updates:** Introduced system notification shade integration via `NotificationService.dart` & `BackgroundSyncService.dart`. Notification 201 prompts download; Notification 202 provides 1-tap install directly from the notification tray. |
+
+---
+
+## 13. Historical Reference Python Source Code
 
 *(Retained for mechanical audit and verification against original Python prototype)*
 
