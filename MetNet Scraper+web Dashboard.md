@@ -216,14 +216,20 @@ Because the IMD Portal app is distributed directly to colleagues via APK rather 
    Every code push or feature update committed to the repository triggers the GitHub Actions CI/CD runner, compiling a new production APK (`app-release.apk`).
 2. **Release Tagging (`v1.x.x`):**  
    New versions are tagged and published in GitHub Releases (e.g., `v1.2.0`, `v1.3.0`).
-3. **On-Launch Automated Update Check (`UpdateService.dart`):**  
-   Every time an employee launches and unlocks the app, `UpdateService` silently queries GitHub's public API (`/releases/latest`). If a newer version exists, an **Update Available** alert dialog immediately greets the user displaying release highlights and a one-tap **Update Now** button.
-4. **Manual In-App Check in Settings:**  
+3. **On-Launch High-Urgency Update Prompt (`UpdateService.dart`):**  
+   Every time an employee opens and unlocks the app, `UpdateService` silently queries GitHub's public API (`/releases/latest`). If a newer version exists:
+   * Displays a prominent, unmissable alert: **🚨 Critical Update Required**.
+   * Employs industry-tested psychological urgency (fear of MetNet session failures, corrupted leave balance calculations, and missing critical transfer circulars).
+   * If the user taps **"Remind Me Next Time"**, the update is NOT permanently dismissed; it prompts them again every single time the app is reopened until updated.
+4. **Seamless Background Download (Zero-Interruption Experience):**  
+   Tapping **"Update Now (Background)"** starts an asynchronous in-app background download:
+   * A persistent bottom progress banner displays live percentage progress: `⬇️ Downloading update in background (XX%)... You can continue using the app normally.`
+   * The user can freely navigate circulars, leaves, calendar, and settings without interruption.
+   * Upon reaching 100%, the banner transitions to `✅ Update Downloaded & Ready to Install!` with a 1-tap **Install** action that triggers the native Android package installer.
+5. **Manual In-App Check in Settings:**  
    Colleagues can also open Settings &rarr; **About & Updates** &rarr; tap **Check for Updates / Download Latest APK** for an instant real-time version check.
-5. **Direct Browser / Package Installation:**  
-   Tapping Update downloads the latest APK and launches the Android native package installer:  
-   *"Do you want to install an update to this application?"*  
-   Tapping **Install** preserves all user settings, saved credentials, cached circulars, and history without data loss.
+6. **Android Package Installation Barrier (OS Security):**  
+   Android OS architecture enforces that while downloading can occur 100% in the background, executing an APK installation *always* triggers a system confirmation dialog (`"Do you want to install an update to this application?"`). This is a fundamental Android OS security boundary that cannot be bypassed by non-system apps.
 
 ---
 

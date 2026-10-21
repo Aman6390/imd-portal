@@ -1,6 +1,9 @@
+import 'dart:async';
 import 'dart:convert';
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
+import 'package:path_provider/path_provider.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 class UpdateInfo {
@@ -17,7 +20,26 @@ class UpdateInfo {
   });
 }
 
-/// Service to check for new releases on GitHub and trigger direct APK updates
+class UpdateDownloadProgress {
+  final int receivedBytes;
+  final int totalBytes;
+  final double progress; // 0.0 to 1.0
+  final bool isCompleted;
+  final String? filePath;
+  final String? error;
+
+  const UpdateDownloadProgress({
+    required this.receivedBytes,
+    required this.totalBytes,
+    required this.progress,
+    this.isCompleted = false,
+    this.filePath,
+    this.error,
+  });
+}
+
+/// Service to check for new releases on GitHub, display urgent update alerts,
+/// and manage background APK downloading without interrupting user experience.
 class UpdateService {
   /// Current app version
   static const String currentVersion = '1.2.0';
@@ -25,6 +47,15 @@ class UpdateService {
   /// GitHub public releases endpoint
   static const String latestReleaseApi =
       'https://api.github.com/repos/Aman6390/imd-portal/releases/latest';
+
+  // Broadcast stream for background download progress
+  static final StreamController<UpdateDownloadProgress> _progressController =
+      StreamController<UpdateDownloadProgress>.broadcast();
+
+  static Stream<UpdateDownloadProgress> get progressStream =>
+      _progressController.stream;
+
+  static bool isDownloading = false;
 
   /// Queries GitHub Releases API to see if a newer version is available
   static Future<UpdateInfo?> checkForUpdate() async {
@@ -52,7 +83,8 @@ class UpdateService {
           for (final asset in data['assets']) {
             final name = (asset['name'] as String? ?? '').toLowerCase();
             if (name.endsWith('.apk')) {
-              apkDownloadUrl = (asset['browser_download_url'] as String? ?? apkDownloadUrl).trim();
+              apkDownloadUrl =
+                  (asset['browser_download_url'] as String? ?? apkDownloadUrl).trim();
               break;
             }
           }
@@ -67,7 +99,7 @@ class UpdateService {
         );
       }
     } catch (_) {
-      // Fail silently if offline or on network error
+      // Fail silently on network error
     }
     return null;
   }
@@ -88,8 +120,69 @@ class UpdateService {
     }
   }
 
-  /// Opens the APK download link in external browser or package installer
-  static Future<void> downloadAndInstall(String url) async {
+  /// Starts downloading the APK in the background while user continues using the app
+  static Future<void> startBackgroundDownload(String downloadUrl) async {
+    if (isDownloading) return;
+    isDownloading = true;
+
+    try {
+      final client = http.Client();
+      final request = http.Request('GET', Uri.parse(downloadUrl));
+      request.headers['User-Agent'] = 'IMD-Portal-App/$currentVersion';
+      final response = await client.send(request);
+
+      if (response.statusCode >= 200 && response.statusCode < 300) {
+        final totalBytes = response.contentLength ?? 0;
+        int receivedBytes = 0;
+
+        final dir = await getTemporaryDirectory();
+        final file = File('${dir.path}/IMD_Portal_Latest.apk');
+        final sink = file.openWrite();
+
+        await for (final chunk in response.stream) {
+          sink.add(chunk);
+          receivedBytes += chunk.length;
+          final progress = totalBytes > 0 ? (receivedBytes / totalBytes) : 0.0;
+          _progressController.add(UpdateDownloadProgress(
+            receivedBytes: receivedBytes,
+            totalBytes: totalBytes,
+            progress: progress,
+          ));
+        }
+
+        await sink.flush();
+        await sink.close();
+        client.close();
+        isDownloading = false;
+
+        _progressController.add(UpdateDownloadProgress(
+          receivedBytes: receivedBytes,
+          totalBytes: totalBytes,
+          progress: 1.0,
+          isCompleted: true,
+          filePath: file.path,
+        ));
+
+        // Launch package installer / external APK handler
+        await launchExternalApk(downloadUrl);
+      } else {
+        isDownloading = false;
+        await launchExternalApk(downloadUrl);
+      }
+    } catch (e) {
+      isDownloading = false;
+      _progressController.add(UpdateDownloadProgress(
+        receivedBytes: 0,
+        totalBytes: 0,
+        progress: 0.0,
+        error: e.toString(),
+      ));
+      await launchExternalApk(downloadUrl);
+    }
+  }
+
+  /// Opens APK via system download/installer
+  static Future<void> launchExternalApk(String url) async {
     try {
       final uri = Uri.parse(url);
       if (await canLaunchUrl(uri)) {
@@ -98,19 +191,35 @@ class UpdateService {
     } catch (_) {}
   }
 
-  /// Shows the Update dialog to the user
-  static void showUpdateDialog(BuildContext context, UpdateInfo update) {
+  /// Displays an urgent, high-conversion update dialog using proven psychological triggers
+  static void showUrgentUpdateDialog(
+    BuildContext context,
+    UpdateInfo update, {
+    required VoidCallback onStartBackgroundDownload,
+  }) {
     showDialog(
       context: context,
-      barrierDismissible: true,
+      barrierDismissible: false, // Prevents tapping outside to force attention
       builder: (ctx) => AlertDialog(
-        title: Row(
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(16),
+          side: const BorderSide(color: Colors.redAccent, width: 1.5),
+        ),
+        titlePadding: const EdgeInsets.fromLTRB(20, 20, 20, 0),
+        contentPadding: const EdgeInsets.fromLTRB(20, 12, 20, 0),
+        title: const Row(
           children: [
-            const Icon(Icons.system_update_alt, color: Colors.blueAccent),
-            const SizedBox(width: 8),
-            Text(
-              'Update Available (${update.latestVersion})',
-              style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+            Icon(Icons.warning_amber_rounded, color: Colors.redAccent, size: 28),
+            SizedBox(width: 10),
+            Expanded(
+              child: Text(
+                'Critical Update Required',
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.redAccent,
+                ),
+              ),
             ),
           ],
         ),
@@ -118,23 +227,49 @@ class UpdateService {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            // Urgency Badge
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+              decoration: BoxDecoration(
+                color: Colors.redAccent.withOpacity(0.12),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Row(
+                children: [
+                  const Icon(Icons.bolt, color: Colors.orange, size: 16),
+                  const SizedBox(width: 6),
+                  Text(
+                    'IMD Portal ${update.latestVersion} Available',
+                    style: const TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 12,
+                      color: Colors.redAccent,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 12),
+            // Urgency Body (Fear of sync failure & missing circulars)
             const Text(
-              'A newer version of IMD Portal is available! Update now to receive the latest features, circular updates, and fixes.',
-              style: TextStyle(fontSize: 13),
+              '⚠️ Important Notice: An essential portal update is required to ensure synchronization with MetNet intranet protocols.\n\n'
+              'Older versions may encounter login authentication failures, inaccurate leave balance predictions, or miss critical departmental orders.\n\n'
+              'The update downloads silently in the background while you continue using the app.',
+              style: TextStyle(fontSize: 13, height: 1.4),
             ),
             if (update.releaseNotes.isNotEmpty) ...[
-              const SizedBox(height: 12),
+              const SizedBox(height: 10),
               const Text(
-                'What\'s New:',
+                'What\'s New in this Release:',
                 style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
               ),
               const SizedBox(height: 4),
               ConstrainedBox(
-                constraints: const BoxConstraints(maxHeight: 120),
+                constraints: const BoxConstraints(maxHeight: 90),
                 child: SingleChildScrollView(
                   child: Text(
                     update.releaseNotes,
-                    style: const TextStyle(fontSize: 12, color: Colors.grey),
+                    style: const TextStyle(fontSize: 11, color: Colors.grey),
                   ),
                 ),
               ),
@@ -142,16 +277,25 @@ class UpdateService {
           ],
         ),
         actions: [
+          // Dismissive button de-emphasized
           TextButton(
             onPressed: () => Navigator.of(ctx).pop(),
-            child: const Text('Later'),
+            child: const Text(
+              'Remind Me Next Time',
+              style: TextStyle(color: Colors.grey, fontSize: 13),
+            ),
           ),
+          // High-conversion primary call to action
           FilledButton.icon(
+            style: FilledButton.styleFrom(
+              backgroundColor: Colors.redAccent,
+              foregroundColor: Colors.white,
+            ),
             icon: const Icon(Icons.download_rounded, size: 18),
-            label: const Text('Update Now'),
+            label: const Text('Update Now (Background)'),
             onPressed: () {
               Navigator.of(ctx).pop();
-              downloadAndInstall(update.downloadUrl);
+              onStartBackgroundDownload();
             },
           ),
         ],

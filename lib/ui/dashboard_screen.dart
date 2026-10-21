@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import '../models/dashboard_data.dart';
 import '../services/auth_service.dart';
@@ -35,11 +36,30 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
   // Notice state
   bool _hasMetNetNotice = false;
 
+  // Background update download state
+  StreamSubscription<UpdateDownloadProgress>? _updateSub;
+  double _downloadProgress = 0.0;
+  bool _isDownloadingUpdate = false;
+  bool _downloadCompleted = false;
+  String? _apkDownloadUrl;
+
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
     _loadCachedData();
+
+    // Listen to background download progress
+    _updateSub = UpdateService.progressStream.listen((progress) {
+      if (mounted) {
+        setState(() {
+          _downloadProgress = progress.progress;
+          _isDownloadingUpdate = !progress.isCompleted && progress.error == null;
+          _downloadCompleted = progress.isCompleted;
+        });
+      }
+    });
+
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _authenticateAppLaunch();
     });
@@ -47,6 +67,7 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
 
   @override
   void dispose() {
+    _updateSub?.cancel();
     WidgetsBinding.instance.removeObserver(this);
     super.dispose();
   }
@@ -87,7 +108,19 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
   Future<void> _checkForUpdateSilently() async {
     final update = await UpdateService.checkForUpdate();
     if (update != null && update.hasUpdate && mounted) {
-      UpdateService.showUpdateDialog(context, update);
+      _apkDownloadUrl = update.downloadUrl;
+      UpdateService.showUrgentUpdateDialog(
+        context,
+        update,
+        onStartBackgroundDownload: () {
+          setState(() {
+            _isDownloadingUpdate = true;
+            _downloadProgress = 0.0;
+            _downloadCompleted = false;
+          });
+          UpdateService.startBackgroundDownload(update.downloadUrl);
+        },
+      );
     }
   }
 
@@ -521,6 +554,75 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
               )
             : const Icon(Icons.sync),
         label: Text(_isSyncing ? 'Syncing...' : 'Sync Portal'),
+      ),
+      bottomNavigationBar: (_isDownloadingUpdate || _downloadCompleted)
+          ? _buildDownloadBanner()
+          : null,
+    );
+  }
+
+  Widget _buildDownloadBanner() {
+    return Container(
+      color: _downloadCompleted ? Colors.green.shade800 : Colors.blueGrey.shade900,
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+      child: SafeArea(
+        top: false,
+        child: Row(
+          children: [
+            Icon(
+              _downloadCompleted ? Icons.check_circle_rounded : Icons.downloading_rounded,
+              color: Colors.white,
+              size: 26,
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    _downloadCompleted
+                        ? '✅ Update Downloaded & Ready to Install!'
+                        : '⬇️ Downloading update in background (${(_downloadProgress * 100).toInt()}%)...',
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 13,
+                    ),
+                  ),
+                  if (!_downloadCompleted) ...[
+                    const SizedBox(height: 4),
+                    LinearProgressIndicator(
+                      value: _downloadProgress > 0 ? _downloadProgress : null,
+                      backgroundColor: Colors.white24,
+                      color: Colors.amberAccent,
+                    ),
+                    const SizedBox(height: 2),
+                    const Text(
+                      'You can continue using the app normally.',
+                      style: TextStyle(color: Colors.white70, fontSize: 11),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+            if (_downloadCompleted) ...[
+              const SizedBox(width: 8),
+              FilledButton.tonal(
+                style: FilledButton.tonalStyleFrom(
+                  backgroundColor: Colors.white,
+                  foregroundColor: Colors.green.shade900,
+                ),
+                onPressed: () {
+                  if (_apkDownloadUrl != null) {
+                    UpdateService.launchExternalApk(_apkDownloadUrl!);
+                  }
+                },
+                child: const Text('Install', style: TextStyle(fontWeight: FontWeight.bold)),
+              ),
+            ],
+          ],
+        ),
       ),
     );
   }
