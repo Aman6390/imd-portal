@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'package:http/http.dart' as http;
+import '../../models/dashboard_data.dart';
+import '../../services/circular_service.dart';
 import '../../services/storage_service.dart';
 import '../../services/update_service.dart';
 
@@ -32,6 +35,7 @@ class _SettingsDialogState extends State<SettingsDialog> {
   bool _obscurePassword = true;
   bool _isLoading = true;
   bool _isCheckingUpdate = false;
+  bool _isDiagnosticsUnlocked = false;
 
   @override
   void initState() {
@@ -52,6 +56,7 @@ class _SettingsDialogState extends State<SettingsDialog> {
     final (user, pass) = await StorageService.loadCredentials();
     final vip = await StorageService.loadVipKeywords();
     final junk = await StorageService.loadJunkKeywords();
+    final diagUnlocked = await StorageService.isDiagnosticsUnlocked();
 
     if (mounted) {
       setState(() {
@@ -59,9 +64,228 @@ class _SettingsDialogState extends State<SettingsDialog> {
         _passwordController.text = pass;
         _vipKeywords = List<String>.from(vip);
         _junkKeywords = List<String>.from(junk);
+        _isDiagnosticsUnlocked = diagUnlocked;
         _isLoading = false;
       });
     }
+  }
+
+  void _showUnlockKeyPrompt() {
+    final keyController = TextEditingController();
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: const Row(
+          children: [
+            Icon(Icons.vpn_key_rounded, color: Colors.amber, size: 24),
+            SizedBox(width: 10),
+            Text('Enter Access Key', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'Enter the 4-digit key to unlock troubleshooting and diagnostic tools.',
+              style: TextStyle(fontSize: 13, height: 1.4),
+            ),
+            const SizedBox(height: 16),
+            TextField(
+              controller: keyController,
+              keyboardType: TextInputType.number,
+              obscureText: true,
+              autofocus: true,
+              decoration: InputDecoration(
+                hintText: 'Enter 4-digit Key',
+                border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                prefixIcon: const Icon(Icons.lock_outline),
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () async {
+              final key = keyController.text.trim();
+              if (key == '6390') {
+                await StorageService.setDiagnosticsUnlocked(true);
+                if (mounted) {
+                  setState(() {
+                    _isDiagnosticsUnlocked = true;
+                  });
+                }
+                Navigator.of(ctx).pop();
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text('🎉 Developer & Troubleshooting Tools Unlocked!'),
+                    backgroundColor: Colors.green,
+                  ),
+                );
+              } else {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text('❌ Invalid key. Access denied.'),
+                    backgroundColor: Colors.redAccent,
+                  ),
+                );
+              }
+            },
+            child: const Text('Unlock'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _testPortalConnection() async {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) => const Center(
+        child: Card(
+          child: Padding(
+            padding: EdgeInsets.all(20),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                CircularProgressIndicator(),
+                SizedBox(width: 16),
+                Text('Testing connection to MetNet...'),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+
+    final stopwatch = Stopwatch()..start();
+    String statusMessage = '';
+    bool isSuccess = false;
+
+    try {
+      final response = await http.get(
+        Uri.parse('https://metnet.imd.gov.in/phps/left1.php'),
+        headers: {
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+        },
+      ).timeout(const Duration(seconds: 10));
+      stopwatch.stop();
+
+      if (response.statusCode == 200) {
+        final hasPublicKey = response.body.contains('id="publicKey"');
+        isSuccess = true;
+        statusMessage = '✅ MetNet Portal Online (HTTP 200)\n'
+            '• Response Time: ${stopwatch.elapsedMilliseconds} ms\n'
+            '• RSA Encryption Form: ${hasPublicKey ? "Ready & Functional" : "Not Detected"}\n'
+            '• Server: Apache on Linux';
+      } else {
+        statusMessage = '⚠️ Server responded with HTTP ${response.statusCode}';
+      }
+    } catch (e) {
+      statusMessage = '❌ Could not reach MetNet server: $e\n\nEnsure mobile data or office Wi-Fi has connectivity.';
+    }
+
+    if (context.mounted) {
+      Navigator.of(context, rootNavigator: true).pop(); // dismiss loading
+      showDialog(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          title: Row(
+            children: [
+              Icon(isSuccess ? Icons.check_circle_outline : Icons.error_outline,
+                  color: isSuccess ? Colors.green : Colors.redAccent, size: 24),
+              const SizedBox(width: 10),
+              const Text('Portal Connection Test', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+            ],
+          ),
+          content: Text(statusMessage, style: const TextStyle(fontSize: 13, height: 1.5)),
+          actions: [
+            FilledButton(
+              onPressed: () => Navigator.of(ctx).pop(),
+              child: const Text('OK'),
+            ),
+          ],
+        ),
+      );
+    }
+  }
+
+  Future<void> _clearOfflineDocuments() async {
+    final deleted = await CircularService.clearDownloadedCache();
+    if (context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('🧹 Cleaned up $deleted offline cached document(s).'),
+          duration: const Duration(seconds: 3),
+        ),
+      );
+    }
+  }
+
+  Future<void> _showOcrSandbox() async {
+    final data = await StorageService.loadDashboardData();
+    final items = <CircularItem>[];
+    if (data != null) {
+      items.addAll(data.vipCirculars);
+      items.addAll(data.fomoCirculars);
+    }
+
+    if (!context.mounted) return;
+
+    if (items.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('No circulars available to inspect. Please sync the portal first.')),
+      );
+      return;
+    }
+
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: const Row(
+          children: [
+            Icon(Icons.document_scanner_rounded, color: Colors.purpleAccent, size: 22),
+            SizedBox(width: 10),
+            Text('Pick Circular to Inspect', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+          ],
+        ),
+        content: SizedBox(
+          width: double.maxFinite,
+          child: ListView.separated(
+            shrinkWrap: true,
+            itemCount: items.take(8).length,
+            separatorBuilder: (_, __) => const Divider(height: 1),
+            itemBuilder: (context, index) {
+              final itm = items[index];
+              return ListTile(
+                dense: true,
+                title: Text(itm.title, maxLines: 2, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 12)),
+                subtitle: Text('Uploaded: ${itm.date}', style: const TextStyle(fontSize: 10)),
+                trailing: const Icon(Icons.arrow_forward_ios, size: 14),
+                onTap: () {
+                  Navigator.of(ctx).pop();
+                  CircularService.inspectCircularOcr(context, itm);
+                },
+              );
+            },
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(),
+            child: const Text('Close'),
+          ),
+        ],
+      ),
+    );
   }
 
   void _addVipKeyword() {
@@ -387,14 +611,14 @@ class _SettingsDialogState extends State<SettingsDialog> {
                         borderRadius: BorderRadius.circular(8),
                         border: Border.all(color: Colors.green.shade600, width: 1),
                       ),
-                      child: const Row(
+                      child: Row(
                         children: [
-                          Icon(Icons.volunteer_activism_rounded, color: Colors.green, size: 20),
-                          SizedBox(width: 8),
+                          const Icon(Icons.volunteer_activism_rounded, color: Colors.green, size: 20),
+                          const SizedBox(width: 8),
                           Expanded(
                             child: Text(
-                              'Free Edition for Meteorological Staff (v1.3.0)',
-                              style: TextStyle(
+                              'Free Edition for Meteorological Staff (v${UpdateService.currentVersion})',
+                              style: const TextStyle(
                                 fontWeight: FontWeight.bold,
                                 color: Colors.green,
                                 fontSize: 13,
@@ -462,10 +686,10 @@ class _SettingsDialogState extends State<SettingsDialog> {
                                   UpdateService.showUpdateDialog(context, update);
                                 } else if (update != null) {
                                   ScaffoldMessenger.of(context).showSnackBar(
-                                    const SnackBar(
+                                    SnackBar(
                                       content: Text('✅ You are running the latest version (v${UpdateService.currentVersion})!'),
                                       backgroundColor: Colors.green,
-                                      duration: Duration(seconds: 3),
+                                      duration: const Duration(seconds: 3),
                                     ),
                                   );
                                 } else {
@@ -497,12 +721,106 @@ class _SettingsDialogState extends State<SettingsDialog> {
                     const SizedBox(height: 16),
                     const Text('Developer Information', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
                     const SizedBox(height: 6),
-                    const Text(
+                    Text(
                       'Designed & Developed by Aman (Aman6390).\n'
                       'Built to simplify daily departmental tracking and streamline intranet access for colleagues.\n'
-                      'Version: 1.3.0 (Release Build)',
-                      style: TextStyle(fontSize: 12, color: Colors.grey, height: 1.4),
+                      'Version: ${UpdateService.currentVersion} (Release Build)',
+                      style: const TextStyle(fontSize: 12, color: Colors.grey, height: 1.4),
                     ),
+
+                    // Diagnostic Tools Section (Protected by Key 6390)
+                    if (_isDiagnosticsUnlocked) ...[
+                      const Divider(height: 24),
+                      Container(
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: Colors.purple.withOpacity(0.08),
+                          borderRadius: BorderRadius.circular(10),
+                          border: Border.all(color: Colors.purple.withOpacity(0.3)),
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                const Row(
+                                  children: [
+                                    Icon(Icons.build_circle_outlined, color: Colors.purpleAccent, size: 20),
+                                    SizedBox(width: 8),
+                                    Text(
+                                      'Troubleshooting Tools',
+                                      style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: Colors.purpleAccent),
+                                    ),
+                                  ],
+                                ),
+                                IconButton(
+                                  icon: const Icon(Icons.lock, size: 18, color: Colors.grey),
+                                  tooltip: 'Re-lock diagnostic tools',
+                                  onPressed: () async {
+                                    await StorageService.setDiagnosticsUnlocked(false);
+                                    setState(() {
+                                      _isDiagnosticsUnlocked = false;
+                                    });
+                                    if (context.mounted) {
+                                      ScaffoldMessenger.of(context).showSnackBar(
+                                        const SnackBar(
+                                          content: Text('🔒 Diagnostic tools locked.'),
+                                          duration: Duration(seconds: 2),
+                                        ),
+                                      );
+                                    }
+                                  },
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 4),
+                            ListTile(
+                              dense: true,
+                              contentPadding: EdgeInsets.zero,
+                              leading: const Icon(Icons.network_check_rounded, color: Colors.blueAccent),
+                              title: const Text('Check Portal Connection', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
+                              subtitle: const Text('Ping MetNet server & check RSA encryption availability', style: TextStyle(fontSize: 11)),
+                              trailing: const Icon(Icons.chevron_right, size: 18),
+                              onTap: _testPortalConnection,
+                            ),
+                            const Divider(height: 1),
+                            ListTile(
+                              dense: true,
+                              contentPadding: EdgeInsets.zero,
+                              leading: const Icon(Icons.cleaning_services_rounded, color: Colors.amber),
+                              title: const Text('Clear Downloaded Documents', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
+                              subtitle: const Text('Free up storage by clearing locally cached circular PDFs', style: TextStyle(fontSize: 11)),
+                              trailing: const Icon(Icons.chevron_right, size: 18),
+                              onTap: _clearOfflineDocuments,
+                            ),
+                            const Divider(height: 1),
+                            ListTile(
+                              dense: true,
+                              contentPadding: EdgeInsets.zero,
+                              leading: const Icon(Icons.document_scanner_rounded, color: Colors.green),
+                              title: const Text('Scanned Notice Text Inspector', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
+                              subtitle: const Text('Pick a circular to inspect extracted Devanagari/English text & AI summary', style: TextStyle(fontSize: 11)),
+                              trailing: const Icon(Icons.chevron_right, size: 18),
+                              onTap: _showOcrSandbox,
+                            ),
+                          ],
+                        ),
+                      ),
+                    ] else ...[
+                      const SizedBox(height: 12),
+                      Align(
+                        alignment: Alignment.centerLeft,
+                        child: TextButton.icon(
+                          icon: const Icon(Icons.build_outlined, size: 14, color: Colors.grey),
+                          label: const Text(
+                            'Diagnostic Tools (Key Required)',
+                            style: TextStyle(fontSize: 11, color: Colors.grey),
+                          ),
+                          onPressed: _showUnlockKeyPrompt,
+                        ),
+                      ),
+                    ],
                   ],
                 ),
               ),

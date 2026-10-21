@@ -1,6 +1,6 @@
 # 🚀 PROJECT MASTER BLUEPRINT: Meteorological Portal Android Application
 
-> **Project Status:** Production Ready — 100% Free & Open Edition (v1.3.6)  
+> **Project Status:** Production Ready — 100% Free & Open Edition (v1.3.7)  
 > **Target Platform:** Native Android (Flutter / Kotlin) [Why: Guarantees broad compatibility with all modern Android smartphones used by staff]  
 > **Output Release Artifact:** `build/app/outputs/flutter-apk/app-release.apk` [Why: Standard Android standalone package format for direct distribution]  
 > **CI/CD Pipeline:** GitHub Actions Automated Cloud Build (`Aman6390/imd-portal`) [Why: Eliminates the need for a high-end development computer by compiling APKs in the cloud automatically]  
@@ -191,7 +191,20 @@
 
 ---
 
-## 10. Automated Cloud Build & CI/CD Pipeline
+## 10. Key 6390 Diagnostic & Troubleshooting Suite (Discreet Protected Tools)
+
+[Why: In enterprise field deployment across meteorological stations, employees occasionally experience network timeouts or question whether scanned Hindi orders are being OCR'd accurately. Exposing complex debug interfaces directly would confuse non-technical users; shielding all diagnostic tools behind a discreet 4-digit key (`6390`) guarantees a serene, clean interface for normal users while granting immediate diagnostic power to administrators and developers.]
+
+* **Discreet Access Guard (Key `6390`):** [Why: Prevents accidental activation and keeps Settings Tab 4 uncluttered. Unlocking requires entering key `6390`, persisted securely in local storage via `StorageService.isDiagnosticsUnlocked()`].
+* **Tool 1: Real-Time MetNet Server Connectivity & Latency Ping:** [Why: Instantly distinguishes between local Wi-Fi/cellular connection drops and MetNet server downtime by pinging `https://metnet.imd.gov.in/phps/left1.php`, clocking response round-trip time in milliseconds, and validating dynamic RSA encryption form readiness].
+* **Tool 2: Offline Document Storage Cleaner:** [Why: Over months of active use, locally cached circular PDFs can occupy significant phone storage. Provides a safe 1-tap cache cleaner that purges cached PDFs without touching credentials or saved settings].
+* **Tool 3: Scanned Notice Text Inspector (Devanagari OCR Sandbox):** [Why: Resolves user doubts regarding OCR accuracy on blurry or skewed scanned Hindi notices. Allows selecting any circular from the last 30 days to view full Google ML Kit Devanagari/Latin extracted text and highlights all matched VIP keywords in real time].
+* **Tool 4: Circular Item Diagnostic Action Sheet (Long-Press):** [Why: Normal users copy the circular link upon long-pressing any circular tile; once key `6390` is unlocked, long-pressing opens an interactive diagnostic modal offering to inspect OCR text & summary, launch the document in PDF viewer, or copy the link].
+* **Instant Re-Lock Safeguard:** [Why: Allows the user or developer to immediately lock the diagnostic tools again with a single tap on the lock icon, returning the app to its pristine standard user experience].
+
+---
+
+## 11. Automated Cloud Build & CI/CD Pipeline
 
 * **Repository (`Aman6390/imd-portal`):** [Why: Secure central hosting for code, documentation, and releases].
 * **GitHub Actions Workflow (`build_apk.yml`):** [Why: Runs on `ubuntu-latest` with Zulu JDK 17 and Flutter `3.24.3`, allocating 4GB heap to compile production APKs in under 5 minutes].
@@ -199,7 +212,7 @@
 
 ---
 
-## 11. Codebase File Structure
+## 12. Codebase File Structure
 
 ```
 E:\imd portal\
@@ -265,7 +278,7 @@ E:\imd portal\
 
 ---
 
-## 12. Version History & Release Changelog
+## 13. Version History & Release Changelog
 
 | Version | Build Code | Date | Key Architectural Changes & [Why We Made Them] |
 | :--- | :--- | :--- | :--- |
@@ -279,10 +292,11 @@ E:\imd portal\
 | **v1.3.4** | `1.3.4+7` | Oct 2026 | **Push Notification-Driven Updates:** Introduced system notification shade integration via `NotificationService.dart` & `BackgroundSyncService.dart`. Notification 201 prompts download; Notification 202 provides 1-tap install directly from the notification tray. [Why: Allowed colleagues to update the app directly from their notification shade with one tap] |
 | **v1.3.5** | `1.3.5+8` | Oct 2026 | **Intelligent Circular Downloader & Sibling Fallback (Step 1):** Introduced `CircularService.dart`. Added `%PDF` magic byte verification, automatic multi-path sibling URL discovery (`/docs/`, `/phps/docs/`, `/Welcome_to_Intra-IMD/docs/`), authenticated session fallback, in-app modal handling for 404 withdrawn circulars, and native PDF launching via `FileProvider`. [Why: Completely solved the 'Not Found' Apache error when tapping circulars, and badged withdrawn notices clearly] |
 | **v1.3.6** | `1.3.6+9` | Oct 2026 | **Permanent Release Keystore Signing:** Generated official 30-year `release.keystore` (alias `metnetkey`, valid until 2054) and configured `signingConfigs.release` in Gradle. Added dedicated vector icon `ic_stat_notification.xml` and runtime notification permission request. [Why: Permanently fixed 'App not installed as package conflicts with an existing package' caused by ephemeral cloud runner debug keys] |
+| **v1.3.7** | `1.3.7+10` | Oct 2026 | **Key 6390 Troubleshooting Tools & Scanned Notice OCR Sandbox:** Embedded discreet developer/troubleshooting suite protected by key `6390`. Features live MetNet server connectivity & latency ping, offline document cache cleaner, scanned notice text inspector (Devanagari OCR & VIP keyword preview), and circular item long-press diagnostic action sheet. [Why: Gives developers and advanced users complete diagnostic transparency into network latency and OCR accuracy without cluttering the clean, non-technical experience for regular staff] |
 
 ---
 
-## 13. Historical Reference Python Source Code
+## 14. Historical Reference Python Source Code
 
 *(Retained for mechanical audit and verification against original Python prototype)*
 

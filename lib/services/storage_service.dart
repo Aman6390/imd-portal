@@ -8,6 +8,7 @@ class StorageService {
   static const String _keyPassword = 'imd_password';
   static const String _keyDashboardData = 'imd_dashboard_data';
   static const String _keyThemeMode = 'imd_theme_mode';
+  static const String _keyDiagnosticsUnlocked = 'imd_diagnostics_unlocked';
   static const String _keyVipKeywords = 'imd_vip_keywords';
   static const String _keyJunkKeywords = 'imd_junk_keywords';
   static const String _keyOcrCache = 'imd_ocr_cache';
@@ -186,5 +187,23 @@ class StorageService {
     final prefs = await SharedPreferences.getInstance();
     final mode = prefs.getString(_keyThemeMode);
     return mode != 'light'; // Default is dark theme
+  }
+
+  /// Checks if developer and diagnostic troubleshooting tools are unlocked (Key 6390)
+  static Future<bool> isDiagnosticsUnlocked() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      return prefs.getBool(_keyDiagnosticsUnlocked) ?? false;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  /// Sets whether developer and diagnostic tools are active
+  static Future<void> setDiagnosticsUnlocked(bool unlocked) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setBool(_keyDiagnosticsUnlocked, unlocked);
+    } catch (_) {}
   }
 }

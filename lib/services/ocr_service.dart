@@ -54,4 +54,33 @@ class OcrService {
       }
     }
   }
+
+  /// Runs on-device Devanagari OCR directly on a local PDF file
+  static Future<String> processLocalPdfFile(String filePath) async {
+    try {
+      final file = File(filePath);
+      if (!await file.exists() || await file.length() < 100) {
+        return '';
+      }
+
+      final String? imagePath = await _pdfChannel.invokeMethod<String>(
+        'renderFirstPage',
+        {'pdfPath': filePath},
+      );
+
+      if (imagePath == null || imagePath.isEmpty) {
+        return '';
+      }
+
+      final inputImage = InputImage.fromFilePath(imagePath);
+      final textRecognizer = TextRecognizer(script: TextRecognitionScript.devanagiri);
+      final RecognizedText recognizedText = await textRecognizer.processImage(inputImage);
+      await textRecognizer.close();
+
+      return recognizedText.text;
+    } catch (e) {
+      print('Local OCR processing error: $e');
+      return '';
+    }
+  }
 }

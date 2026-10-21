@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../../models/dashboard_data.dart';
 import '../../services/circular_service.dart';
+import '../../services/storage_service.dart';
 
 class CircularTabs extends StatefulWidget {
   final List<CircularItem> vipCirculars;
@@ -199,14 +200,84 @@ class _CircularTabsState extends State<CircularTabs> {
             onPressed: () => _handleCircularTap(context, item),
           ),
           onTap: () => _handleCircularTap(context, item),
-          onLongPress: () {
-            Clipboard.setData(ClipboardData(text: item.link));
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(
-                content: Text('Circular link copied to clipboard!'),
-                duration: Duration(seconds: 2),
-              ),
-            );
+          onLongPress: () async {
+            final isUnlocked = await StorageService.isDiagnosticsUnlocked();
+            if (!context.mounted) return;
+
+            if (isUnlocked) {
+              showModalBottomSheet(
+                context: context,
+                shape: const RoundedRectangleBorder(
+                  borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+                ),
+                builder: (ctx) => SafeArea(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Container(
+                        width: 40,
+                        height: 4,
+                        margin: const EdgeInsets.only(top: 8, bottom: 8),
+                        decoration: BoxDecoration(
+                          color: Colors.grey.shade600,
+                          borderRadius: BorderRadius.circular(2),
+                        ),
+                      ),
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                        child: Text(
+                          item.title,
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                        ),
+                      ),
+                      const Divider(height: 1),
+                      ListTile(
+                        leading: const Icon(Icons.document_scanner_rounded, color: Colors.purpleAccent),
+                        title: const Text('Inspect Scanned Text (AI OCR Summary)', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
+                        subtitle: const Text('View recognized Devanagari/English text & matched VIP keywords', style: TextStyle(fontSize: 11)),
+                        onTap: () {
+                          Navigator.of(ctx).pop();
+                          CircularService.inspectCircularOcr(context, item);
+                        },
+                      ),
+                      ListTile(
+                        leading: const Icon(Icons.open_in_new, color: Colors.blueAccent),
+                        title: const Text('Open / Download Document', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
+                        subtitle: const Text('Download or launch in default PDF viewer', style: TextStyle(fontSize: 11)),
+                        onTap: () {
+                          Navigator.of(ctx).pop();
+                          _handleCircularTap(context, item);
+                        },
+                      ),
+                      ListTile(
+                        leading: const Icon(Icons.copy, color: Colors.grey),
+                        title: const Text('Copy Direct Link', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
+                        onTap: () {
+                          Clipboard.setData(ClipboardData(text: item.link));
+                          Navigator.of(ctx).pop();
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text('Circular link copied to clipboard!'),
+                              duration: Duration(seconds: 2),
+                            ),
+                          );
+                        },
+                      ),
+                    ],
+                  ),
+                ),
+              );
+            } else {
+              Clipboard.setData(ClipboardData(text: item.link));
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                  content: Text('Circular link copied to clipboard!'),
+                  duration: Duration(seconds: 2),
+                ),
+              );
+            }
           },
         );
       },

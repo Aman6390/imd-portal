@@ -5,6 +5,7 @@ import 'package:html/parser.dart' as html_parser;
 import 'package:http/http.dart' as http;
 import 'package:path_provider/path_provider.dart';
 import '../models/dashboard_data.dart';
+import 'ocr_service.dart';
 import 'rsa_crypto.dart';
 import 'scraper_engine.dart';
 import 'storage_service.dart';
@@ -283,6 +284,168 @@ class CircularService {
             child: const Text('OK'),
           ),
         ],
+      ),
+    );
+  }
+
+  /// Clears all downloaded circular PDF documents from cache
+  static Future<int> clearDownloadedCache() async {
+    int deletedCount = 0;
+    try {
+      final circularsDir = await _getCircularsDirectory();
+      if (await circularsDir.exists()) {
+        final files = circularsDir.listSync();
+        for (final file in files) {
+          if (file is File) {
+            try {
+              file.deleteSync();
+              deletedCount++;
+            } catch (_) {}
+          }
+        }
+      }
+    } catch (_) {}
+    return deletedCount;
+  }
+
+  /// Inspects and displays the scanned text recognized by Google ML Kit Devanagari OCR
+  static Future<void> inspectCircularOcr(BuildContext context, CircularItem item) async {
+    // Show non-blocking loading dialog
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) => const Center(
+        child: Card(
+          child: Padding(
+            padding: EdgeInsets.all(20),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                CircularProgressIndicator(),
+                SizedBox(width: 16),
+                Text('Running AI OCR on scanned notice...'),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+
+    final circularsDir = await _getCircularsDirectory();
+    final filename = _getLocalFilename(item.link);
+    final localFile = File('${circularsDir.path}/$filename');
+
+    // Ensure the file is downloaded locally
+    if (!await localFile.exists() || await localFile.length() < 500) {
+      await openOrDownloadCircular(context, item);
+    }
+
+    String recognizedText = '';
+    if (await localFile.exists() && await localFile.length() > 500) {
+      recognizedText = await OcrService.processLocalPdfFile(localFile.path);
+    }
+
+    if (context.mounted) {
+      Navigator.of(context, rootNavigator: true).pop(); // dismiss loading
+    }
+
+    if (!context.mounted) return;
+
+    final vipKeywords = await StorageService.loadVipKeywords();
+    final lowerText = recognizedText.toLowerCase();
+    final matchedKeywords = vipKeywords.where((k) => lowerText.contains(k.toLowerCase())).toList();
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (ctx) => DraggableScrollableSheet(
+        initialChildSize: 0.65,
+        minChildSize: 0.4,
+        maxChildSize: 0.9,
+        expand: false,
+        builder: (_, scrollController) => Padding(
+          padding: const EdgeInsets.fromLTRB(20, 16, 20, 20),
+          child: ListView(
+            controller: scrollController,
+            children: [
+              Center(
+                child: Container(
+                  width: 40,
+                  height: 4,
+                  margin: const EdgeInsets.only(bottom: 16),
+                  decoration: BoxDecoration(
+                    color: Colors.grey.shade600,
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+              ),
+              const Row(
+                children: [
+                  Icon(Icons.document_scanner_rounded, color: Colors.purpleAccent, size: 24),
+                  SizedBox(width: 10),
+                  Text(
+                    'Document Summary (AI Scanner)',
+                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+              Text(
+                item.title,
+                style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
+              ),
+              const SizedBox(height: 12),
+              if (matchedKeywords.isNotEmpty) ...[
+                const Text('Matched VIP Keywords:', style: TextStyle(fontSize: 12, color: Colors.amber, fontWeight: FontWeight.bold)),
+                const SizedBox(height: 6),
+                Wrap(
+                  spacing: 6,
+                  children: matchedKeywords
+                      .map((kw) => Chip(
+                            label: Text(kw, style: const TextStyle(fontSize: 11)),
+                            backgroundColor: Colors.amber.withOpacity(0.15),
+                            side: BorderSide(color: Colors.amber.shade700),
+                            visualDensity: VisualDensity.compact,
+                          ))
+                      .toList(),
+                ),
+                const SizedBox(height: 12),
+              ],
+              const Text('Recognized Text Preview (Hindi / English):', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+              const SizedBox(height: 6),
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.black26,
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(color: Colors.white12),
+                ),
+                child: Text(
+                  recognizedText.isNotEmpty
+                      ? recognizedText
+                      : 'No text could be extracted or file is a blank scanned page.',
+                  style: const TextStyle(fontSize: 12, height: 1.4, fontFamily: 'monospace'),
+                ),
+              ),
+              const SizedBox(height: 16),
+              if (recognizedText.isNotEmpty)
+                FilledButton.tonalIcon(
+                  icon: const Icon(Icons.copy, size: 16),
+                  label: const Text('Copy Extracted Text'),
+                  onPressed: () {
+                    Clipboard.setData(ClipboardData(text: recognizedText));
+                    Navigator.of(ctx).pop();
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text('Extracted text copied to clipboard!')),
+                    );
+                  },
+                ),
+            ],
+          ),
+        ),
       ),
     );
   }
