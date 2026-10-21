@@ -1,7 +1,7 @@
 name: imd_portal
 description: "A native Flutter dashboard app for meteorological staff and employees."
 publish_to: "none"
-version: 1.3.4+7
+version: 1.3.5+8
 
 environment:
   sdk: ">=3.0.0 <4.0.0"

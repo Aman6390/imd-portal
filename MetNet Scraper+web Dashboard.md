@@ -1,6 +1,6 @@
 # 🚀 PROJECT MASTER BLUEPRINT: Meteorological Portal Android Application
 
-> **Project Status:** Production Ready — 100% Free & Open Edition (v1.3.4)  
+> **Project Status:** Production Ready — 100% Free & Open Edition (v1.3.5)  
 > **Target Platform:** Native Android (Flutter / Kotlin)  
 > **Output Release Artifact:** `build/app/outputs/flutter-apk/app-release.apk`  
 > **CI/CD Pipeline:** GitHub Actions Automated Cloud Build (`Aman6390/imd-portal`)  
@@ -132,7 +132,22 @@
 6. **RFC-Compliant Link Resolution & Android 11+ Package Visibility:**
    * Resolves relative and root-relative PDF links using `Uri.parse(sourceBaseUrl).resolve(rawHref).toString()`, completely preventing broken URL string concatenation bugs (e.g. invalid domains).
    * Declares explicit `<queries>` for `http` and `https` in `AndroidManifest.xml` ensuring `canLaunchUrl` operates smoothly on Android 11, 12, 13, 14, and 15 devices.
-   * Implements a 4-tier fail-safe launch chain: External App (Adobe / Drive / Chrome) $\rightarrow$ In-App WebView $\rightarrow$ Platform Default $\rightarrow$ Clipboard Link Copy with one-tap user feedback.
+7. **Intelligent In-App Downloader & Sibling Fallback (`CircularService.dart`):**
+   * Eliminates unauthenticated browser redirects that triggered Apache 404 "Not Found" errors.
+   * **Pre-flight Magic Bytes Verification:** Inspects downloaded byte streams for the `%PDF` signature (`0x25 0x50 0x44 0x46`), discarding deceptive HTML error pages that return HTTP 200.
+   * **Intelligent Sibling Path Probing:** If a document link returns 404, automatically tests alternative MetNet server paths in milliseconds:
+     * `https://metnet.imd.gov.in/docs/<filename>`
+     * `https://metnet.imd.gov.in/phps/docs/<filename>`
+     * `https://metnet.imd.gov.in/Welcome_to_Intra-IMD/docs/<filename>`
+     * Decoded URI representations (preventing double-encoded `%20` space anomalies).
+   * **Authenticated Intranet Session Fallback:** If public requests fail, dispatches requests through `SessionHttpClient` with valid employee `PHPSESSID` session cookies.
+8. **Graceful Handling of Withdrawn / Removed Notices (404 Interception):**
+   * Catches instances where portal database entries exist but physical PDF files have been withdrawn or deleted by departmental staff.
+   * Instead of dumping users onto an external browser error page, displays an in-app informative dialog: **⚠️ Notice Unavailable on Server** (*"This document was listed on MetNet, but the PDF file has been removed or withdrawn from the server by the department"*).
+   * Updates state with `item.isUnavailable = true`, showing an amber warning icon, strikethrough title, and `⚠️ Withdrawn on Portal` badge.
+9. **Native PDF Launch via Android FileProvider & Local Offline Cache:**
+   * Caches verified PDF files in the app's external cache (`/circulars/`) ensuring documents open offline instantaneously on future taps.
+   * Directly invokes the user's preferred PDF viewer (Drive PDF Viewer, Adobe Acrobat, etc.) via Android `FileProvider` (`com.example.imd_portal.fileprovider`) and `ACTION_VIEW` (`application/pdf`) without leaving the app environment.
 
 ---
 
@@ -303,6 +318,7 @@ E:\imd portal\
 │   ├── services\
 │   │   ├── auth_service.dart                 # Local biometrics & PIN authentication service
 │   │   ├── background_sync_service.dart      # WorkManager 18:00 worker & reminder logic
+│   │   ├── circular_service.dart             # Pre-flight verified PDF downloader, sibling fallback & cache
 │   │   ├── notification_service.dart         # Android notification channels & dispatcher
 │   │   ├── ocr_service.dart                  # On-Device Google ML Kit Devanagari OCR service
 │   │   ├── rsa_crypto.dart                   # RSA PKCS1_v1_5 dynamic password encrypter
@@ -339,6 +355,7 @@ E:\imd portal\
 | **v1.3.2** | `1.3.2+5` | Oct 2026 | **Native Package Installer Bridge:** Integrated `FileProvider`, `file_paths.xml`, and `REQUEST_INSTALL_PACKAGES` permission in `MainActivity.kt` to replace web URL redirects with direct system installation. |
 | **v1.3.3** | `1.3.3+6` | Oct 2026 | **Auto-Resume Permission Flow:** Added `checkAndResumePendingInstall()`, `onResume()`, and `onActivityResult()` in `MainActivity.kt`. Automatically triggers installation upon returning from Android's "Allow from this source" settings. Switched to external cache for broad OEM compatibility. |
 | **v1.3.4** | `1.3.4+7` | Oct 2026 | **Push Notification-Driven Updates:** Introduced system notification shade integration via `NotificationService.dart` & `BackgroundSyncService.dart`. Notification 201 prompts download; Notification 202 provides 1-tap install directly from the notification tray. |
+| **v1.3.5** | `1.3.5+8` | Oct 2026 | **Intelligent Circular Downloader & Sibling Fallback:** Introduced `CircularService.dart`. Added `%PDF` magic byte verification, automatic multi-path sibling URL discovery (`/docs/`, `/phps/docs/`, `/Welcome_to_Intra-IMD/docs/`), authenticated session fallback, in-app modal handling for 404 withdrawn circulars, and native PDF launching via `FileProvider`. |
 
 ---
 

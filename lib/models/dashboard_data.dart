@@ -4,11 +4,15 @@ class CircularItem {
   final String title;
   final String link;
   final String date;
+  bool isUnavailable;
+  String? cachedPath;
 
   CircularItem({
     required this.title,
     required this.link,
     required this.date,
+    this.isUnavailable = false,
+    this.cachedPath,
   });
 
   factory CircularItem.fromJson(Map<String, dynamic> json) {
@@ -16,6 +20,8 @@ class CircularItem {
       title: json['title'] ?? '',
       link: json['link'] ?? '',
       date: json['date'] ?? '',
+      isUnavailable: json['isUnavailable'] == true,
+      cachedPath: json['cachedPath'],
     );
   }
 
@@ -23,6 +29,8 @@ class CircularItem {
         'title': title,
         'link': link,
         'date': date,
+        'isUnavailable': isUnavailable,
+        'cachedPath': cachedPath,
       };
 }
 

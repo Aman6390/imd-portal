@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:url_launcher/url_launcher.dart';
 import '../../models/dashboard_data.dart';
+import '../../services/circular_service.dart';
 
-class CircularTabs extends StatelessWidget {
+class CircularTabs extends StatefulWidget {
   final List<CircularItem> vipCirculars;
   final List<CircularItem> fomoCirculars;
 
@@ -13,62 +13,88 @@ class CircularTabs extends StatelessWidget {
     required this.fomoCirculars,
   }) : super(key: key);
 
-  Future<void> _launchUrl(BuildContext context, String url) async {
-    final trimmed = url.trim();
-    if (trimmed.isEmpty) return;
+  @override
+  State<CircularTabs> createState() => _CircularTabsState();
+}
 
-    try {
-      final cleanUrl = Uri.encodeFull(trimmed);
-      final uri = Uri.parse(cleanUrl);
+class _CircularTabsState extends State<CircularTabs> {
+  Future<void> _handleCircularTap(BuildContext context, CircularItem item) async {
+    // If the item has already been confirmed as unavailable/withdrawn, show explanation directly
+    if (item.isUnavailable) {
+      CircularService.showUnavailableDialog(context, item);
+      return;
+    }
 
-      bool launched = false;
+    // Display non-blocking pre-flight progress indicator
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) => const Center(
+        child: Card(
+          elevation: 8,
+          margin: EdgeInsets.all(32),
+          child: Padding(
+            padding: EdgeInsets.symmetric(horizontal: 24, vertical: 20),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                SizedBox(
+                  width: 24,
+                  height: 24,
+                  child: CircularProgressIndicator(strokeWidth: 2.5),
+                ),
+                SizedBox(width: 16),
+                Expanded(
+                  child: Text(
+                    'Accessing document from MetNet...',
+                    style: TextStyle(fontSize: 14, fontWeight: FontWeight.w500),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
 
-      // Attempt 1: Try launching in external application (Browser, Drive PDF Viewer, Adobe)
-      try {
-        if (await canLaunchUrl(uri)) {
-          launched = await launchUrl(uri, mode: LaunchMode.externalApplication);
-        }
-      } catch (_) {}
+    final status = await CircularService.openOrDownloadCircular(context, item);
 
-      // Attempt 2: If external launch didn't succeed, fallback to in-app webview
-      if (!launched) {
-        try {
-          launched = await launchUrl(uri, mode: LaunchMode.inAppWebView);
-        } catch (_) {}
-      }
+    // Dismiss loading dialog safely
+    if (context.mounted) {
+      Navigator.of(context, rootNavigator: true).pop();
+    }
 
-      // Attempt 3: Platform default mode
-      if (!launched) {
-        try {
-          launched = await launchUrl(uri, mode: LaunchMode.platformDefault);
-        } catch (_) {}
-      }
+    if (!context.mounted) return;
 
-      if (!launched && context.mounted) {
-        Clipboard.setData(ClipboardData(text: trimmed));
+    setState(() {});
+
+    switch (status) {
+      case CircularStatus.success:
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Opening circular in PDF Viewer...'),
+            duration: Duration(seconds: 2),
+          ),
+        );
+        break;
+
+      case CircularStatus.unavailable:
+        CircularService.showUnavailableDialog(context, item);
+        break;
+
+      case CircularStatus.error:
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: const Text('Could not open link directly. Copied link to clipboard!'),
+            content: const Text('Could not open document locally.'),
             action: SnackBarAction(
-              label: 'OK',
-              onPressed: () {},
+              label: 'Copy Link',
+              onPressed: () {
+                Clipboard.setData(ClipboardData(text: item.link));
+              },
             ),
           ),
         );
-      }
-    } catch (e) {
-      if (context.mounted) {
-        Clipboard.setData(ClipboardData(text: trimmed));
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Cannot launch link ($e). Copied to clipboard!'),
-            action: SnackBarAction(
-              label: 'OK',
-              onPressed: () {},
-            ),
-          ),
-        );
-      }
+        break;
     }
   }
 
@@ -105,14 +131,25 @@ class CircularTabs extends StatelessWidget {
       ),
       itemBuilder: (context, index) {
         final item = items[index];
+        final isUnavailable = item.isUnavailable;
+        final isCached = item.cachedPath != null;
+
         return ListTile(
           contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-          leading: Icon(icon, color: iconColor),
+          leading: Icon(
+            isUnavailable ? Icons.warning_amber_rounded : icon,
+            color: isUnavailable ? Colors.orangeAccent : iconColor,
+          ),
           title: Text(
             item.title.isNotEmpty ? item.title : 'Untitled Circular',
             maxLines: 3,
             overflow: TextOverflow.ellipsis,
-            style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500),
+            style: TextStyle(
+              fontSize: 13,
+              fontWeight: FontWeight.w500,
+              color: isUnavailable ? Theme.of(context).disabledColor : null,
+              decoration: isUnavailable ? TextDecoration.lineThrough : null,
+            ),
           ),
           subtitle: Padding(
             padding: const EdgeInsets.only(top: 4.0),
@@ -126,22 +163,42 @@ class CircularTabs extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(width: 8),
-                Text(
-                  '• Tap to view / download',
-                  style: TextStyle(
-                    fontSize: 11,
-                    color: Theme.of(context).colorScheme.primary.withOpacity(0.8),
+                Expanded(
+                  child: Text(
+                    isUnavailable
+                        ? '• ⚠️ Withdrawn on Portal'
+                        : (isCached ? '• 💾 Offline Ready' : '• Tap to view / download'),
+                    style: TextStyle(
+                      fontSize: 11,
+                      fontWeight: isUnavailable || isCached ? FontWeight.w600 : FontWeight.normal,
+                      color: isUnavailable
+                          ? Colors.orangeAccent
+                          : (isCached
+                              ? Colors.greenAccent
+                              : Theme.of(context).colorScheme.primary.withOpacity(0.8)),
+                    ),
+                    overflow: TextOverflow.ellipsis,
                   ),
                 ),
               ],
             ),
           ),
           trailing: IconButton(
-            icon: const Icon(Icons.download_for_offline_outlined, size: 20),
-            tooltip: 'Download / View',
-            onPressed: () => _launchUrl(context, item.link),
+            icon: Icon(
+              isUnavailable
+                  ? Icons.info_outline
+                  : (isCached ? Icons.check_circle_outline : Icons.download_for_offline_outlined),
+              size: 20,
+              color: isUnavailable
+                  ? Colors.orangeAccent
+                  : (isCached ? Colors.greenAccent : null),
+            ),
+            tooltip: isUnavailable
+                ? 'Notice Withdrawn'
+                : (isCached ? 'Available Offline' : 'Download / View'),
+            onPressed: () => _handleCircularTap(context, item),
           ),
-          onTap: () => _launchUrl(context, item.link),
+          onTap: () => _handleCircularTap(context, item),
           onLongPress: () {
             Clipboard.setData(ClipboardData(text: item.link));
             ScaffoldMessenger.of(context).showSnackBar(
@@ -168,11 +225,11 @@ class CircularTabs extends StatelessWidget {
             tabs: [
               Tab(
                 icon: const Icon(Icons.star, color: Colors.amber),
-                text: 'VIP Circulars (${vipCirculars.length})',
+                text: 'VIP Circulars (${widget.vipCirculars.length})',
               ),
               Tab(
                 icon: const Icon(Icons.article, color: Colors.lightBlueAccent),
-                text: 'Other Notices (${fomoCirculars.length})',
+                text: 'Other Notices (${widget.fomoCirculars.length})',
               ),
             ],
           ),
@@ -182,14 +239,14 @@ class CircularTabs extends StatelessWidget {
               children: [
                 _buildList(
                   context,
-                  vipCirculars,
+                  widget.vipCirculars,
                   Icons.star,
                   Colors.amber,
                   'No VIP circulars found in the last 30 days.',
                 ),
                 _buildList(
                   context,
-                  fomoCirculars,
+                  widget.fomoCirculars,
                   Icons.article,
                   Colors.lightBlueAccent,
                   'No other circulars found in the last 30 days.',

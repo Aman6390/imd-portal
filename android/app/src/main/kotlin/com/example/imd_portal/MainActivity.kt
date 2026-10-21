@@ -65,6 +65,33 @@ class MainActivity: FlutterFragmentActivity() {
                 } catch (e: Exception) {
                     result.error("RENDER_ERROR", e.localizedMessage ?: "Unknown rendering error", null)
                 }
+            } else if (call.method == "openPdf") {
+                val pdfPath = call.argument<String>("pdfPath")
+                if (pdfPath == null) {
+                    result.error("INVALID_PATH", "PDF path cannot be null", null)
+                    return@setMethodCallHandler
+                }
+                try {
+                    val pdfFile = File(pdfPath)
+                    if (!pdfFile.exists() || pdfFile.length() == 0L) {
+                        result.error("FILE_NOT_FOUND", "PDF file does not exist", null)
+                        return@setMethodCallHandler
+                    }
+                    pdfFile.setReadable(true, false)
+                    val contentUri = FileProvider.getUriForFile(
+                        this,
+                        "$packageName.fileprovider",
+                        pdfFile
+                    )
+                    val viewIntent = Intent(Intent.ACTION_VIEW).apply {
+                        setDataAndType(contentUri, "application/pdf")
+                        flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_GRANT_READ_URI_PERMISSION
+                    }
+                    startActivity(viewIntent)
+                    result.success("SUCCESS")
+                } catch (e: Exception) {
+                    result.error("OPEN_ERROR", e.localizedMessage ?: "Could not open PDF viewer", null)
+                }
             } else {
                 result.notImplemented()
             }
