@@ -113,10 +113,12 @@ class CircularService {
       }
     }
 
+  /// Fetches verified PDF bytes across candidate URLs and fallback authenticated session
+  static Future<List<int>?> _fetchValidPdfBytes(CircularItem item) async {
     final candidateUrls = _generateCandidateUrls(item.link);
     List<int>? validPdfBytes;
 
-    // 2. Probing standard HTTP requests across candidate paths
+    // 1. Probing standard HTTP requests across candidate paths
     for (final testUrl in candidateUrls) {
       try {
         final uri = Uri.parse(Uri.encodeFull(testUrl));
@@ -137,7 +139,7 @@ class CircularService {
       } catch (_) {}
     }
 
-    // 3. Fallback: Authenticated session probe with login session cookies
+    // 2. Fallback: Authenticated session probe with login session cookies
     if (validPdfBytes == null) {
       final (username, password) = await StorageService.loadCredentials();
       if (username.isNotEmpty && password.isNotEmpty) {
@@ -179,14 +181,60 @@ class CircularService {
         } catch (_) {}
       }
     }
+    return validPdfBytes;
+  }
 
-    // 4. If all candidates failed or returned 404 / HTML error, document was removed
+  /// Downloads circular PDF to cache silently without launching external viewer
+  static Future<CircularStatus> _downloadPdfSilently(CircularItem item, File localFile) async {
+    if (item.isUnavailable) return CircularStatus.unavailable;
+    if (await localFile.exists() && await localFile.length() > 500) {
+      item.cachedPath = localFile.path;
+      return CircularStatus.success;
+    }
+
+    final bytes = await _fetchValidPdfBytes(item);
+    if (bytes == null) {
+      item.isUnavailable = true;
+      return CircularStatus.unavailable;
+    }
+
+    try {
+      await localFile.writeAsBytes(bytes, flush: true);
+      item.cachedPath = localFile.path;
+      item.isUnavailable = false;
+      return CircularStatus.success;
+    } catch (_) {
+      return CircularStatus.error;
+    }
+  }
+
+  /// Downloads and opens the circular PDF locally with pre-flight checks and fallback routing
+  static Future<CircularStatus> openOrDownloadCircular(
+    BuildContext context,
+    CircularItem item,
+  ) async {
+    final circularsDir = await _getCircularsDirectory();
+    final filename = _getLocalFilename(item.link);
+    final localFile = File('${circularsDir.path}/$filename');
+
+    // 1. Check local cache (Never re-download if file already exists)
+    if (await localFile.exists() && await localFile.length() > 500) {
+      final opened = await _launchLocalPdf(localFile.path);
+      if (opened) {
+        item.cachedPath = localFile.path;
+        return CircularStatus.success;
+      }
+    }
+
+    final validPdfBytes = await _fetchValidPdfBytes(item);
+
+    // 2. If all candidates failed or returned 404 / HTML error, document was removed
     if (validPdfBytes == null) {
       item.isUnavailable = true;
       return CircularStatus.unavailable;
     }
 
-    // 5. Save verified PDF to local cache and launch via Android FileProvider
+    // 3. Save verified PDF to local cache and launch via Android FileProvider
     try {
       await localFile.writeAsBytes(validPdfBytes, flush: true);
       item.cachedPath = localFile.path;
@@ -310,23 +358,76 @@ class CircularService {
 
   /// Inspects and displays the scanned text recognized by Google ML Kit Devanagari OCR
   static Future<void> inspectCircularOcr(BuildContext context, CircularItem item) async {
-    // Show non-blocking loading dialog
+    // 1. Instant check: If notice is already confirmed unavailable/withdrawn, show dialog immediately
+    if (item.isUnavailable) {
+      showUnavailableDialog(context, item);
+      return;
+    }
+
+    bool isCancelled = false;
+    final statusNotifier = ValueNotifier<String>('Step 1/2: Checking offline cache...');
+
+    // 5. Dismissible Dialog with Cancel button
     showDialog(
       context: context,
-      barrierDismissible: false,
-      builder: (ctx) => const Center(
-        child: Card(
-          child: Padding(
-            padding: EdgeInsets.all(20),
-            child: Row(
+      barrierDismissible: true,
+      builder: (ctx) => PopScope(
+        canPop: true,
+        onPopInvoked: (_) {
+          isCancelled = true;
+        },
+        child: AlertDialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          title: const Row(
+            children: [
+              Icon(Icons.document_scanner_rounded, color: Colors.purpleAccent, size: 24),
+              SizedBox(width: 10),
+              Expanded(
+                child: Text('Scanned Notice Text Inspector', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+              ),
+            ],
+          ),
+          content: ValueListenableBuilder<String>(
+            valueListenable: statusNotifier,
+            builder: (_, status, __) => Column(
               mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                CircularProgressIndicator(),
-                SizedBox(width: 16),
-                Text('Running AI OCR on scanned notice...'),
+                Row(
+                  children: [
+                    const SizedBox(
+                      width: 20,
+                      height: 20,
+                      child: CircularProgressIndicator(strokeWidth: 2.5),
+                    ),
+                    const SizedBox(width: 14),
+                    Expanded(
+                      child: Text(
+                        status,
+                        style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                Text(
+                  item.title,
+                  style: const TextStyle(fontSize: 11, color: Colors.grey),
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                ),
               ],
             ),
           ),
+          actions: [
+            TextButton(
+              onPressed: () {
+                isCancelled = true;
+                Navigator.of(ctx).pop();
+              },
+              child: const Text('Cancel'),
+            ),
+          ],
         ),
       ),
     );
@@ -335,18 +436,44 @@ class CircularService {
     final filename = _getLocalFilename(item.link);
     final localFile = File('${circularsDir.path}/$filename');
 
-    // Ensure the file is downloaded locally
+    // Step 1: Ensure PDF is downloaded locally
     if (!await localFile.exists() || await localFile.length() < 500) {
-      await openOrDownloadCircular(context, item);
+      statusNotifier.value = 'Step 1/2: Downloading PDF from MetNet...';
+      final status = await _downloadPdfSilently(item, localFile);
+
+      if (isCancelled) return;
+
+      if (status == CircularStatus.unavailable) {
+        if (context.mounted) {
+          Navigator.of(context, rootNavigator: true).pop(); // dismiss loading dialog
+          showUnavailableDialog(context, item);
+        }
+        return;
+      } else if (status == CircularStatus.error) {
+        if (context.mounted) {
+          Navigator.of(context, rootNavigator: true).pop(); // dismiss loading dialog
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Could not download circular from portal.')),
+          );
+        }
+        return;
+      }
     }
+
+    if (isCancelled) return;
+
+    // Step 2: Running ML OCR
+    statusNotifier.value = 'Step 2/2: Extracting Hindi & English text (1-2s)...';
 
     String recognizedText = '';
     if (await localFile.exists() && await localFile.length() > 500) {
       recognizedText = await OcrService.processLocalPdfFile(localFile.path);
     }
 
+    if (isCancelled) return;
+
     if (context.mounted) {
-      Navigator.of(context, rootNavigator: true).pop(); // dismiss loading
+      Navigator.of(context, rootNavigator: true).pop(); // dismiss loading dialog
     }
 
     if (!context.mounted) return;

@@ -48,10 +48,10 @@
             </intent-filter>
         </activity>
 
-        <!-- ML Kit OCR model auto-downloader -->
+        <!-- ML Kit OCR model auto-downloader (Pre-loads Latin and Devanagari Hindi models) -->
         <meta-data
             android:name="com.google.mlkit.vision.DEPENDENCIES"
-            android:value="ocr" />
+            android:value="ocr,ocr_devanagari" />
 
         <!-- Android Home Screen Widget Receiver (2x2 Full Card) -->
         <receiver
