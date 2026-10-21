@@ -392,7 +392,7 @@ class _SettingsDialogState extends State<SettingsDialog> {
                           SizedBox(width: 8),
                           Expanded(
                             child: Text(
-                              'Free Edition for all IMD Employees (v1.2.0)',
+                              'Free Edition for all IMD Employees (v1.3.0)',
                               style: TextStyle(
                                 fontWeight: FontWeight.bold,
                                 color: Colors.green,
@@ -460,7 +460,7 @@ class _SettingsDialogState extends State<SettingsDialog> {
                     const Text(
                       'Designed & Developed by Aman (Aman6390).\n'
                       'Built to simplify daily departmental tracking and streamline intranet access for IMD colleagues.\n'
-                      'Version: 1.2.0 (Release Build)',
+                      'Version: 1.3.0 (Release Build)',
                       style: TextStyle(fontSize: 12, color: Colors.grey, height: 1.4),
                     ),
                   ],

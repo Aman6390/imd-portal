@@ -609,7 +609,7 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
             if (_downloadCompleted) ...[
               const SizedBox(width: 8),
               FilledButton.tonal(
-                style: FilledButton.tonalStyleFrom(
+                style: FilledButton.styleFrom(
                   backgroundColor: Colors.white,
                   foregroundColor: Colors.green.shade900,
                 ),

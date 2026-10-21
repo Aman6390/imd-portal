@@ -42,7 +42,7 @@ class UpdateDownloadProgress {
 /// and manage background APK downloading without interrupting user experience.
 class UpdateService {
   /// Current app version
-  static const String currentVersion = '1.2.0';
+  static const String currentVersion = '1.3.0';
 
   /// GitHub public releases endpoint
   static const String latestReleaseApi =
@@ -300,6 +300,17 @@ class UpdateService {
           ),
         ],
       ),
+    );
+  }
+
+  /// Backward compatible helper
+  static void showUpdateDialog(BuildContext context, UpdateInfo update) {
+    showUrgentUpdateDialog(
+      context,
+      update,
+      onStartBackgroundDownload: () {
+        startBackgroundDownload(update.downloadUrl);
+      },
     );
   }
 }
