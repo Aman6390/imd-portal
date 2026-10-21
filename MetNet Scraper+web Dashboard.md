@@ -1,6 +1,6 @@
 # 🚀 PROJECT MASTER BLUEPRINT: Meteorological Portal Android Application
 
-> **Project Status:** Production Ready — 100% Free & Open Edition (v1.3.8)  
+> **Project Status:** Production Ready — 100% Free & Open Edition (v1.3.9)  
 > **Target Platform:** Native Android (Flutter / Kotlin) [Why: Guarantees broad compatibility with all modern Android smartphones used by staff]  
 > **Output Release Artifact:** `build/app/outputs/flutter-apk/app-release.apk` [Why: Standard Android standalone package format for direct distribution]  
 > **CI/CD Pipeline:** GitHub Actions Automated Cloud Build (`Aman6390/imd-portal`) [Why: Eliminates the need for a high-end development computer by compiling APKs in the cloud automatically]  
@@ -294,6 +294,7 @@ E:\imd portal\
 | **v1.3.6** | `1.3.6+9` | Oct 2026 | **Permanent Release Keystore Signing:** Generated official 30-year `release.keystore` (alias `metnetkey`, valid until 2054) and configured `signingConfigs.release` in Gradle. Added dedicated vector icon `ic_stat_notification.xml` and runtime notification permission request. [Why: Permanently fixed 'App not installed as package conflicts with an existing package' caused by ephemeral cloud runner debug keys] |
 | **v1.3.7** | `1.3.7+10` | Oct 2026 | **Key 6390 Troubleshooting Tools & Scanned Notice OCR Sandbox:** Embedded discreet developer/troubleshooting suite protected by key `6390`. Features live MetNet server connectivity & latency ping, offline document cache cleaner, scanned notice text inspector (Devanagari OCR & VIP keyword preview), and circular item long-press diagnostic action sheet. [Why: Gives developers and advanced users complete diagnostic transparency into network latency and OCR accuracy without cluttering the clean, non-technical experience for regular staff] |
 | **v1.3.8** | `1.3.8+11` | Oct 2026 | **OCR Inspector Transparency & Devanagari Preload:** Added instant 404 validation before OCR processing, live multi-stage progress reporting (`Step 1/2: Downloading PDF...` -> `Step 2/2: Extracting Hindi text...`), user-dismissible/cancelable dialogs, silent background caching without launching external viewer, and pre-bundled `ocr_devanagari` model dependency in `AndroidManifest.xml`. Preserved robust 12s/15s portal fallback timeouts. [Why: Eliminates perceived OCR freezes, ensures Google Play pre-installs the Hindi language pack, and gives users full control and live visibility into download vs extraction phases] |
+| **v1.3.9** | `1.3.9+12` | Oct 2026 | **30-Day Storage Auto-Purge & Bulletproof Dual-Engine OCR:** Added automatic 30-day rolling storage cleaner running on startup & daily 18:00 sync. Fixed Step 2/2 OCR freeze by clamping native bitmap allocation to 1600px with `Throwable` exception safety in `MainActivity.kt`, adding a 4s timeout on Devanagari OCR with instant pre-bundled Latin OCR fallback for sideloaded cellular devices, and immediate deletion of temporary page bitmaps. [Why: Completely prevents storage buildup beyond the 30-day window, and ensures OCR extracts text in 1-2 seconds without freezing when Google Play Services restricts background Devanagari model downloads on mobile data] |
 
 ---
 

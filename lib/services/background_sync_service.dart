@@ -4,6 +4,7 @@ import 'package:home_widget/home_widget.dart';
 import 'package:workmanager/workmanager.dart';
 
 import '../models/dashboard_data.dart';
+import 'circular_service.dart';
 import 'notification_service.dart';
 import 'scraper_engine.dart';
 import 'storage_service.dart';
@@ -89,6 +90,11 @@ void callbackDispatcher() {
         // Check for app updates in background and notify if a new version is available
         try {
           await UpdateService.checkForUpdate();
+        } catch (_) {}
+
+        // 30-Day auto-purge maintenance for downloaded circular files
+        try {
+          await CircularService.purgeFilesOlderThan30Days();
         } catch (_) {}
       }
       return Future.value(true);

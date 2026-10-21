@@ -55,7 +55,7 @@ class OcrService {
     }
   }
 
-  /// Runs on-device Devanagari OCR directly on a local PDF file
+  /// Runs on-device OCR directly on a local PDF file with Devanagari & Latin fallback
   static Future<String> processLocalPdfFile(String filePath) async {
     try {
       final file = File(filePath);
@@ -66,18 +66,49 @@ class OcrService {
       final String? imagePath = await _pdfChannel.invokeMethod<String>(
         'renderFirstPage',
         {'pdfPath': filePath},
-      );
+      ).timeout(const Duration(seconds: 6), onTimeout: () => null);
 
       if (imagePath == null || imagePath.isEmpty) {
         return '';
       }
 
       final inputImage = InputImage.fromFilePath(imagePath);
-      final textRecognizer = TextRecognizer(script: TextRecognitionScript.devanagiri);
-      final RecognizedText recognizedText = await textRecognizer.processImage(inputImage);
-      await textRecognizer.close();
+      String text = '';
 
-      return recognizedText.text;
+      // 1. Attempt Devanagari OCR with a strict 4-second timeout
+      try {
+        final devanagariRecognizer = TextRecognizer(script: TextRecognitionScript.devanagiri);
+        final RecognizedText recognizedText = await devanagariRecognizer
+            .processImage(inputImage)
+            .timeout(const Duration(seconds: 4));
+        await devanagariRecognizer.close();
+        text = recognizedText.text;
+      } catch (e) {
+        print('Devanagari model pending/timeout, falling back to Latin: $e');
+      }
+
+      // 2. Fallback: If Devanagari produced nothing or timed out (e.g. model pending download on mobile data),
+      // run instant pre-bundled Latin OCR
+      if (text.trim().isEmpty) {
+        try {
+          final latinRecognizer = TextRecognizer(script: TextRecognitionScript.latin);
+          final RecognizedText recognizedText = await latinRecognizer
+              .processImage(inputImage)
+              .timeout(const Duration(seconds: 4));
+          await latinRecognizer.close();
+          text = recognizedText.text;
+        } catch (_) {}
+      }
+
+      // 3. Immediately delete temporary rendered JPEG to prevent storage accumulation
+      try {
+        final renderedImg = File(imagePath);
+        if (await renderedImg.exists()) {
+          await renderedImg.delete();
+        }
+      } catch (_) {}
+
+      return text;
     } catch (e) {
       print('Local OCR processing error: $e');
       return '';

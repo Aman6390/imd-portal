@@ -338,6 +338,30 @@ class CircularService {
     return deletedCount;
   }
 
+  /// Automatically purges downloaded circular PDF files older than 30 days to save storage
+  static Future<int> purgeFilesOlderThan30Days() async {
+    int deletedCount = 0;
+    try {
+      final circularsDir = await _getCircularsDirectory();
+      if (await circularsDir.exists()) {
+        final cutoff = DateTime.now().subtract(const Duration(days: 30));
+        final files = circularsDir.listSync();
+        for (final file in files) {
+          if (file is File) {
+            try {
+              final stat = file.statSync();
+              if (stat.modified.isBefore(cutoff)) {
+                file.deleteSync();
+                deletedCount++;
+              }
+            } catch (_) {}
+          }
+        }
+      }
+    } catch (_) {}
+    return deletedCount;
+  }
+
   /// Inspects and displays the scanned text recognized by Google ML Kit Devanagari OCR
   static Future<void> inspectCircularOcr(BuildContext context, CircularItem item) async {
     // 1. Instant check: If notice is already confirmed unavailable/withdrawn, show dialog immediately
