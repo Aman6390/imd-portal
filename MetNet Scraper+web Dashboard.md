@@ -285,7 +285,8 @@ E:\imd portal\
 │   │           │   ├── strings.xml           # App & widget string definitions
 │   │           │   └── styles.xml            # LaunchTheme and NormalTheme styles
 │   │           └── xml\
-│   │               ├── imd_app_widget_info.xml # 2x2 widget metadata
+│   │               ├── file_paths.xml            # Secure FileProvider paths for OTA APK installation
+│   │               ├── imd_app_widget_info.xml   # 2x2 widget metadata
 │   │               └── imd_compact_widget_info.xml # 1x1 widget metadata
 │   ├── build.gradle                          # Root Gradle configuration
 │   ├── gradle.properties                     # AndroidX & Jetifier flags
