@@ -4,6 +4,7 @@ import 'package:flutter/services.dart';
 import 'package:html/parser.dart' as html_parser;
 import 'package:http/http.dart' as http;
 import 'package:path_provider/path_provider.dart';
+import '../main.dart';
 import '../models/dashboard_data.dart';
 import 'ocr_service.dart';
 import 'rsa_crypto.dart';
@@ -364,79 +365,99 @@ class CircularService {
 
   /// Inspects and displays the scanned text recognized by Google ML Kit Devanagari OCR
   static Future<void> inspectCircularOcr(BuildContext context, CircularItem item) async {
+    final activeContext = rootNavigatorKey.currentContext ?? context;
+
     // 1. Instant check: If notice is already confirmed unavailable/withdrawn, show dialog immediately
     if (item.isUnavailable) {
-      showUnavailableDialog(context, item);
+      if (activeContext.mounted) {
+        showUnavailableDialog(activeContext, item);
+      }
       return;
     }
 
     bool isCancelled = false;
     final statusNotifier = ValueNotifier<String>('Step 1/2: Checking offline cache...');
+    BuildContext? progressDialogContext;
 
     // 5. Dismissible Dialog with Cancel button
     showDialog(
-      context: context,
+      context: activeContext,
       barrierDismissible: true,
-      builder: (ctx) => PopScope(
-        canPop: true,
-        onPopInvoked: (_) {
-          isCancelled = true;
-        },
-        child: AlertDialog(
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-          title: const Row(
-            children: [
-              Icon(Icons.document_scanner_rounded, color: Colors.purpleAccent, size: 24),
-              SizedBox(width: 10),
-              Expanded(
-                child: Text('Scanned Notice Text Inspector', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-              ),
-            ],
-          ),
-          content: ValueListenableBuilder<String>(
-            valueListenable: statusNotifier,
-            builder: (_, status, __) => Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
+      builder: (ctx) {
+        progressDialogContext = ctx;
+        return PopScope(
+          canPop: true,
+          onPopInvoked: (_) {
+            isCancelled = true;
+          },
+          child: AlertDialog(
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+            title: const Row(
               children: [
-                Row(
-                  children: [
-                    const SizedBox(
-                      width: 20,
-                      height: 20,
-                      child: CircularProgressIndicator(strokeWidth: 2.5),
-                    ),
-                    const SizedBox(width: 14),
-                    Expanded(
-                      child: Text(
-                        status,
-                        style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500),
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 12),
-                Text(
-                  item.title,
-                  style: const TextStyle(fontSize: 11, color: Colors.grey),
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
+                Icon(Icons.document_scanner_rounded, color: Colors.purpleAccent, size: 24),
+                SizedBox(width: 10),
+                Expanded(
+                  child: Text('Scanned Notice Text Inspector', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
                 ),
               ],
             ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () {
-                isCancelled = true;
-                Navigator.of(ctx).pop();
-              },
-              child: const Text('Cancel'),
+            content: ValueListenableBuilder<String>(
+              valueListenable: statusNotifier,
+              builder: (_, status, __) => Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      const SizedBox(
+                        width: 20,
+                        height: 20,
+                        child: CircularProgressIndicator(strokeWidth: 2.5),
+                      ),
+                      const SizedBox(width: 14),
+                      Expanded(
+                        child: Text(
+                          status,
+                          style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  Text(
+                    item.title,
+                    style: const TextStyle(fontSize: 11, color: Colors.grey),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ],
+              ),
             ),
-          ],
-        ),
-      ),
+            actions: [
+              TextButton(
+                onPressed: () {
+                  isCancelled = true;
+                  if (progressDialogContext != null && progressDialogContext!.mounted) {
+                    Navigator.of(progressDialogContext!).pop();
+                    progressDialogContext = null;
+                  }
+                },
+                child: const Text('Cancel'),
+              ),
+            ],
+          ),
+        );
+      },
     );
+
+    void dismissProgressDialog() {
+      if (progressDialogContext != null && progressDialogContext!.mounted) {
+        try {
+          Navigator.of(progressDialogContext!).pop();
+        } catch (_) {}
+        progressDialogContext = null;
+      }
+    }
 
     final circularsDir = await _getCircularsDirectory();
     final filename = _getLocalFilename(item.link);
@@ -447,18 +468,23 @@ class CircularService {
       statusNotifier.value = 'Step 1/2: Downloading PDF from MetNet...';
       final status = await _downloadPdfSilently(item, localFile);
 
-      if (isCancelled) return;
+      if (isCancelled) {
+        dismissProgressDialog();
+        return;
+      }
 
       if (status == CircularStatus.unavailable) {
-        if (context.mounted) {
-          Navigator.of(context, rootNavigator: true).pop(); // dismiss loading dialog
-          showUnavailableDialog(context, item);
+        dismissProgressDialog();
+        final currentCtx = rootNavigatorKey.currentContext ?? context;
+        if (currentCtx.mounted) {
+          showUnavailableDialog(currentCtx, item);
         }
         return;
       } else if (status == CircularStatus.error) {
-        if (context.mounted) {
-          Navigator.of(context, rootNavigator: true).pop(); // dismiss loading dialog
-          ScaffoldMessenger.of(context).showSnackBar(
+        dismissProgressDialog();
+        final currentCtx = rootNavigatorKey.currentContext ?? context;
+        if (currentCtx.mounted) {
+          ScaffoldMessenger.of(currentCtx).showSnackBar(
             const SnackBar(content: Text('Could not download circular from portal.')),
           );
         }
@@ -466,7 +492,10 @@ class CircularService {
       }
     }
 
-    if (isCancelled) return;
+    if (isCancelled) {
+      dismissProgressDialog();
+      return;
+    }
 
     // Step 2: Running ML OCR
     statusNotifier.value = 'Step 2/2: Extracting Hindi & English text (1-2s)...';
@@ -475,29 +504,29 @@ class CircularService {
     try {
       if (await localFile.exists() && await localFile.length() > 500) {
         recognizedText = await OcrService.processLocalPdfFile(localFile.path)
-            .timeout(const Duration(seconds: 8), onTimeout: () => '');
+            .timeout(const Duration(seconds: 6), onTimeout: () => '');
       }
     } catch (_) {}
 
+    // Always unconditionally dismiss loading dialog
+    dismissProgressDialog();
+
     if (isCancelled) return;
 
-    if (context.mounted) {
-      Navigator.of(context, rootNavigator: true).pop(); // dismiss loading dialog
-    }
-
-    if (!context.mounted) return;
+    final sheetContext = rootNavigatorKey.currentContext ?? context;
+    if (!sheetContext.mounted) return;
 
     final vipKeywords = await StorageService.loadVipKeywords();
     final lowerText = recognizedText.toLowerCase();
     final matchedKeywords = vipKeywords.where((k) => lowerText.contains(k.toLowerCase())).toList();
 
     showModalBottomSheet(
-      context: context,
+      context: sheetContext,
       isScrollControlled: true,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
-      builder: (ctx) => DraggableScrollableSheet(
+      builder: (bottomSheetCtx) => DraggableScrollableSheet(
         initialChildSize: 0.65,
         minChildSize: 0.4,
         maxChildSize: 0.9,
@@ -562,7 +591,7 @@ class CircularService {
                 child: Text(
                   recognizedText.isNotEmpty
                       ? recognizedText
-                      : 'No text could be extracted or file is a blank scanned page.',
+                      : 'No text detected on Page 1 (scanned image may be handwritten, low contrast, or deferred).',
                   style: const TextStyle(fontSize: 12, height: 1.4, fontFamily: 'monospace'),
                 ),
               ),
@@ -573,10 +602,13 @@ class CircularService {
                   label: const Text('Copy Extracted Text'),
                   onPressed: () {
                     Clipboard.setData(ClipboardData(text: recognizedText));
-                    Navigator.of(ctx).pop();
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text('Extracted text copied to clipboard!')),
-                    );
+                    Navigator.of(bottomSheetCtx).pop();
+                    final snackbarCtx = rootNavigatorKey.currentContext ?? context;
+                    if (snackbarCtx.mounted) {
+                      ScaffoldMessenger.of(snackbarCtx).showSnackBar(
+                        const SnackBar(content: Text('Extracted text copied to clipboard!')),
+                      );
+                    }
                   },
                 ),
             ],

@@ -66,7 +66,7 @@ class MainActivity: FlutterFragmentActivity() {
                             bitmap.eraseColor(android.graphics.Color.WHITE)
                             page.render(bitmap, null, null, PdfRenderer.Page.RENDER_MODE_FOR_DISPLAY)
 
-                            val outputFile = File(cacheDir, "ocr_page_0.jpg")
+                            val outputFile = File(cacheDir, "ocr_page_${System.currentTimeMillis()}.jpg")
                             val fos = FileOutputStream(outputFile)
                             bitmap.compress(Bitmap.CompressFormat.JPEG, 90, fos)
                             fos.flush()

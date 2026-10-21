@@ -8,8 +8,7 @@ import 'scraper_engine.dart';
 class OcrService {
   static const MethodChannel _pdfChannel = MethodChannel('com.imd.portal/pdf_renderer');
 
-  /// Downloads the circular PDF from [pdfUrl], renders page 1 to an image, and performs local Devanagari OCR.
-  /// Returns the extracted text in lowercase for keyword matching.
+  /// Downloads circular PDF from [pdfUrl] and processes with high-speed Latin/Devanagari dual-engine OCR.
   static Future<String> processPdfFromUrl(String pdfUrl, SessionHttpClient session) async {
     File? tempPdf;
     try {
@@ -26,23 +25,7 @@ class OcrService {
       tempPdf = File('${tempDir.path}/circ_$timestamp.pdf');
       await tempPdf.writeAsBytes(response.bodyBytes);
 
-      // Render Page 0 to JPEG via native Android PdfRenderer
-      final String? imagePath = await _pdfChannel.invokeMethod<String>(
-        'renderFirstPage',
-        {'pdfPath': tempPdf.path},
-      );
-
-      if (imagePath == null || imagePath.isEmpty) {
-        return '';
-      }
-
-      // Run on-device Google ML Kit Text Recognition with Devanagari script model
-      final inputImage = InputImage.fromFilePath(imagePath);
-      final textRecognizer = TextRecognizer(script: TextRecognitionScript.devanagiri);
-      final RecognizedText recognizedText = await textRecognizer.processImage(inputImage);
-      await textRecognizer.close();
-
-      return recognizedText.text;
+      return await processLocalPdfFile(tempPdf.path);
     } catch (e) {
       print('OCR extraction error for $pdfUrl: $e');
       return '';
@@ -66,7 +49,7 @@ class OcrService {
       final String? imagePath = await _pdfChannel.invokeMethod<String>(
         'renderFirstPage',
         {'pdfPath': filePath},
-      ).timeout(const Duration(seconds: 5), onTimeout: () => null);
+      ).timeout(const Duration(seconds: 4), onTimeout: () => null);
 
       if (imagePath == null || imagePath.isEmpty) {
         return '';
@@ -81,12 +64,14 @@ class OcrService {
         latinRecognizer = TextRecognizer(script: TextRecognitionScript.latin);
         final RecognizedText recognizedText = await latinRecognizer
             .processImage(inputImage)
-            .timeout(const Duration(seconds: 3));
+            .timeout(const Duration(seconds: 2));
         text = recognizedText.text;
       } catch (e) {
         print('Latin OCR error: $e');
       } finally {
-        await latinRecognizer?.close();
+        try {
+          latinRecognizer?.close().timeout(const Duration(milliseconds: 300), onTimeout: () => null);
+        } catch (_) {}
       }
 
       // 2. If no Latin text found (e.g. pure Hindi scanned document), invoke Devanagari OCR
@@ -96,12 +81,14 @@ class OcrService {
           devanagariRecognizer = TextRecognizer(script: TextRecognitionScript.devanagiri);
           final RecognizedText recognizedText = await devanagariRecognizer
               .processImage(inputImage)
-              .timeout(const Duration(seconds: 3));
+              .timeout(const Duration(seconds: 2));
           text = recognizedText.text;
         } catch (e) {
           print('Devanagari model pending/timeout: $e');
         } finally {
-          await devanagariRecognizer?.close();
+          try {
+            devanagariRecognizer?.close().timeout(const Duration(milliseconds: 300), onTimeout: () => null);
+          } catch (_) {}
         }
       }
 

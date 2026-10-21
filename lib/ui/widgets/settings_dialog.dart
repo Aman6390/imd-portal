@@ -263,7 +263,7 @@ class _SettingsDialogState extends State<SettingsDialog> {
             shrinkWrap: true,
             itemCount: items.take(8).length,
             separatorBuilder: (_, __) => const Divider(height: 1),
-            itemBuilder: (context, index) {
+            itemBuilder: (_, index) {
               final itm = items[index];
               return ListTile(
                 dense: true,

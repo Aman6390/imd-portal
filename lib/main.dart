@@ -5,6 +5,8 @@ import 'services/notification_service.dart';
 import 'services/storage_service.dart';
 import 'ui/dashboard_screen.dart';
 
+final GlobalKey<NavigatorState> rootNavigatorKey = GlobalKey<NavigatorState>();
+
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
@@ -55,6 +57,7 @@ class _ImdPortalAppState extends State<ImdPortalApp> {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
+      navigatorKey: rootNavigatorKey,
       title: 'Meteorological Portal',
       debugShowCheckedModeBanner: false,
       themeMode: _isDark ? ThemeMode.dark : ThemeMode.light,
