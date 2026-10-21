@@ -59,7 +59,7 @@ void callbackDispatcher() {
           if (hasChanges) {
             await NotificationService.showNotification(
               id: 101,
-              title: 'IMD Dashboard: New Data Available',
+              title: 'Meteorological Portal: New Data Available',
               body: 'New circulars or updated leave balances have been fetched.',
             );
           }

@@ -91,7 +91,7 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
     if (_isAuthenticating) return;
     _isAuthenticating = true;
     final authenticated = await AuthService.authenticate(
-      localizedReason: 'Authenticate with Fingerprint, Face, or PIN to open IMD Portal',
+      localizedReason: 'Authenticate with Fingerprint, Face, or PIN to open Meteorological Portal',
     );
     _isAuthenticating = false;
 
@@ -482,7 +482,7 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
                 ),
                 const SizedBox(height: 28),
                 const Text(
-                  '🌤️ IMD Portal',
+                  '🌤️ Meteorological Portal',
                   style: TextStyle(
                     fontSize: 26,
                     fontWeight: FontWeight.bold,
@@ -526,7 +526,7 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
     return Scaffold(
       appBar: AppBar(
         title: const Text(
-          '🌤️ IMD Portal',
+          '🌤️ Meteorological Portal',
           style: TextStyle(fontWeight: FontWeight.bold),
         ),
         actions: [

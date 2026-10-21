@@ -1,10 +1,10 @@
-# 🚀 PROJECT MASTER BLUEPRINT: IMD Portal Android Application
+# 🚀 PROJECT MASTER BLUEPRINT: Meteorological Portal Android Application
 
-> **Project Status:** Production Ready — 100% Free & Open Edition (v1.2.0)  
+> **Project Status:** Production Ready — 100% Free & Open Edition (v1.3.0)  
 > **Target Platform:** Native Android (Flutter / Kotlin)  
 > **Output Release Artifact:** `build/app/outputs/flutter-apk/app-release.apk`  
 > **CI/CD Pipeline:** GitHub Actions Automated Cloud Build (`Aman6390/imd-portal`)  
-> **Licensing & Access:** 100% Free for all India Meteorological Department (IMD) employees (Zero cost, no licenses, no restrictions)
+> **Licensing & Access:** 100% Free for all meteorological staff and employees (Zero cost, no licenses, no restrictions)
 
 ---
 
@@ -17,13 +17,13 @@
 | **📦 Cloud Build Release APK** | `build/app/outputs/flutter-apk/app-release.apk` | Production Android APK compiled via GitHub Actions Ubuntu runners. |
 | **🚀 Over-The-Air Updates** | `https://github.com/Aman6390/imd-portal/releases` | GitHub Releases endpoint for version tracking and direct APK update downloads. |
 | **🎁 Edition & Pricing** | **100% Free Edition** | Unrestricted full access for all staff, scientists, and employees with zero barriers. |
-| **👤 Project Lead & Developer** | Aman Kumar (`Aman6390`) | Designed & built for India Meteorological Department colleagues. |
+| **👤 Project Lead & Developer** | Aman Kumar (`Aman6390`) | Designed & built for meteorological colleagues. |
 
 ---
 
 ## 1. Project Overview & Objectives
 
-* **Automate Intranet Data Extraction:** Securely authenticate into the India Meteorological Department (IMD) Intranet Portal (`https://metnet.imd.gov.in`), bypass dynamic RSA login encryption, and scrape real-time leave balances and departmental circulars.
+* **Automate Intranet Data Extraction:** Securely authenticate into the Intranet Portal (`https://metnet.imd.gov.in`), bypass dynamic RSA login encryption, and scrape real-time leave balances and departmental circulars.
 * **Smart Leave & Expiry Management:** Extract balances for Casual Leave (CL), Restricted Holiday (RH), and Compensatory Off (C-Off). Accurately predict expiration dates for C-Offs ($\text{Date of Credit} + 6 \text{ months}$) and provide a 12-month visual timeline with an interactive, dedicated calendar view.
 * **Intelligent Circular Categorization:** Automatically parse departmental orders, discard irrelevant junk notices (canteen, drivers, mechanics), and prioritize high-value VIP circulars (Scientific Assistants, Scientist transfers, promotions, LDCE, allowances) with direct PDF launch capabilities.
 * **Fast-Path Title Pre-Filter & On-Device Devanagari OCR:** Instant title matching from the web page for 90% of orders, coupled with lightweight on-device Devanagari OCR (Google ML Kit) for ambiguous scanned documents and Hindi circulars.

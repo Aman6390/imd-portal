@@ -1,5 +1,5 @@
 name: imd_portal
-description: "A native Flutter dashboard app for India Meteorological Department (IMD) employees."
+description: "A native Flutter dashboard app for meteorological staff and employees."
 publish_to: "none"
 version: 1.3.0+3
 

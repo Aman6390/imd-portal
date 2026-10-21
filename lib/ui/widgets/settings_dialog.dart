@@ -31,6 +31,7 @@ class _SettingsDialogState extends State<SettingsDialog> {
 
   bool _obscurePassword = true;
   bool _isLoading = true;
+  bool _isCheckingUpdate = false;
 
   @override
   void initState() {
@@ -392,7 +393,7 @@ class _SettingsDialogState extends State<SettingsDialog> {
                           SizedBox(width: 8),
                           Expanded(
                             child: Text(
-                              'Free Edition for all IMD Employees (v1.3.0)',
+                              'Free Edition for Meteorological Staff (v1.3.0)',
                               style: TextStyle(
                                 fontWeight: FontWeight.bold,
                                 color: Colors.green,
@@ -414,44 +415,83 @@ class _SettingsDialogState extends State<SettingsDialog> {
                     ),
                     const SizedBox(height: 8),
                     OutlinedButton.icon(
-                      icon: const Icon(Icons.system_update_alt, size: 18),
-                      label: const Text('Check for Updates / Download Latest APK'),
-                      onPressed: () async {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(
-                            content: Text('Checking for updates online...'),
-                            duration: Duration(seconds: 1),
-                          ),
-                        );
-                        final update = await UpdateService.checkForUpdate();
-                        if (!context.mounted) return;
-                        if (update != null && update.hasUpdate) {
-                          UpdateService.showUpdateDialog(context, update);
-                        } else if (update != null) {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(
-                              content: Text('✅ You are on the latest version (v${UpdateService.currentVersion})!'),
-                              backgroundColor: Colors.green,
-                              duration: Duration(seconds: 3),
-                            ),
-                          );
-                        } else {
-                          // Offline or error fallback: open releases page directly
-                          final uri = Uri.parse('https://github.com/Aman6390/imd-portal/releases');
-                          if (await canLaunchUrl(uri)) {
-                            await launchUrl(uri, mode: LaunchMode.externalApplication);
-                          }
-                        }
-                      },
+                      icon: _isCheckingUpdate
+                          ? const SizedBox(
+                              width: 16,
+                              height: 16,
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            )
+                          : const Icon(Icons.system_update_alt, size: 18),
+                      label: Text(
+                        _isCheckingUpdate
+                            ? 'Checking for Updates Online...'
+                            : 'Check for Updates / Download Latest APK',
+                      ),
+                      onPressed: _isCheckingUpdate
+                          ? null
+                          : () async {
+                              setState(() {
+                                _isCheckingUpdate = true;
+                              });
+
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(
+                                  content: Row(
+                                    children: [
+                                      SizedBox(
+                                        width: 16,
+                                        height: 16,
+                                        child: CircularProgressIndicator(
+                                          strokeWidth: 2,
+                                          valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                                        ),
+                                      ),
+                                      SizedBox(width: 12),
+                                      Text('Connecting to GitHub to check for updates...'),
+                                    ],
+                                  ),
+                                  duration: Duration(seconds: 2),
+                                ),
+                              );
+
+                              try {
+                                final update = await UpdateService.checkForUpdate();
+                                if (!context.mounted) return;
+
+                                if (update != null && update.hasUpdate) {
+                                  UpdateService.showUpdateDialog(context, update);
+                                } else if (update != null) {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    const SnackBar(
+                                      content: Text('✅ You are running the latest version (v${UpdateService.currentVersion})!'),
+                                      backgroundColor: Colors.green,
+                                      duration: Duration(seconds: 3),
+                                    ),
+                                  );
+                                } else {
+                                  // Offline or error fallback: open releases page directly
+                                  final uri = Uri.parse('https://github.com/Aman6390/imd-portal/releases');
+                                  if (await canLaunchUrl(uri)) {
+                                    await launchUrl(uri, mode: LaunchMode.externalApplication);
+                                  }
+                                }
+                              } finally {
+                                if (mounted) {
+                                  setState(() {
+                                    _isCheckingUpdate = false;
+                                  });
+                                }
+                              }
+                            },
                     ),
 
                     const Divider(height: 24),
                     // App Info
-                    const Text('About IMD Portal', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+                    const Text('About Meteorological Portal', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
                     const SizedBox(height: 6),
                     const Text(
-                      'IMD Portal is an automated companion app designed for employees and staff of the India Meteorological Department (IMD).\n\n'
-                      'Features include automated MetNet login, real-time Casual Leave, RH, and Compensatory Off balance tracking with 6-month expiry forecasting, bilingual Devanagari OCR for Hindi circulars, deduplicated offline caching, and Android Home Screen widgets.',
+                      'Meteorological Portal is an automated companion app designed for meteorological staff and employees.\n\n'
+                      'Features include automated MetNet login, real-time Casual Leave, RH, and Compensatory Off balance tracking with 6-month expiry forecasting, rolling 30-day circulars, bilingual Devanagari OCR for Hindi orders, deduplicated offline caching, and Android Home Screen widgets.',
                       style: TextStyle(fontSize: 12, color: Colors.grey, height: 1.4),
                     ),
                     const SizedBox(height: 16),
@@ -459,7 +499,7 @@ class _SettingsDialogState extends State<SettingsDialog> {
                     const SizedBox(height: 6),
                     const Text(
                       'Designed & Developed by Aman (Aman6390).\n'
-                      'Built to simplify daily departmental tracking and streamline intranet access for IMD colleagues.\n'
+                      'Built to simplify daily departmental tracking and streamline intranet access for colleagues.\n'
                       'Version: 1.3.0 (Release Build)',
                       style: TextStyle(fontSize: 12, color: Colors.grey, height: 1.4),
                     ),

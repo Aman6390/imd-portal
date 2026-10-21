@@ -64,7 +64,7 @@ class UpdateService {
         Uri.parse(latestReleaseApi),
         headers: {
           'Accept': 'application/vnd.github.v3+json',
-          'User-Agent': 'IMD-Portal-App/$currentVersion',
+          'User-Agent': 'Meteorological-Portal-App/$currentVersion',
         },
       ).timeout(const Duration(seconds: 8));
 
@@ -128,7 +128,7 @@ class UpdateService {
     try {
       final client = http.Client();
       final request = http.Request('GET', Uri.parse(downloadUrl));
-      request.headers['User-Agent'] = 'IMD-Portal-App/$currentVersion';
+      request.headers['User-Agent'] = 'Meteorological-Portal-App/$currentVersion';
       final response = await client.send(request);
 
       if (response.statusCode >= 200 && response.statusCode < 300) {
@@ -136,7 +136,7 @@ class UpdateService {
         int receivedBytes = 0;
 
         final dir = await getTemporaryDirectory();
-        final file = File('${dir.path}/IMD_Portal_Latest.apk');
+        final file = File('${dir.path}/Meteorological_Portal_Latest.apk');
         final sink = file.openWrite();
 
         await for (final chunk in response.stream) {
@@ -239,7 +239,7 @@ class UpdateService {
                   const Icon(Icons.bolt, color: Colors.orange, size: 16),
                   const SizedBox(width: 6),
                   Text(
-                    'IMD Portal ${update.latestVersion} Available',
+                    'Meteorological Portal ${update.latestVersion} Available',
                     style: const TextStyle(
                       fontWeight: FontWeight.bold,
                       fontSize: 12,

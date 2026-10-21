@@ -6,7 +6,7 @@ class NotificationService {
       FlutterLocalNotificationsPlugin();
 
   static const String channelId = 'imd_portal_updates';
-  static const String channelName = 'IMD Portal Updates';
+  static const String channelName = 'Meteorological Portal Updates';
   static const String channelDescription =
       'Notifications for new departmental circulars and leave balance updates';
 

@@ -54,7 +54,7 @@ class _ImdPortalAppState extends State<ImdPortalApp> {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'IMD Portal',
+      title: 'Meteorological Portal',
       debugShowCheckedModeBanner: false,
       themeMode: _isDark ? ThemeMode.dark : ThemeMode.light,
       theme: ThemeData(
