@@ -14,6 +14,50 @@ class StorageService {
   static const String _keyOcrCache = 'imd_ocr_cache';
 
   static const List<String> defaultVipKeywords = [
+    // 1. Career & Seniority (Discovered from 9,600+ real circulars)
+    'seniority list',
+    'draft seniority',
+    'promotion',
+    'macp',
+    'modified acp',
+    'ldce',
+    'examination',
+
+    // 2. Postings & Arrangements (Official MetNet Terminology)
+    'transfer',
+    'working arrangement',
+    'lacd arrangement',
+    'posting',
+
+    // 3. Cadres & Roles
+    'scientific assistant',
+    's.a.',
+    'scientist',
+
+    // 4. Opportunities & Training
+    'training course',
+    'forecasters training',
+    'wmo vacancy',
+    'vacancy',
+
+    // 5. Allowances & Welfare
+    'leave',
+    'allowance',
+    'cghs',
+    'retiring officials',
+    'tour programme',
+
+    // 6. Bilingual Support (Official MetNet Hindi Titles)
+    'वरिष्ठता सूची',
+    'पदोन्नति',
+    'स्थानांतरण',
+    'कार्य व्यवस्था',
+    'वैज्ञानिक सहायक',
+    'वैज्ञानिक',
+    'अवकाश',
+  ];
+
+  static const List<String> _legacyDefaultVipKeywords = [
     'scientific assistant',
     's.a.',
     'scientist',
@@ -28,6 +72,14 @@ class StorageService {
     'पदोन्नति',
     'वैज्ञानिक सहायक',
   ];
+
+  /// Keywords that frequently appear as signatories in official orders
+  /// and should only match against circular titles (or explicit subject lines),
+  /// never against the raw signature block at the bottom of OCR PDF bodies.
+  static const Set<String> titleOnlyVipKeywords = {
+    'scientist',
+    'वैज्ञानिक',
+  };
 
   static const List<String> defaultJunkKeywords = [
     'driver',
@@ -74,12 +126,71 @@ class StorageService {
       final prefs = await SharedPreferences.getInstance();
       final list = prefs.getStringList(_keyVipKeywords);
       if (list != null && list.isNotEmpty) {
+        // Transparently upgrade if the stored list is the untouched legacy 13 defaults
+        if (list.length == _legacyDefaultVipKeywords.length &&
+            list.toSet().containsAll(_legacyDefaultVipKeywords)) {
+          await prefs.setStringList(_keyVipKeywords, defaultVipKeywords);
+          return List<String>.from(defaultVipKeywords);
+        }
         return list;
       }
       return List<String>.from(defaultVipKeywords);
     } catch (_) {
       return List<String>.from(defaultVipKeywords);
     }
+  }
+
+  /// Checks if a keyword matches inside extracted OCR text, with smart protection
+  /// against signatory blocks for keywords in [titleOnlyVipKeywords].
+  static bool matchesOcrKeyword(String ocrText, String keyword) {
+    final lowerKw = keyword.toLowerCase().trim();
+    if (lowerKw.isEmpty) return false;
+    final lowerText = ocrText.toLowerCase();
+
+    if (titleOnlyVipKeywords.contains(lowerKw)) {
+      // Smart Subject-Line check: only match if the keyword is part of the
+      // Subject header (e.g., "Sub: ... Scientist ..."), avoiding signature false-positives.
+      final subjectRegex = RegExp(
+        r'(?:sub|subject|विषय)\s*[:\-–]\s*([^\n\r]+)',
+        caseSensitive: false,
+      );
+      for (final match in subjectRegex.allMatches(lowerText)) {
+        final subjectContent = match.group(1) ?? '';
+        if (subjectContent.contains(lowerKw)) return true;
+      }
+      return false;
+    }
+
+    return lowerText.contains(lowerKw);
+  }
+
+  /// Finds all VIP keywords that match a circular either via its title
+  /// or smartly within its OCR text without signature block false-positives.
+  static List<String> findMatchedVipKeywords({
+    required String title,
+    required String ocrText,
+    required List<String> vipKeywords,
+  }) {
+    final titleLower = title.toLowerCase();
+    final matched = <String>{};
+
+    for (final kw in vipKeywords) {
+      final lowerKw = kw.toLowerCase().trim();
+      if (lowerKw.isEmpty) continue;
+
+      // 1. Check title
+      if (titleLower.contains(lowerKw)) {
+        matched.add(kw);
+        continue;
+      }
+
+      // 2. Check OCR body with signatory protection
+      if (ocrText.isNotEmpty && matchesOcrKeyword(ocrText, lowerKw)) {
+        matched.add(kw);
+      }
+    }
+
+    return matched.toList();
   }
 
   /// Saves custom VIP keywords

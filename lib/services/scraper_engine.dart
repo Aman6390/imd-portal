@@ -85,33 +85,8 @@ class SessionHttpClient {
 
 /// The core scraper engine translated directly from Python's scraper_engine.py.
 class ScraperEngine {
-  static const List<String> vipKeywords = [
-    'scientific assistant',
-    's.a.',
-    'scientist',
-    'transfer',
-    'posting',
-    'promotion',
-    'ldce',
-    'macp',
-    'leave',
-    'allowance',
-  ];
-
-  static const List<String> junkKeywords = [
-    'driver',
-    'canteen',
-    'cook',
-    'mechanic',
-    'carpenter',
-    'mts',
-    'attendant',
-    'clerk',
-    'steno',
-    'stenographer',
-    'hindi translator',
-    'staff car',
-  ];
+  static List<String> get vipKeywords => StorageService.defaultVipKeywords;
+  static List<String> get junkKeywords => StorageService.defaultJunkKeywords;
 
   /// Parses leave balances and expiring C-Offs from leave_1.php HTML
   static (Map<String, String>, List<LapsingAlert>) parseLeaves(dom.Document soup) {
@@ -350,9 +325,11 @@ class ScraperEngine {
           try {
             final extractedText = await OcrService.processPdfFromUrl(link, session);
             if (extractedText.isNotEmpty) {
-              final textLower = extractedText.toLowerCase();
-              if (dynamicVipKeywords.any((vip) => textLower.contains(vip.toLowerCase()))) {
-                isVip = true;
+              for (final vip in dynamicVipKeywords) {
+                if (StorageService.matchesOcrKeyword(extractedText, vip)) {
+                  isVip = true;
+                  break;
+                }
               }
             }
           } catch (_) {}

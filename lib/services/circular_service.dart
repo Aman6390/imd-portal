@@ -521,8 +521,11 @@ class CircularService {
     if (!resultContext.mounted) return;
 
     final vipKeywords = await StorageService.loadVipKeywords();
-    final lowerText = recognizedText.toLowerCase();
-    final matchedKeywords = vipKeywords.where((k) => lowerText.contains(k.toLowerCase())).toList();
+    final matchedKeywords = StorageService.findMatchedVipKeywords(
+      title: item.title,
+      ocrText: recognizedText,
+      vipKeywords: vipKeywords,
+    );
 
     showDialog(
       context: resultContext,
