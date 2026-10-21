@@ -95,24 +95,6 @@ class CircularService {
     return bytes[0] == 0x25 && bytes[1] == 0x50 && bytes[2] == 0x44 && bytes[3] == 0x46;
   }
 
-  /// Downloads and opens the circular PDF locally with pre-flight checks and fallback routing
-  static Future<CircularStatus> openOrDownloadCircular(
-    BuildContext context,
-    CircularItem item,
-  ) async {
-    final circularsDir = await _getCircularsDirectory();
-    final filename = _getLocalFilename(item.link);
-    final localFile = File('${circularsDir.path}/$filename');
-
-    // 1. Check local cache (Never re-download if file already exists)
-    if (await localFile.exists() && await localFile.length() > 500) {
-      final opened = await _launchLocalPdf(localFile.path);
-      if (opened) {
-        item.cachedPath = localFile.path;
-        return CircularStatus.success;
-      }
-    }
-
   /// Fetches verified PDF bytes across candidate URLs and fallback authenticated session
   static Future<List<int>?> _fetchValidPdfBytes(CircularItem item) async {
     final candidateUrls = _generateCandidateUrls(item.link);
