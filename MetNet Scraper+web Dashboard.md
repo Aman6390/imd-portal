@@ -1,41 +1,39 @@
 # 🚀 PROJECT MASTER BLUEPRINT: IMD Portal Android Application
 
-> **Project Status:** Production Ready (v1.2)  
+> **Project Status:** Production Ready — 100% Free & Open Edition (v1.2.0)  
 > **Target Platform:** Native Android (Flutter / Kotlin)  
-> **Output Release Artifact:** `F:\IMD_Portal_v1.0.apk`  
+> **Output Release Artifact:** `build/app/outputs/flutter-apk/app-release.apk`  
 > **CI/CD Pipeline:** GitHub Actions Automated Cloud Build (`Aman6390/imd-portal`)  
+> **Licensing & Access:** 100% Free for all India Meteorological Department (IMD) employees (Zero cost, no licenses, no restrictions)
 
 ---
 
-## 🔑 Master Credentials & Secret Keys Quick Reference
+## 📌 Project Quick Reference & Repository Endpoints
 
-> [!IMPORTANT]
-> Keep this document private. These credentials provide master administrative control and cryptographic license generation authority over the IMD Portal application.
-
-| Item | Value / Secret | Description & Instructions |
+| Item | Value / Reference | Description & Details |
 | :--- | :--- | :--- |
-| **👑 Universal VIP Master Key** | `IMD-VIP-9K4F-8X2M-6390` | **Your master passkey.** Entering this in the app's activation box unlocks permanent Pro status and enables **Owner Mode** on any device. |
-| **🔒 Secret Admin PIN** | `6390` | **Your 4-digit PIN.** Unlocks the in-app license generator on your phone (Settings &rarr; License &rarr; Admin Generator). |
-| **🛡️ HMAC Cryptographic Salt** | `IMD_METNET_PORTAL_SECURE_SALT_2026` | Secret mathematical salt used to hash Device IDs (`IMD-XXXX-XXXX`) into offline License Keys (`PRO-XXXX-XXXX`). |
-| **⏳ Beta Trial Period** | `30 Days` | Automatic full-access duration for every fresh installation before license activation is prompted. |
-| **💻 Offline PC Key Generator** | `F:\imd app\key_generator.html` | Standalone HTML tool. Double-click in Chrome/Edge to generate keys offline without opening the mobile app. |
-| **📦 Release APK Location** | `F:\IMD_Portal_v1.0.apk` | Ready-to-install production Android APK file compiled via GitHub Actions. |
 | **🐙 GitHub Repository** | `https://github.com/Aman6390/imd-portal` | Authenticated remote repository with automated CI/CD cloud build workflow. |
+| **🌐 Intranet Target Portal** | `https://metnet.imd.gov.in` | Official India Meteorological Department Intranet Portal. |
+| **📦 Cloud Build Release APK** | `build/app/outputs/flutter-apk/app-release.apk` | Production Android APK compiled via GitHub Actions Ubuntu runners. |
+| **🚀 Over-The-Air Updates** | `https://github.com/Aman6390/imd-portal/releases` | GitHub Releases endpoint for version tracking and direct APK update downloads. |
+| **🎁 Edition & Pricing** | **100% Free Edition** | Unrestricted full access for all staff, scientists, and employees with zero barriers. |
+| **👤 Project Lead & Developer** | Aman Kumar (`Aman6390`) | Designed & built for India Meteorological Department colleagues. |
 
 ---
 
 ## 1. Project Overview & Objectives
 
-* **Automate Data Extraction:** Securely authenticate into the India Meteorological Department (IMD) Intranet Portal (`https://metnet.imd.gov.in`), bypass dynamic RSA login encryption, and scrape real-time leave balances and departmental circulars.
+* **Automate Intranet Data Extraction:** Securely authenticate into the India Meteorological Department (IMD) Intranet Portal (`https://metnet.imd.gov.in`), bypass dynamic RSA login encryption, and scrape real-time leave balances and departmental circulars.
 * **Smart Leave & Expiry Management:** Extract balances for Casual Leave (CL), Restricted Holiday (RH), and Compensatory Off (C-Off). Accurately predict expiration dates for C-Offs ($\text{Date of Credit} + 6 \text{ months}$) and provide a 12-month visual timeline with an interactive, dedicated calendar view.
 * **Intelligent Circular Categorization:** Automatically parse departmental orders, discard irrelevant junk notices (canteen, drivers, mechanics), and prioritize high-value VIP circulars (Scientific Assistants, Scientist transfers, promotions, LDCE, allowances) with direct PDF launch capabilities.
 * **Fast-Path Title Pre-Filter & On-Device Devanagari OCR:** Instant title matching from the web page for 90% of orders, coupled with lightweight on-device Devanagari OCR (Google ML Kit) for ambiguous scanned documents and Hindi circulars.
 * **Custom Keyword Editor:** Allows users to dynamically customize, add, and delete tracked VIP keywords (e.g. specific station names, user name, topics) and junk keywords directly from Settings.
-* **In-App MetNet Notice Resolver WebView:** When portal sync encounters unread inbox messages, duty roster declarations, or interstitial pages, displays `⚠️ MetNet Notice or Action Required` with an `Open MetNet to Resolve` button. Auto-logs into MetNet, lets the user dismiss the notice, and automatically closes and triggers re-sync when navigating to the dashboard.
-* **30-Day Beta Trial & Cryptographic Offline Licensing:** Automatic 30-day free trial on fresh installations. Cryptographic HMAC license verification with unique Device IDs (`IMD-XXXX-XXXX`), universal Master VIP Key (`IMD-VIP-9K4F-8X2M-6390`), and an Owner-Only Admin Key Generator protected by PIN `6390`.
+* **In-App MetNet Notice Resolver WebView:** When portal sync encounters unread inbox messages, duty roster declarations, or interstitial pages, displays `⚠️ MetNet Notice or Action Required` with an `Open MetNet to Resolve` button. Auto-logs into MetNet, lets the user dismiss the notice, and automatically closes and triggers re-sync when navigating back to the dashboard.
+* **100% Free & Open Access:** Zero licensing barriers, zero paywalls, and zero trial expiration dates. All features are permanently available to any colleague upon download.
+* **Over-The-Air (OTA) Updates:** In-app check for new releases and features via GitHub Releases, allowing colleagues to update their installed app seamlessly over the internet without manual downloads or app store hurdles.
 * **Never-Download-Twice Cache Registry:** Deduplication cache ensuring circular PDFs are processed only once in their lifetime, keeping daily sync under 3 seconds and mobile data under 100 KB.
 * **Biometric & Device Security:** Safeguard sensitive intranet credentials and departmental records with Android native Biometrics (Fingerprint / Face Unlock) and device PIN/pattern fallback on both app launch and credentials management.
-* **Settings & Customization:** Unified settings panel featuring Theme selection (Dark / Light Mode), keyword filters, license management, and an About Section honoring developer Aman (Aman6390).
+* **Settings & Customization:** Unified settings panel featuring Theme selection (Dark / Light Mode), keyword filters, account credentials, updates, and an About Section honoring developer Aman (Aman6390).
 
 ---
 
@@ -44,9 +42,9 @@
 | Category | Component / Library | Purpose |
 | :--- | :--- | :--- |
 | **Framework** | **Flutter (Dart 3.5+, SDK >=3.0.0 <4.0.0)** | Cross-platform native UI framework |
-| **Native Android** | **Kotlin (1.9.0), Gradle 8.1.2, Android SDK 34** | Native Android integration & `FlutterFragmentActivity` |
+| **Native Android** | **Kotlin (1.9.0), Gradle 8.1.2, Android SDK 35** | Native Android integration & `FlutterFragmentActivity` |
 | **Networking** | `http: ^1.2.0` | Custom `SessionHttpClient` maintaining cookie jars across requests |
-| **Cryptography** | `encrypt: ^5.0.3` & `pointycastle: ^3.7.4` | RSA PKCS1_v1_5 encryption with dynamic public keys |
+| **Cryptography** | `encrypt: ^5.0.3` & `pointycastle: ^3.7.4` | RSA PKCS1_v1_5 encryption with dynamic public keys matching PyCryptodome |
 | **HTML Scraping** | `html: ^0.15.4` | DOM traversal, CSS selection, and regex-based text extraction |
 | **Local OCR (AI)** | `google_mlkit_text_recognition: ^0.13.0` | 100% On-device Devanagari (Hindi) & Latin OCR (offline) |
 | **PDF Rasterizer** | Native Android `android.graphics.pdf.PdfRenderer` | Hardware-accelerated native PDF page-to-image converter |
@@ -55,9 +53,8 @@
 | **Background Tasks** | `workmanager: ^0.5.2` | Android WorkManager daily 18:00 background worker |
 | **Push Notifications** | `flutter_local_notifications: ^17.0.0` | Android system notifications with custom notification channels |
 | **Home Widgets** | `home_widget: ^0.6.0` | Native Android AppWidgets (2x2 Multi-metric & 1x1 Compact) |
-| **Document Launching**| `url_launcher: ^6.2.4` | Direct opening of official circular PDF URLs in browser/viewer |
+| **Document Launching**| `url_launcher: ^6.2.4` | Direct opening of circular PDFs and OTA update downloads |
 | **Notice Resolver** | `webview_flutter: ^4.10.0` | In-app authenticated WebView for resolving MetNet notices & pop-ups |
-| **Licensing Crypto** | `crypto: ^3.0.3` | HMAC-SHA256 mathematical algorithm for offline license validation |
 | **Formatting** | `intl: ^0.19.0` | Date formatting and timeline parsing |
 
 ---
@@ -139,6 +136,11 @@
    * **"Reset to Defaults" Button:** Restores standard default keywords instantly.
 6. **Tabbed Circulars Section:** Dedicated tabs separating **VIP Circulars** (⭐) and **Other Notifications** (📄) with click-to-open PDF link launching.
 7. **Sync Controls:** Floating Action Button (FAB) and Pull-to-Refresh with animated circular progress indicators and status SnackBars.
+8. **Settings Panel (4 Tabs):**
+   * **Tab 1: Account** — MetNet Intranet credentials configuration.
+   * **Tab 2: VIP Filter** — Custom keywords for starred circulars.
+   * **Tab 3: Junk Filter** — Custom terms for auto-discarding notices.
+   * **Tab 4: About & Updates** — Theme toggle, Free edition badge, OTA update launcher, and app documentation.
 
 ---
 
@@ -201,28 +203,21 @@ When this occurs, standard leave/circular links are missing from the response HT
 
 ---
 
-## 9. 30-Day Beta Trial, Cryptographic Licensing & Owner Key Generator
+## 9. Over-The-Air (OTA) & Internet Update Architecture
 
-### A. 30-Day Beta Trial Mode
-* **Zero Configuration:** Upon fresh installation, the app generates an installation timestamp and grants full unrestricted access for **30 calendar days**.
-* **Visual Status:** Displays a subtle trial badge (`Trial: X days left`) in the app header and Settings dialog.
-* **Trial Expiry Gate:** When 30 days lapse, syncing pauses and prompts the user to activate.
+### How Sideloaded / Direct APK Mobile Apps Update
+Because the IMD Portal app is distributed directly to colleagues via APK rather than the public Google Play Store, updates occur over the air using GitHub Releases:
 
-### B. Offline Cryptographic License Verification (Serverless & Zero-Cost)
-* **Device ID:** Generates a deterministic 8-character hardware/install hash formatted as `IMD-XXXX-XXXX` (e.g. `IMD-8B4E-29A1`).
-* **Cryptographic HMAC Formula:**
-  $$\text{License Key} = \text{HMAC-SHA256}(\text{Device ID}, \text{Secret Salt})$$
-  Formatted as `PRO-XXXX-XXXX`. Because each key is mathematically bound to that specific Device ID, colleagues cannot forward or share activation keys.
-
-### C. Universal VIP Master Key
-* **Master Passkey:** `IMD-VIP-9K4F-8X2M-6390`
-* **Purpose:** Unlocks any device immediately for life without needing a device-specific key. Entering this key on the owner's phone unlocks **Owner / Admin Mode**.
-
-### D. Owner-Only In-App Key Generator & Security
-* **Protection:** Hidden from regular colleagues. Available only on devices activated with the Master Key.
-* **Admin PIN:** Protected by the user's secret 4-digit PIN: **`6390`**.
-* **Workflow:** The owner opens Settings -> taps **Admin License Generator** -> enters PIN `6390` -> pastes colleague's Device ID -> taps **Generate** -> copies key and sends to colleague.
-* **Offline HTML Fallback:** Accompanied by a standalone `key_generator.html` file stored in the project repository for generating keys on any PC/browser offline.
+1. **Automated Cloud Compilation:**  
+   Every code push or feature update committed to the repository triggers the GitHub Actions CI/CD runner, compiling a new production APK (`app-release.apk`).
+2. **Release Tagging (`v1.x.x`):**  
+   New versions are tagged in GitHub Releases (e.g., `v1.2.0`, `v1.3.0`).
+3. **In-App Update Button & Check:**  
+   Colleagues can open Settings &rarr; **About & Updates** &rarr; tap **Check for Updates / Download Latest APK**.
+4. **Direct Browser / Package Installation:**  
+   Android automatically downloads the new release APK and prompts:  
+   *"Do you want to install an update to this application?"*  
+   Tapping **Install** preserves all user settings, saved credentials, cached circulars, and history without data loss.
 
 ---
 
@@ -232,16 +227,16 @@ When this occurs, standard leave/circular links are missing from the response HT
 * **Workflow (`.github/workflows/build_apk.yml`):**
   * Triggered automatically on Git push to `main`.
   * Runs on `ubuntu-latest` with Zulu JDK 17 and Flutter `3.24.3`.
-  * Executes `flutter build apk --release`.
+  * Executes `flutter build apk --release` with 4GB heap allocation.
   * Automatically uploads the compiled APK as a build artifact (`IMD-Portal-Release-APK`).
-* **Local Synchronization:** Integrated GitHub CLI (`gh`) and Git automated deployment script that downloads the compiled release APK directly into `F:\IMD_Portal_v1.0.apk`.
+* **Hands-Off Local Integration:** GitHub CLI (`gh`) and automated scripts allow local downloading of the compiled release APK directly into `build_output/IMD-Portal-Release-APK/app-release.apk` without requiring local Flutter SDK or Android Studio installations.
 
 ---
 
 ## 11. Codebase File Structure
 
 ```
-F:\imd app\
+E:\imd portal\
 ├── .github\
 │   └── workflows\
 │       └── build_apk.yml                     # GitHub Actions Cloud APK Build workflow
@@ -276,7 +271,6 @@ F:\imd app\
 │   ├── services\
 │   │   ├── auth_service.dart                 # Local biometrics & PIN authentication service
 │   │   ├── background_sync_service.dart      # WorkManager 18:00 worker & reminder logic
-│   │   ├── license_service.dart              # 30-Day trial, Device ID, HMAC offline licensing & generator
 │   │   ├── notification_service.dart         # Android notification channels & dispatcher
 │   │   ├── ocr_service.dart                  # On-Device Google ML Kit Devanagari OCR service
 │   │   ├── rsa_crypto.dart                   # RSA PKCS1_v1_5 dynamic password encrypter
@@ -291,10 +285,9 @@ F:\imd app\
 │           ├── circular_tabs.dart            # Tabbed VIP & FOMO circulars
 │           ├── leave_card.dart               # Horizontal color-coded leave cards
 │           ├── notice_resolver_webview.dart  # In-App MetNet Notice Resolver WebView
-│           └── settings_dialog.dart          # 5-Tab settings: Account, VIP, Junk, License & About
+│           └── settings_dialog.dart          # 4-Tab settings: Account, VIP, Junk, About & Updates
 ├── .gitignore                                # Build & artifact ignore rules
 ├── analysis_options.yaml                     # Dart analyzer configuration
-├── key_generator.html                        # Standalone offline browser license generator tool
 ├── pubspec.yaml                              # Flutter dependencies & metadata
 └── MetNet Scraper+web Dashboard.md           # Master Project Blueprint & Documentation
 ```

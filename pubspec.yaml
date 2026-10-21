@@ -48,9 +48,6 @@ dependencies:
   # In-App Authenticated MetNet Notice Resolver WebView
   webview_flutter: ^4.10.0
 
-  # Cryptographic hashing for offline licensing
-  crypto: ^3.0.3
-
 dev_dependencies:
   flutter_test:
     sdk: flutter

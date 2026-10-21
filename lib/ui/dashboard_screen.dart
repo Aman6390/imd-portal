@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import '../models/dashboard_data.dart';
 import '../services/auth_service.dart';
-import '../services/license_service.dart';
 import '../services/scraper_engine.dart';
 import '../services/storage_service.dart';
 import '../services/widget_service.dart';
@@ -32,17 +31,14 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
   bool _isAppUnlocked = false;
   bool _isAuthenticating = false;
 
-  // Notice & License state
+  // Notice state
   bool _hasMetNetNotice = false;
-  int _trialDaysRemaining = 30;
-  bool _isProActive = false;
 
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
     _loadCachedData();
-    _loadLicenseStatus();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _authenticateAppLaunch();
     });
@@ -80,17 +76,6 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
     if (mounted) {
       setState(() {
         _isAppUnlocked = authenticated;
-      });
-    }
-  }
-
-  Future<void> _loadLicenseStatus() async {
-    final days = await LicenseService.getRemainingTrialDays();
-    final activated = await LicenseService.isActivated();
-    if (mounted) {
-      setState(() {
-        _trialDaysRemaining = days;
-        _isProActive = activated;
       });
     }
   }
@@ -138,21 +123,6 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
 
   Future<void> _triggerSync() async {
     if (_isSyncing) return;
-
-    // Check License & Beta Trial status
-    final canSync = await LicenseService.canUseApp();
-    if (!canSync) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('30-Day Beta Trial has expired. Please activate your license in Settings.'),
-          backgroundColor: Colors.red,
-          duration: Duration(seconds: 4),
-        ),
-      );
-      _openSettings();
-      return;
-    }
 
     final (user, pass) = await StorageService.loadCredentials();
     if (user.isEmpty || pass.isEmpty) {
@@ -225,7 +195,6 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
       context: context,
       builder: (context) => SettingsDialog(
         onSaved: () {
-          _loadLicenseStatus();
           if (_data == null) {
             _triggerSync();
           }
@@ -517,26 +486,6 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
           style: TextStyle(fontWeight: FontWeight.bold),
         ),
         actions: [
-          // License Status Chip
-          Padding(
-            padding: const EdgeInsets.symmetric(vertical: 10.0),
-            child: ActionChip(
-              avatar: Icon(
-                _isProActive ? Icons.verified : Icons.timelapse,
-                size: 16,
-                color: _isProActive ? Colors.green : Colors.orange,
-              ),
-              label: Text(
-                _isProActive ? 'Pro' : 'Trial: ${_trialDaysRemaining}d',
-                style: TextStyle(
-                  fontSize: 11,
-                  fontWeight: FontWeight.bold,
-                  color: _isProActive ? Colors.green : Colors.orange,
-                ),
-              ),
-              onPressed: _openSettings,
-            ),
-          ),
           IconButton(
             tooltip: 'Settings',
             icon: const Icon(Icons.settings),
