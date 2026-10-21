@@ -375,11 +375,22 @@ class CircularService {
       return;
     }
 
-    bool isCancelled = false;
+    bool userCancelled = false;
+    bool isProgrammaticDismiss = false;
     final statusNotifier = ValueNotifier<String>('Step 1/2: Checking offline cache...');
     BuildContext? progressDialogContext;
 
-    // 5. Dismissible Dialog with Cancel button
+    void dismissProgressDialog() {
+      if (progressDialogContext != null && progressDialogContext!.mounted) {
+        isProgrammaticDismiss = true;
+        try {
+          Navigator.of(progressDialogContext!).pop();
+        } catch (_) {}
+        progressDialogContext = null;
+      }
+    }
+
+    // Dismissible Progress Dialog
     showDialog(
       context: activeContext,
       barrierDismissible: true,
@@ -388,7 +399,9 @@ class CircularService {
         return PopScope(
           canPop: true,
           onPopInvoked: (_) {
-            isCancelled = true;
+            if (!isProgrammaticDismiss) {
+              userCancelled = true;
+            }
           },
           child: AlertDialog(
             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
@@ -436,11 +449,8 @@ class CircularService {
             actions: [
               TextButton(
                 onPressed: () {
-                  isCancelled = true;
-                  if (progressDialogContext != null && progressDialogContext!.mounted) {
-                    Navigator.of(progressDialogContext!).pop();
-                    progressDialogContext = null;
-                  }
+                  userCancelled = true;
+                  dismissProgressDialog();
                 },
                 child: const Text('Cancel'),
               ),
@@ -449,15 +459,6 @@ class CircularService {
         );
       },
     );
-
-    void dismissProgressDialog() {
-      if (progressDialogContext != null && progressDialogContext!.mounted) {
-        try {
-          Navigator.of(progressDialogContext!).pop();
-        } catch (_) {}
-        progressDialogContext = null;
-      }
-    }
 
     final circularsDir = await _getCircularsDirectory();
     final filename = _getLocalFilename(item.link);
@@ -468,7 +469,7 @@ class CircularService {
       statusNotifier.value = 'Step 1/2: Downloading PDF from MetNet...';
       final status = await _downloadPdfSilently(item, localFile);
 
-      if (isCancelled) {
+      if (userCancelled) {
         dismissProgressDialog();
         return;
       }
@@ -492,7 +493,7 @@ class CircularService {
       }
     }
 
-    if (isCancelled) {
+    if (userCancelled) {
       dismissProgressDialog();
       return;
     }
@@ -511,109 +512,109 @@ class CircularService {
     // Always unconditionally dismiss loading dialog
     dismissProgressDialog();
 
-    if (isCancelled) return;
+    if (userCancelled) return;
 
-    final sheetContext = rootNavigatorKey.currentContext ?? context;
-    if (!sheetContext.mounted) return;
+    // Brief settling pause to ensure previous dialog pop animation settles cleanly
+    await Future.delayed(const Duration(milliseconds: 100));
+
+    final resultContext = rootNavigatorKey.currentContext ?? context;
+    if (!resultContext.mounted) return;
 
     final vipKeywords = await StorageService.loadVipKeywords();
     final lowerText = recognizedText.toLowerCase();
     final matchedKeywords = vipKeywords.where((k) => lowerText.contains(k.toLowerCase())).toList();
 
-    showModalBottomSheet(
-      context: sheetContext,
-      isScrollControlled: true,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
-      builder: (bottomSheetCtx) => DraggableScrollableSheet(
-        initialChildSize: 0.65,
-        minChildSize: 0.4,
-        maxChildSize: 0.9,
-        expand: false,
-        builder: (_, scrollController) => Padding(
-          padding: const EdgeInsets.fromLTRB(20, 16, 20, 20),
-          child: ListView(
-            controller: scrollController,
-            children: [
-              Center(
-                child: Container(
-                  width: 40,
-                  height: 4,
-                  margin: const EdgeInsets.only(bottom: 16),
-                  decoration: BoxDecoration(
-                    color: Colors.grey.shade600,
-                    borderRadius: BorderRadius.circular(2),
-                  ),
-                ),
+    showDialog(
+      context: resultContext,
+      barrierDismissible: true,
+      builder: (resultCtx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: const Row(
+          children: [
+            Icon(Icons.document_scanner_rounded, color: Colors.purpleAccent, size: 24),
+            SizedBox(width: 10),
+            Expanded(
+              child: Text(
+                'Document Summary (AI Scanner)',
+                style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
               ),
-              const Row(
-                children: [
-                  Icon(Icons.document_scanner_rounded, color: Colors.purpleAccent, size: 24),
-                  SizedBox(width: 10),
-                  Text(
-                    'Document Summary (AI Scanner)',
-                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 12),
-              Text(
-                item.title,
-                style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
-              ),
-              const SizedBox(height: 12),
-              if (matchedKeywords.isNotEmpty) ...[
-                const Text('Matched VIP Keywords:', style: TextStyle(fontSize: 12, color: Colors.amber, fontWeight: FontWeight.bold)),
-                const SizedBox(height: 6),
-                Wrap(
-                  spacing: 6,
-                  children: matchedKeywords
-                      .map((kw) => Chip(
-                            label: Text(kw, style: const TextStyle(fontSize: 11)),
-                            backgroundColor: Colors.amber.withOpacity(0.15),
-                            side: BorderSide(color: Colors.amber.shade700),
-                            visualDensity: VisualDensity.compact,
-                          ))
-                      .toList(),
+            ),
+          ],
+        ),
+        content: SizedBox(
+          width: double.maxFinite,
+          child: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  item.title,
+                  style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
                 ),
                 const SizedBox(height: 12),
+                if (matchedKeywords.isNotEmpty) ...[
+                  const Text('Matched VIP Keywords:',
+                      style: TextStyle(fontSize: 12, color: Colors.amber, fontWeight: FontWeight.bold)),
+                  const SizedBox(height: 6),
+                  Wrap(
+                    spacing: 6,
+                    children: matchedKeywords
+                        .map((kw) => Chip(
+                              label: Text(kw, style: const TextStyle(fontSize: 11)),
+                              backgroundColor: Colors.amber.withOpacity(0.15),
+                              side: BorderSide(color: Colors.amber.shade700),
+                              visualDensity: VisualDensity.compact,
+                            ))
+                        .toList(),
+                  ),
+                  const SizedBox(height: 12),
+                ],
+                const Text('Recognized Text Preview (Hindi / English):',
+                    style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                const SizedBox(height: 6),
+                Container(
+                  width: double.infinity,
+                  constraints: const BoxConstraints(maxHeight: 260),
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: Colors.black26,
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(color: Colors.white12),
+                  ),
+                  child: SingleChildScrollView(
+                    child: SelectableText(
+                      recognizedText.trim().isNotEmpty
+                          ? recognizedText.trim()
+                          : 'No text detected on Page 1 (scanned image may be handwritten, low contrast, or blank).',
+                      style: const TextStyle(fontSize: 12, height: 1.4, fontFamily: 'monospace'),
+                    ),
+                  ),
+                ),
               ],
-              const Text('Recognized Text Preview (Hindi / English):', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
-              const SizedBox(height: 6),
-              Container(
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: Colors.black26,
-                  borderRadius: BorderRadius.circular(10),
-                  border: Border.all(color: Colors.white12),
-                ),
-                child: Text(
-                  recognizedText.isNotEmpty
-                      ? recognizedText
-                      : 'No text detected on Page 1 (scanned image may be handwritten, low contrast, or deferred).',
-                  style: const TextStyle(fontSize: 12, height: 1.4, fontFamily: 'monospace'),
-                ),
-              ),
-              const SizedBox(height: 16),
-              if (recognizedText.isNotEmpty)
-                FilledButton.tonalIcon(
-                  icon: const Icon(Icons.copy, size: 16),
-                  label: const Text('Copy Extracted Text'),
-                  onPressed: () {
-                    Clipboard.setData(ClipboardData(text: recognizedText));
-                    Navigator.of(bottomSheetCtx).pop();
-                    final snackbarCtx = rootNavigatorKey.currentContext ?? context;
-                    if (snackbarCtx.mounted) {
-                      ScaffoldMessenger.of(snackbarCtx).showSnackBar(
-                        const SnackBar(content: Text('Extracted text copied to clipboard!')),
-                      );
-                    }
-                  },
-                ),
-            ],
+            ),
           ),
         ),
+        actions: [
+          if (recognizedText.trim().isNotEmpty)
+            TextButton.icon(
+              icon: const Icon(Icons.copy, size: 16),
+              label: const Text('Copy Text'),
+              onPressed: () {
+                Clipboard.setData(ClipboardData(text: recognizedText.trim()));
+                ScaffoldMessenger.of(resultCtx).showSnackBar(
+                  const SnackBar(
+                    content: Text('Extracted text copied to clipboard!'),
+                    duration: Duration(seconds: 2),
+                  ),
+                );
+              },
+            ),
+          FilledButton(
+            onPressed: () => Navigator.of(resultCtx).pop(),
+            child: const Text('Done'),
+          ),
+        ],
       ),
     );
   }
