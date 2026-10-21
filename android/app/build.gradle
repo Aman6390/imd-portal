@@ -58,6 +58,15 @@ android {
         multiDexEnabled true
     }
 
+    signingConfigs {
+        release {
+            storeFile file('release.keystore')
+            storePassword 'meteorological2026'
+            keyAlias 'metnetkey'
+            keyPassword 'meteorological2026'
+        }
+    }
+
     lintOptions {
         checkReleaseBuilds false
         abortOnError false
@@ -65,7 +74,7 @@ android {
 
     buildTypes {
         release {
-            signingConfig signingConfigs.debug
+            signingConfig signingConfigs.release
             minifyEnabled false
             shrinkResources false
         }

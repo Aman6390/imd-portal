@@ -1,6 +1,6 @@
 # 🚀 PROJECT MASTER BLUEPRINT: Meteorological Portal Android Application
 
-> **Project Status:** Production Ready — 100% Free & Open Edition (v1.3.5)  
+> **Project Status:** Production Ready — 100% Free & Open Edition (v1.3.6)  
 > **Target Platform:** Native Android (Flutter / Kotlin)  
 > **Output Release Artifact:** `build/app/outputs/flutter-apk/app-release.apk`  
 > **CI/CD Pipeline:** GitHub Actions Automated Cloud Build (`Aman6390/imd-portal`)  
@@ -264,6 +264,11 @@ Because the IMD Portal app is distributed directly to colleagues via APK rather 
    Colleagues can also open Settings &rarr; **About & Updates** &rarr; tap **Check for Updates / Download Latest APK** for an instant real-time version check.
 7. **Android Package Installation Barrier (OS Security):**  
    Android OS architecture enforces that while downloading can occur 100% in the background, executing an APK installation *always* triggers a system confirmation dialog (`"Do you want to install an update to this application?"`). This is a fundamental Android OS security boundary that protects users. Once confirmed, the update replaces the existing installation in-place, preserving all cached balances and saved credentials without requiring re-login.
+8. **Permanent Cryptographic Release Signing (`release.keystore`):**  
+   Android enforces strict cryptographic signature matching across updates: if an update APK is signed with a different key than the installed app, Android blocks the installation with **"App not installed as package conflicts with an existing package"** (`INSTALL_FAILED_UPDATE_INCOMPATIBLE`). To permanently eliminate this issue across ephemeral GitHub Actions CI/CD runners:
+   * Configured a permanent 30-year production release keystore (`android/app/release.keystore`, alias `metnetkey`).
+   * Configured `signingConfigs.release` in `android/app/build.gradle` so every automated cloud build uses the exact same cryptographic certificate.
+   * Created a dedicated white-alpha vector notification icon (`ic_stat_notification.xml`) and integrated runtime permission prompting (`requestPermission()`) on Android 13+ (API 33+).
 
 ---
 
@@ -356,6 +361,7 @@ E:\imd portal\
 | **v1.3.3** | `1.3.3+6` | Oct 2026 | **Auto-Resume Permission Flow:** Added `checkAndResumePendingInstall()`, `onResume()`, and `onActivityResult()` in `MainActivity.kt`. Automatically triggers installation upon returning from Android's "Allow from this source" settings. Switched to external cache for broad OEM compatibility. |
 | **v1.3.4** | `1.3.4+7` | Oct 2026 | **Push Notification-Driven Updates:** Introduced system notification shade integration via `NotificationService.dart` & `BackgroundSyncService.dart`. Notification 201 prompts download; Notification 202 provides 1-tap install directly from the notification tray. |
 | **v1.3.5** | `1.3.5+8` | Oct 2026 | **Intelligent Circular Downloader & Sibling Fallback:** Introduced `CircularService.dart`. Added `%PDF` magic byte verification, automatic multi-path sibling URL discovery (`/docs/`, `/phps/docs/`, `/Welcome_to_Intra-IMD/docs/`), authenticated session fallback, in-app modal handling for 404 withdrawn circulars, and native PDF launching via `FileProvider`. |
+| **v1.3.6** | `1.3.6+9` | Oct 2026 | **Permanent Release Signing & Notification Hardening:** Configured permanent 30-year `release.keystore` to permanently eliminate Android signature conflict (`INSTALL_FAILED_UPDATE_INCOMPATIBLE`). Added dedicated vector notification icon `ic_stat_notification.xml` and runtime notification permission request on Android 13+. |
 
 ---
 

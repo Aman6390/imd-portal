@@ -2,6 +2,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import '../models/dashboard_data.dart';
 import '../services/auth_service.dart';
+import '../services/notification_service.dart';
 import '../services/scraper_engine.dart';
 import '../services/storage_service.dart';
 import '../services/update_service.dart';
@@ -64,7 +65,8 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
       }
     });
 
-    WidgetsBinding.instance.addPostFrameCallback((_) {
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      await NotificationService.requestPermission();
       _authenticateAppLaunch();
     });
   }

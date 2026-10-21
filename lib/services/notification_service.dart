@@ -13,7 +13,7 @@ class NotificationService {
 
   /// Initializes the local notification plugin and configures Android notification channels
   static Future<void> initialize() async {
-    const androidSettings = AndroidInitializationSettings('@android:drawable/sym_def_app_icon');
+    const androidSettings = AndroidInitializationSettings('ic_stat_notification');
     const initSettings = InitializationSettings(android: androidSettings);
 
     await _notificationsPlugin.initialize(
@@ -26,7 +26,7 @@ class NotificationService {
       },
     );
 
-    // Create high-importance Android notification channel
+    // Create high-importance Android notification channel with lights and vibration
     const androidChannel = AndroidNotificationChannel(
       channelId,
       channelName,
@@ -34,6 +34,7 @@ class NotificationService {
       importance: Importance.high,
       playSound: true,
       enableVibration: true,
+      enableLights: true,
     );
 
     final androidPlugin = _notificationsPlugin
@@ -41,9 +42,20 @@ class NotificationService {
 
     if (androidPlugin != null) {
       await androidPlugin.createNotificationChannel(androidChannel);
-      // Request notification permission for Android 13+
-      await androidPlugin.requestNotificationsPermission();
     }
+  }
+
+  /// Explicitly requests notification permission on Android 13+ (when UI is mounted)
+  static Future<bool> requestPermission() async {
+    try {
+      final androidPlugin = _notificationsPlugin
+          .resolvePlatformSpecificImplementation<AndroidFlutterLocalNotificationsPlugin>();
+      if (androidPlugin != null) {
+        final granted = await androidPlugin.requestNotificationsPermission();
+        return granted ?? false;
+      }
+    } catch (_) {}
+    return false;
   }
 
   /// Checks if the app was launched by tapping an Android notification
@@ -83,10 +95,12 @@ class NotificationService {
       channelId,
       channelName,
       channelDescription: channelDescription,
-      importance: Importance.high,
-      priority: Priority.high,
+      importance: Importance.max,
+      priority: Priority.max,
       showWhen: true,
-      icon: '@android:drawable/sym_def_app_icon',
+      icon: 'ic_stat_notification',
+      channelShowBadge: true,
+      enableVibration: true,
     );
 
     const notificationDetails = NotificationDetails(android: androidDetails);
