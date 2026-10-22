@@ -2,6 +2,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import '../models/dashboard_data.dart';
 import '../services/auth_service.dart';
+import '../services/ai_circular_service.dart';
 import '../services/circular_service.dart';
 import '../services/notification_service.dart';
 import '../services/scraper_engine.dart';
@@ -74,6 +75,7 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
       await NotificationService.requestPermission();
       _authenticateAppLaunch();
       CircularService.purgeFilesOlderThan30Days();
+      AiCircularService.syncIndex();
     });
   }
 
@@ -217,6 +219,7 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
       if (success && freshData != null) {
         await StorageService.saveDashboardData(freshData);
         await WidgetService.updateFromDashboard(freshData);
+        AiCircularService.syncIndex();
       }
 
       ScaffoldMessenger.of(context).showSnackBar(

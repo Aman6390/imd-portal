@@ -1,0 +1,50 @@
+name: MetNet AI Circular Semantic Indexer
+
+on:
+  schedule:
+    # Runs every 4 hours (at minute 0 past every 4th hour)
+    - cron: '0 */4 * * *'
+  workflow_dispatch: # Allows manual 1-click execution anytime
+
+permissions:
+  contents: write
+
+jobs:
+  index-circulars:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - name: Install Python Dependencies
+        run: |
+          pip install --upgrade pip
+          pip install requests beautifulsoup4 pycryptodome
+
+      - name: Run MetNet AI Semantic Indexer
+        env:
+          METNET_USERNAME: ${{ secrets.METNET_USERNAME }}
+          METNET_PASSWORD: ${{ secrets.METNET_PASSWORD }}
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+        run: |
+          python scripts/ai_circular_indexer.py
+
+      - name: Commit and Push Updated AI Index
+        run: |
+          git config --local user.email "github-actions[bot]@users.noreply.github.com"
+          git config --local user.name "github-actions[bot]"
+          git add data/circulars_ai_index.json
+          if git diff --staged --quiet; then
+            echo "No new circulars or changes to index."
+          else
+            git commit -m "chore(ai): update circulars semantic index [skip ci]"
+            git push
+          fi

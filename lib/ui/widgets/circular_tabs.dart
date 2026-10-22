@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import '../../models/ai_circular_entry.dart';
 import '../../models/dashboard_data.dart';
+import '../../services/ai_circular_service.dart';
 import '../../services/circular_service.dart';
 import '../../services/storage_service.dart';
 
@@ -134,23 +136,105 @@ class _CircularTabsState extends State<CircularTabs> {
         final item = items[index];
         final isUnavailable = item.isUnavailable;
         final isCached = item.cachedPath != null;
+        final aiMeta = AiCircularService.getMetadata(item.link, item.title);
 
         return ListTile(
           contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
           leading: Icon(
-            isUnavailable ? Icons.warning_amber_rounded : icon,
-            color: isUnavailable ? Colors.orangeAccent : iconColor,
+            isUnavailable
+                ? Icons.warning_amber_rounded
+                : (aiMeta?.isVip ?? false ? Icons.stars_rounded : icon),
+            color: isUnavailable
+                ? Colors.orangeAccent
+                : (aiMeta?.isVip ?? false ? Colors.amber : iconColor),
           ),
-          title: Text(
-            item.title.isNotEmpty ? item.title : 'Untitled Circular',
-            maxLines: 3,
-            overflow: TextOverflow.ellipsis,
-            style: TextStyle(
-              fontSize: 13,
-              fontWeight: FontWeight.w500,
-              color: isUnavailable ? Theme.of(context).disabledColor : null,
-              decoration: isUnavailable ? TextDecoration.lineThrough : null,
-            ),
+          title: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              if (aiMeta != null &&
+                  ((aiMeta.targetCadre.isNotEmpty &&
+                          aiMeta.targetCadre != 'General / All') ||
+                      aiMeta.actionRequired)) ...[
+                Wrap(
+                  spacing: 6,
+                  runSpacing: 4,
+                  children: [
+                    if (aiMeta.targetCadre.isNotEmpty &&
+                        aiMeta.targetCadre != 'General / All')
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1.5),
+                        decoration: BoxDecoration(
+                          color: Colors.blueAccent.withOpacity(0.15),
+                          borderRadius: BorderRadius.circular(4),
+                          border: Border.all(
+                            color: Colors.blueAccent.withOpacity(0.3),
+                            width: 0.8,
+                          ),
+                        ),
+                        child: Text(
+                          aiMeta.targetCadre,
+                          style: const TextStyle(
+                            fontSize: 10,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.lightBlueAccent,
+                          ),
+                        ),
+                      ),
+                    if (aiMeta.actionRequired)
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1.5),
+                        decoration: BoxDecoration(
+                          color: Colors.amberAccent.withOpacity(0.18),
+                          borderRadius: BorderRadius.circular(4),
+                          border: Border.all(
+                            color: Colors.amberAccent.withOpacity(0.35),
+                            width: 0.8,
+                          ),
+                        ),
+                        child: const Text(
+                          'Action Required',
+                          style: TextStyle(
+                            fontSize: 10,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.amberAccent,
+                          ),
+                        ),
+                      ),
+                  ],
+                ),
+                const SizedBox(height: 3),
+              ],
+              Text(
+                item.title.isNotEmpty ? item.title : 'Untitled Circular',
+                maxLines: 3,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w500,
+                  color: isUnavailable ? Theme.of(context).disabledColor : null,
+                  decoration: isUnavailable ? TextDecoration.lineThrough : null,
+                ),
+              ),
+              if (aiMeta != null && aiMeta.summaryEn.isNotEmpty) ...[
+                const SizedBox(height: 4),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: Theme.of(context).colorScheme.surfaceVariant.withOpacity(0.4),
+                    borderRadius: BorderRadius.circular(6),
+                  ),
+                  child: Text(
+                    '🤖 ${aiMeta.summaryEn}',
+                    style: TextStyle(
+                      fontSize: 11,
+                      fontStyle: FontStyle.italic,
+                      color: Theme.of(context).colorScheme.onSurfaceVariant,
+                    ),
+                  ),
+                ),
+              ],
+            ],
           ),
           subtitle: Padding(
             padding: const EdgeInsets.only(top: 4.0),

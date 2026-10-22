@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:http/http.dart' as http;
 import '../../models/dashboard_data.dart';
+import '../../services/ai_circular_service.dart';
 import '../../services/circular_service.dart';
 import '../../services/storage_service.dart';
 import '../../services/update_service.dart';
@@ -36,6 +37,7 @@ class _SettingsDialogState extends State<SettingsDialog> {
   bool _isLoading = true;
   bool _isCheckingUpdate = false;
   bool _isDiagnosticsUnlocked = false;
+  bool _enableAiSummaries = true;
 
   @override
   void initState() {
@@ -57,6 +59,7 @@ class _SettingsDialogState extends State<SettingsDialog> {
     final vip = await StorageService.loadVipKeywords();
     final junk = await StorageService.loadJunkKeywords();
     final diagUnlocked = await StorageService.isDiagnosticsUnlocked();
+    final aiEnabled = await AiCircularService.isAiEnabled();
 
     if (mounted) {
       setState(() {
@@ -65,6 +68,7 @@ class _SettingsDialogState extends State<SettingsDialog> {
         _vipKeywords = List<String>.from(vip);
         _junkKeywords = List<String>.from(junk);
         _isDiagnosticsUnlocked = diagUnlocked;
+        _enableAiSummaries = aiEnabled;
         _isLoading = false;
       });
     }
@@ -600,6 +604,35 @@ class _SettingsDialogState extends State<SettingsDialog> {
                           },
                         ),
                       ],
+                    ),
+                    const Divider(height: 18),
+
+                    // Cloud AI Summaries Switch
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        const Row(
+                          children: [
+                            Icon(Icons.auto_awesome_rounded, size: 20, color: Colors.purpleAccent),
+                            SizedBox(width: 8),
+                            Text('Cloud AI Summaries', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+                          ],
+                        ),
+                        Switch(
+                          value: _enableAiSummaries,
+                          onChanged: (val) {
+                            setState(() {
+                              _enableAiSummaries = val;
+                            });
+                            AiCircularService.setUserEnabled(val);
+                          },
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 4),
+                    const Text(
+                      'Shows instant 1-sentence AI summaries and cadre tags on circulars.',
+                      style: TextStyle(fontSize: 11, color: Colors.grey),
                     ),
                     const Divider(height: 24),
 
