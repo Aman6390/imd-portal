@@ -13,6 +13,7 @@ import 'widgets/circular_tabs.dart';
 import 'widgets/leave_card.dart';
 import 'widgets/notice_resolver_webview.dart';
 import 'widgets/settings_dialog.dart';
+import 'widgets/weather_card.dart';
 
 class DashboardScreen extends StatefulWidget {
   final VoidCallback onToggleTheme;
@@ -37,6 +38,9 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
 
   // Notice state
   bool _hasMetNetNotice = false;
+
+  // Weather state key
+  Key _weatherKey = UniqueKey();
 
   // Background update download state
   StreamSubscription<UpdateDownloadProgress>? _updateSub;
@@ -201,6 +205,7 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
     if (mounted) {
       setState(() {
         _isSyncing = false;
+        _weatherKey = UniqueKey();
         if (success && freshData != null) {
           _data = freshData;
           _hasMetNetNotice = false;
@@ -311,10 +316,11 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
   Widget _buildEmptyState() {
     return Center(
       child: SingleChildScrollView(
-        padding: const EdgeInsets.all(28.0),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 20),
         child: Column(
           children: [
             if (_hasMetNetNotice) _buildNoticeCard(),
+            WeatherCard(key: _weatherKey),
             Card(
               elevation: 2,
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
@@ -379,6 +385,9 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             if (_hasMetNetNotice) _buildNoticeCard(),
+
+            // Live Weather Forecast Card (100% Free & Open-Meteo Powered)
+            WeatherCard(key: _weatherKey),
 
             // Sync status badge
             Container(
