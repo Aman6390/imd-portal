@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'services/background_sync_service.dart';
 import 'services/notification_service.dart';
 import 'services/storage_service.dart';
+import 'services/ai_circular_service.dart';
 import 'ui/dashboard_screen.dart';
 
 final GlobalKey<NavigatorState> rootNavigatorKey = GlobalKey<NavigatorState>();
@@ -24,6 +25,9 @@ void main() async {
 
   // Initialize WorkManager background sync (18:00 hrs daily schedule)
   await BackgroundSyncService.initialize();
+
+  // Initialize AI Circular metadata engine
+  await AiCircularService.initialize();
 
   final isDark = await StorageService.loadThemeMode();
   runApp(ImdPortalApp(initialDark: isDark));

@@ -21,6 +21,24 @@ class CircularTabs extends StatefulWidget {
 }
 
 class _CircularTabsState extends State<CircularTabs> {
+  @override
+  void initState() {
+    super.initState();
+    AiCircularService.onIndexUpdated.addListener(_onAiUpdated);
+  }
+
+  @override
+  void dispose() {
+    AiCircularService.onIndexUpdated.removeListener(_onAiUpdated);
+    super.dispose();
+  }
+
+  void _onAiUpdated() {
+    if (mounted) {
+      setState(() {});
+    }
+  }
+
   Future<void> _handleCircularTap(BuildContext context, CircularItem item) async {
     // If the item has already been confirmed as unavailable/withdrawn, show explanation directly
     if (item.isUnavailable) {
@@ -101,6 +119,211 @@ class _CircularTabsState extends State<CircularTabs> {
     }
   }
 
+  Color _getCadreColor(String cadre) {
+    switch (cadre) {
+      case 'Scientific Assistant':
+        return Colors.blue;
+      case 'Scientist / Met':
+        return Colors.purple;
+      case 'Administrative':
+        return Colors.teal;
+      case 'MTS / Attendant':
+        return Colors.orange;
+      case 'Engineering / Tech':
+        return Colors.indigo;
+      case 'Finance & Accounts':
+        return Colors.green;
+      default:
+        return Colors.blueGrey;
+    }
+  }
+
+  String _getCadreEmoji(String cadre) {
+    switch (cadre) {
+      case 'Scientific Assistant':
+        return '🔬 ';
+      case 'Scientist / Met':
+        return '📊 ';
+      case 'Administrative':
+        return '📝 ';
+      case 'MTS / Attendant':
+        return '👥 ';
+      case 'Engineering / Tech':
+        return '⚙️ ';
+      case 'Finance & Accounts':
+        return '💼 ';
+      default:
+        return '🏛️ ';
+    }
+  }
+
+  void _showCircularOptionsSheet(BuildContext context, CircularItem item, AiCircularEntry? aiMeta) async {
+    final isUnlocked = await StorageService.isDiagnosticsUnlocked();
+    if (!context.mounted) return;
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      ),
+      builder: (ctx) => SafeArea(
+        child: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 40,
+                height: 4,
+                margin: const EdgeInsets.only(top: 10, bottom: 8),
+                decoration: BoxDecoration(
+                  color: Colors.grey.shade600,
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      item.title,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      'Uploaded: ${item.date.isNotEmpty ? item.date : "Recent"}',
+                      style: TextStyle(fontSize: 12, color: Theme.of(context).colorScheme.outline),
+                    ),
+                  ],
+                ),
+              ),
+              const Divider(height: 1),
+
+              // AI Semantic Details Box
+              if (aiMeta != null)
+                Container(
+                  margin: const EdgeInsets.all(12),
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: Theme.of(context).colorScheme.surfaceVariant.withOpacity(0.35),
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(
+                      color: Theme.of(context).colorScheme.outline.withOpacity(0.2),
+                    ),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          const Icon(Icons.psychology_outlined, size: 20, color: Colors.blueAccent),
+                          const SizedBox(width: 8),
+                          Text(
+                            'AI Semantic Analysis',
+                            style: TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.bold,
+                              color: Theme.of(context).colorScheme.primary,
+                            ),
+                          ),
+                          const Spacer(),
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                            decoration: BoxDecoration(
+                              color: aiMeta.source == 'gemini'
+                                  ? Colors.green.withOpacity(0.15)
+                                  : Colors.orange.withOpacity(0.15),
+                              borderRadius: BorderRadius.circular(4),
+                            ),
+                            child: Text(
+                              aiMeta.source == 'gemini' ? 'Gemini 1.5 Cloud' : 'On-Device Engine',
+                              style: TextStyle(
+                                fontSize: 10,
+                                fontWeight: FontWeight.bold,
+                                color: aiMeta.source == 'gemini' ? Colors.green : Colors.orange,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        '🤖 ${aiMeta.summaryEn}',
+                        style: const TextStyle(fontSize: 12.5, fontStyle: FontStyle.italic),
+                      ),
+                      const SizedBox(height: 8),
+                      Wrap(
+                        spacing: 8,
+                        runSpacing: 4,
+                        children: [
+                          Text('Target Cadre: ${aiMeta.targetCadre}',
+                              style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600)),
+                          Text('• Action Required: ${aiMeta.actionRequired ? "Yes" : "No"}',
+                              style: TextStyle(
+                                fontSize: 11,
+                                fontWeight: FontWeight.w600,
+                                color: aiMeta.actionRequired ? Colors.amberAccent : null,
+                              )),
+                          Text('• VIP: ${aiMeta.isVip ? "Yes" : "No"}',
+                              style: TextStyle(
+                                fontSize: 11,
+                                fontWeight: FontWeight.w600,
+                                color: aiMeta.isVip ? Colors.amber : null,
+                              )),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+
+              ListTile(
+                leading: const Icon(Icons.open_in_new, color: Colors.blueAccent),
+                title: const Text('Open / Download Document',
+                    style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
+                subtitle: const Text('Download or launch in default PDF viewer',
+                    style: TextStyle(fontSize: 11)),
+                onTap: () {
+                  Navigator.of(ctx).pop();
+                  _handleCircularTap(context, item);
+                },
+              ),
+              ListTile(
+                leading: const Icon(Icons.copy, color: Colors.grey),
+                title: const Text('Copy Direct Link',
+                    style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
+                onTap: () {
+                  Clipboard.setData(ClipboardData(text: item.link));
+                  Navigator.of(ctx).pop();
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('Circular link copied to clipboard!'),
+                      duration: Duration(seconds: 2),
+                    ),
+                  );
+                },
+              ),
+              if (isUnlocked)
+                ListTile(
+                  leading: const Icon(Icons.document_scanner_rounded, color: Colors.purpleAccent),
+                  title: const Text('Inspect Scanned Text (Devanagari OCR)',
+                      style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
+                  subtitle: const Text('View recognized text & keyword matches',
+                      style: TextStyle(fontSize: 11)),
+                  onTap: () {
+                    Navigator.of(ctx).pop();
+                    CircularService.inspectCircularOcr(context, item);
+                  },
+                ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
   Widget _buildList(
     BuildContext context,
     List<CircularItem> items,
@@ -116,6 +339,7 @@ class _CircularTabsState extends State<CircularTabs> {
             emptyMessage,
             textAlign: TextAlign.center,
             style: TextStyle(
+              fontSize: 13,
               fontStyle: FontStyle.italic,
               color: Theme.of(context).colorScheme.outline,
             ),
@@ -138,8 +362,12 @@ class _CircularTabsState extends State<CircularTabs> {
         final isCached = item.cachedPath != null;
         final aiMeta = AiCircularService.getMetadata(item.link, item.title);
 
+        final cadre = aiMeta?.targetCadre ?? '';
+        final cadreColor = _getCadreColor(cadre);
+        final cadreEmoji = _getCadreEmoji(cadre);
+
         return ListTile(
-          contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+          contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
           leading: Icon(
             isUnavailable
                 ? Icons.warning_amber_rounded
@@ -152,48 +380,44 @@ class _CircularTabsState extends State<CircularTabs> {
             crossAxisAlignment: CrossAxisAlignment.start,
             mainAxisSize: MainAxisSize.min,
             children: [
-              if (aiMeta != null &&
-                  ((aiMeta.targetCadre.isNotEmpty &&
-                          aiMeta.targetCadre != 'General / All') ||
-                      aiMeta.actionRequired)) ...[
+              // Cadre & Action Badges
+              if (aiMeta != null && cadre.isNotEmpty) ...[
                 Wrap(
                   spacing: 6,
                   runSpacing: 4,
                   children: [
-                    if (aiMeta.targetCadre.isNotEmpty &&
-                        aiMeta.targetCadre != 'General / All')
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1.5),
-                        decoration: BoxDecoration(
-                          color: Colors.blueAccent.withOpacity(0.15),
-                          borderRadius: BorderRadius.circular(4),
-                          border: Border.all(
-                            color: Colors.blueAccent.withOpacity(0.3),
-                            width: 0.8,
-                          ),
-                        ),
-                        child: Text(
-                          aiMeta.targetCadre,
-                          style: const TextStyle(
-                            fontSize: 10,
-                            fontWeight: FontWeight.bold,
-                            color: Colors.lightBlueAccent,
-                          ),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                      decoration: BoxDecoration(
+                        color: cadreColor.withOpacity(0.12),
+                        borderRadius: BorderRadius.circular(4),
+                        border: Border.all(
+                          color: cadreColor.withOpacity(0.35),
+                          width: 0.8,
                         ),
                       ),
+                      child: Text(
+                        '$cadreEmoji$cadre',
+                        style: TextStyle(
+                          fontSize: 10,
+                          fontWeight: FontWeight.bold,
+                          color: cadreColor,
+                        ),
+                      ),
+                    ),
                     if (aiMeta.actionRequired)
                       Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1.5),
+                        padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
                         decoration: BoxDecoration(
                           color: Colors.amberAccent.withOpacity(0.18),
                           borderRadius: BorderRadius.circular(4),
                           border: Border.all(
-                            color: Colors.amberAccent.withOpacity(0.35),
+                            color: Colors.amberAccent.withOpacity(0.5),
                             width: 0.8,
                           ),
                         ),
                         child: const Text(
-                          'Action Required',
+                          '⚠️ Action Required',
                           style: TextStyle(
                             fontSize: 10,
                             fontWeight: FontWeight.bold,
@@ -205,6 +429,8 @@ class _CircularTabsState extends State<CircularTabs> {
                 ),
                 const SizedBox(height: 3),
               ],
+
+              // Circular Title
               Text(
                 item.title.isNotEmpty ? item.title : 'Untitled Circular',
                 maxLines: 3,
@@ -216,21 +442,36 @@ class _CircularTabsState extends State<CircularTabs> {
                   decoration: isUnavailable ? TextDecoration.lineThrough : null,
                 ),
               ),
+
+              // AI Semantic Summary Pill
               if (aiMeta != null && aiMeta.summaryEn.isNotEmpty) ...[
-                const SizedBox(height: 4),
+                const SizedBox(height: 5),
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                   decoration: BoxDecoration(
                     color: Theme.of(context).colorScheme.surfaceVariant.withOpacity(0.4),
                     borderRadius: BorderRadius.circular(6),
-                  ),
-                  child: Text(
-                    '🤖 ${aiMeta.summaryEn}',
-                    style: TextStyle(
-                      fontSize: 11,
-                      fontStyle: FontStyle.italic,
-                      color: Theme.of(context).colorScheme.onSurfaceVariant,
+                    border: Border.all(
+                      color: Theme.of(context).colorScheme.outline.withOpacity(0.15),
+                      width: 0.8,
                     ),
+                  ),
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text('🤖 ', style: TextStyle(fontSize: 11)),
+                      Expanded(
+                        child: Text(
+                          aiMeta.summaryEn,
+                          style: TextStyle(
+                            fontSize: 11,
+                            fontStyle: FontStyle.italic,
+                            color: Theme.of(context).colorScheme.onSurfaceVariant,
+                            height: 1.25,
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
                 ),
               ],
@@ -284,85 +525,7 @@ class _CircularTabsState extends State<CircularTabs> {
             onPressed: () => _handleCircularTap(context, item),
           ),
           onTap: () => _handleCircularTap(context, item),
-          onLongPress: () async {
-            final isUnlocked = await StorageService.isDiagnosticsUnlocked();
-            if (!context.mounted) return;
-
-            if (isUnlocked) {
-              showModalBottomSheet(
-                context: context,
-                shape: const RoundedRectangleBorder(
-                  borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
-                ),
-                builder: (ctx) => SafeArea(
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Container(
-                        width: 40,
-                        height: 4,
-                        margin: const EdgeInsets.only(top: 8, bottom: 8),
-                        decoration: BoxDecoration(
-                          color: Colors.grey.shade600,
-                          borderRadius: BorderRadius.circular(2),
-                        ),
-                      ),
-                      Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                        child: Text(
-                          item.title,
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
-                        ),
-                      ),
-                      const Divider(height: 1),
-                      ListTile(
-                        leading: const Icon(Icons.document_scanner_rounded, color: Colors.purpleAccent),
-                        title: const Text('Inspect Scanned Text (AI OCR Summary)', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
-                        subtitle: const Text('View recognized Devanagari/English text & matched VIP keywords', style: TextStyle(fontSize: 11)),
-                        onTap: () {
-                          Navigator.of(ctx).pop();
-                          CircularService.inspectCircularOcr(context, item);
-                        },
-                      ),
-                      ListTile(
-                        leading: const Icon(Icons.open_in_new, color: Colors.blueAccent),
-                        title: const Text('Open / Download Document', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
-                        subtitle: const Text('Download or launch in default PDF viewer', style: TextStyle(fontSize: 11)),
-                        onTap: () {
-                          Navigator.of(ctx).pop();
-                          _handleCircularTap(context, item);
-                        },
-                      ),
-                      ListTile(
-                        leading: const Icon(Icons.copy, color: Colors.grey),
-                        title: const Text('Copy Direct Link', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
-                        onTap: () {
-                          Clipboard.setData(ClipboardData(text: item.link));
-                          Navigator.of(ctx).pop();
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(
-                              content: Text('Circular link copied to clipboard!'),
-                              duration: Duration(seconds: 2),
-                            ),
-                          );
-                        },
-                      ),
-                    ],
-                  ),
-                ),
-              );
-            } else {
-              Clipboard.setData(ClipboardData(text: item.link));
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(
-                  content: Text('Circular link copied to clipboard!'),
-                  duration: Duration(seconds: 2),
-                ),
-              );
-            }
-          },
+          onLongPress: () => _showCircularOptionsSheet(context, item, aiMeta),
         );
       },
     );
