@@ -120,41 +120,55 @@ class _CircularTabsState extends State<CircularTabs> {
   }
 
   Color _getCadreColor(String cadre) {
-    switch (cadre) {
-      case 'Scientific Assistant':
-        return Colors.blue;
-      case 'Scientist / Met':
-        return Colors.purple;
-      case 'Administrative':
-        return Colors.teal;
-      case 'MTS / Attendant':
-        return Colors.orange;
-      case 'Engineering / Tech':
-        return Colors.indigo;
-      case 'Finance & Accounts':
-        return Colors.green;
-      default:
-        return Colors.blueGrey;
+    final c = cadre.toLowerCase();
+    if (c.contains('scientist') || c.contains('sc-') || c.contains('sc.')) {
+      return Colors.purple;
+    } else if (c.contains('scientific officer') || c.contains('so-') || c.contains('so ')) {
+      return Colors.deepPurpleAccent;
+    } else if (c.contains('met a') || c.contains('meteorologist a')) {
+      return Colors.cyan;
+    } else if (c.contains('met b') || c.contains('meteorologist b')) {
+      return Colors.teal;
+    } else if (c.contains('scientific assistant') || c.contains('sa')) {
+      return Colors.blue;
+    } else if (c.contains('clerk') || c.contains('udc') || c.contains('ldc')) {
+      return Colors.deepOrangeAccent;
+    } else if (c.contains('mts') || c.contains('attendant')) {
+      return Colors.orange;
+    } else if (c.contains('engineering') || c.contains('tech')) {
+      return Colors.indigo;
+    } else if (c.contains('finance') || c.contains('account')) {
+      return Colors.green;
+    } else if (c.contains('administrative')) {
+      return Colors.teal;
     }
+    return Colors.blueGrey;
   }
 
   String _getCadreEmoji(String cadre) {
-    switch (cadre) {
-      case 'Scientific Assistant':
-        return '🔬 ';
-      case 'Scientist / Met':
-        return '📊 ';
-      case 'Administrative':
-        return '📝 ';
-      case 'MTS / Attendant':
-        return '👥 ';
-      case 'Engineering / Tech':
-        return '⚙️ ';
-      case 'Finance & Accounts':
-        return '💼 ';
-      default:
-        return '🏛️ ';
+    final c = cadre.toLowerCase();
+    if (c.contains('scientist') || c.contains('sc-')) {
+      return '🧪 ';
+    } else if (c.contains('scientific officer') || c.contains('so-') || c.contains('so ')) {
+      return '🧭 ';
+    } else if (c.contains('met a')) {
+      return '🌤️ ';
+    } else if (c.contains('met b')) {
+      return '⛅ ';
+    } else if (c.contains('scientific assistant') || c.contains('sa')) {
+      return '🔬 ';
+    } else if (c.contains('clerk') || c.contains('udc') || c.contains('ldc')) {
+      return '📑 ';
+    } else if (c.contains('mts') || c.contains('attendant')) {
+      return '👥 ';
+    } else if (c.contains('engineering') || c.contains('tech')) {
+      return '⚙️ ';
+    } else if (c.contains('finance') || c.contains('account')) {
+      return '💼 ';
+    } else if (c.contains('administrative')) {
+      return '📝 ';
     }
+    return '🏛️ ';
   }
 
   void _showCircularOptionsSheet(BuildContext context, CircularItem item, AiCircularEntry? aiMeta) async {

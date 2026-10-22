@@ -66,21 +66,58 @@ def save_index(data: dict):
         json.dump(data, f, indent=2, ensure_ascii=False)
     print(f"[✓] Saved {len(data.get('circulars', {}))} indexed circulars to {INDEX_FILE_PATH}")
 
+def detect_imd_cadre(title: str) -> str:
+    t = title.lower()
+    found = []
+
+    # Scientists H to B
+    for g in ['h', 'g', 'f', 'e', 'd', 'c', 'b']:
+        if re.search(r'\b(sc[-. ]*' + g + r'|scientist[-. ]*' + g + r')\b', t) or f'वैज्ञानिक {g}' in t or f"वैज्ञानिक '{g}'" in t:
+            found.append(f'Scientist {g.upper()}')
+
+    # SO-III, II, I
+    if re.search(r'\b(so[-. ]*iii|scientific\s+officer[-. ]*iii|so[-. ]*3)\b', t) or 'वैज्ञानिक अधिकारी-iii' in t or 'वैज्ञानिक अधिकारी iii' in t:
+        found.append('SO-III')
+    if re.search(r'\b(so[-. ]*ii|scientific\s+officer[-. ]*ii|so[-. ]*2)\b', t) or 'वैज्ञानिक अधिकारी-ii' in t or 'वैज्ञानिक अधिकारी ii' in t:
+        found.append('SO-II')
+    if re.search(r'\b(so[-. ]*i\b|scientific\s+officer[-. ]*i\b|so[-. ]*1\b)', t) or 'वैज्ञानिक अधिकारी-i' in t or 'वैज्ञानिक अधिकारी i' in t:
+        found.append('SO-I')
+
+    # Met B before Met A
+    if re.search(r'\b(met[-. ]*b\b|met[-. ]*gr(ade)?[-. ]*b\b|meteorologist[-. ]*b\b|meteorologist[-. ]*gr(ade)?[-. ]*b\b|met[-. ]*ii\b|meteorologist[-. ]*ii\b)', t) or 'मौसम विज्ञानी-ii' in t or 'मौसम विज्ञानी ii' in t or 'मौसम विज्ञानी ख' in t:
+        found.append('Met B')
+    if re.search(r'\b(met[-. ]*a\b|met[-. ]*gr(ade)?[-. ]*a\b|meteorologist[-. ]*a\b|meteorologist[-. ]*gr(ade)?[-. ]*a\b|met[-. ]*i\b|meteorologist[-. ]*i\b)', t) or 'मौसम विज्ञानी-i' in t or 'मौसम विज्ञानी i' in t or 'मौसम विज्ञानी क' in t:
+        found.append('Met A')
+
+    # Scientific Assistant (SA)
+    if re.search(r'\b(sa\b|s\.a\.|scientific\s+assistant|ssa\b|sr\.?\s*scientific\s+assistant)', t) or 'वैज्ञानिक सहायक' in t:
+        found.append('Scientific Assistant (SA)')
+
+    # Clerk
+    if re.search(r'\b(clerk|clerks|udc|ldc|upper\s+division\s+clerk|lower\s+division\s+clerk|clerical)\b', t) or 'लिपिक' in t or 'यूडीसी' in t or 'एलडीसी' in t:
+        found.append('Clerk (UDC/LDC)')
+
+    # MTS
+    if re.search(r'\b(mts|multi[- ]tasking|attendant|peon)\b', t) or 'एमटीएस' in t or 'परिचारक' in t:
+        found.append('MTS / Attendant')
+
+    if not found:
+        if 'administrative' in t or 'section officer' in t or 'steno' in t or 'प्रशासनिक' in t:
+            return 'Administrative'
+        if 'scientist' in t or 'वैज्ञानिक' in t:
+            return 'Scientist'
+        if 'meteorologist' in t or 'मौसम विज्ञानी' in t:
+            return 'Meteorologist'
+        return 'General / All'
+
+    return ' / '.join(reversed(found)) if len(found) > 1 else found[0]
+
 def analyze_with_rules(title: str, section: str = "") -> dict:
     """Fallback Tier 2: Deterministic keyword analysis if Gemini API is unavailable."""
     title_lower = title.lower()
     matched_keywords = [kw for kw in FALLBACK_VIP_KEYWORDS if kw in title_lower]
     is_vip = len(matched_keywords) > 0
-
-    cadre = "General / All"
-    if "scientific assistant" in title_lower or " s.a." in title_lower:
-        cadre = "Scientific Assistant"
-    elif "scientist" in title_lower:
-        cadre = "Scientist"
-    elif "meteorological attendant" in title_lower or "mts" in title_lower:
-        cadre = "MTS / Attendant"
-    elif "administrative" in title_lower or "udc" in title_lower or "ldc" in title_lower:
-        cadre = "Administrative"
+    cadre = detect_imd_cadre(title)
 
     return {
         "is_vip": is_vip,
@@ -104,7 +141,7 @@ Extract a clean JSON response with this exact structure:
 {{
   "is_vip": true or false (true if this directly affects careers, e.g. seniority, promotion, MACP, transfer, roster, deputation, training nomination),
   "vip_reasons": ["short keyword reasons like 'seniority list', 'promotion'"],
-  "target_cadre": "Specific employee cadre affected, e.g. 'Scientific Assistant', 'Scientist C', 'MTS', 'Admin', or 'All'",
+  "target_cadre": "Specific employee cadre: 'Clerk (UDC/LDC)', 'Scientific Assistant (SA)', 'Met A', 'Met B', 'SO-I', 'SO-II', 'SO-III', 'Scientist B', 'Scientist C', 'Scientist D', 'Scientist E', 'Scientist F', 'Scientist G', 'Scientist H', 'MTS / Attendant', 'Administrative', or 'General / All'",
   "category": "Establishment" or "Administrative" or "Training" or "Technical" or "General",
   "summary_en": "One clear, informative sentence in English explaining what employees need to know.",
   "summary_hi": "One clear sentence in Hindi (Devanagari) summarizing the notice.",

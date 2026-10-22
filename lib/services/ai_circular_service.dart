@@ -174,58 +174,9 @@ class AiCircularService {
   static AiCircularEntry _synthesizeLocalMetadata(String? url, String title) {
     final t = title.toLowerCase();
 
-    // 1. Cadre Detection
-    String cadre = 'General / All';
-    if (t.contains('scientific assistant') ||
-        t.contains('s.a.') ||
-        t.contains(' s.a ') ||
-        t.contains('वैज्ञानिक सहायक')) {
-      cadre = 'Scientific Assistant';
-    } else if (t.contains('scientist') ||
-        t.contains('sc. b') ||
-        t.contains('sc. c') ||
-        t.contains('sc. d') ||
-        t.contains('sc. e') ||
-        t.contains('sc-b') ||
-        t.contains('sc-c') ||
-        t.contains('sc-d') ||
-        t.contains('meteorologist') ||
-        t.contains('met-i') ||
-        t.contains('met-ii') ||
-        t.contains('वैज्ञानिक')) {
-      cadre = 'Scientist / Met';
-    } else if (t.contains('administrative') ||
-        t.contains('udc') ||
-        t.contains('ldc') ||
-        t.contains('assistant') ||
-        t.contains('section officer') ||
-        t.contains('stenographer') ||
-        t.contains('steno') ||
-        t.contains('ministerial') ||
-        t.contains('प्रशासनिक')) {
-      cadre = 'Administrative';
-    } else if (t.contains('mts') ||
-        t.contains('multi tasking') ||
-        t.contains('attendant') ||
-        t.contains('peon') ||
-        t.contains('एमटीएस')) {
-      cadre = 'MTS / Attendant';
-    } else if (t.contains('engineer') ||
-        t.contains('instrumentation') ||
-        t.contains('telecom') ||
-        t.contains('draughtsman') ||
-        t.contains('workshop') ||
-        t.contains('अभियंता')) {
-      cadre = 'Engineering / Tech';
-    } else if (t.contains('finance') ||
-        t.contains('account') ||
-        t.contains('ddo') ||
-        t.contains('pao') ||
-        t.contains('audit') ||
-        t.contains('budget') ||
-        t.contains('लेखा')) {
-      cadre = 'Finance & Accounts';
-    }
+    // 1. Cadre Detection with Official IMD Cadre Hierarchy
+    final String cadre = _detectCadre(title);
+    final String cadreLabel = cadre == 'General / All' ? 'departmental personnel' : cadre;
 
     // 2. Action Required Detection
     final actionKeywords = [
@@ -277,29 +228,29 @@ class AiCircularService {
     // 4. Clean readable 1-Sentence Summary Generation
     String summary;
     if (actionRequired) {
-      summary = 'Action required: Review circular & submit representation or required details before deadline.';
+      summary = 'Action required: Review circular & submit representation or proforma for $cadreLabel before deadline.';
     } else if (t.contains('seniority') || t.contains('वरिष्ठता')) {
-      summary = 'Official seniority and gradation list published for $cadre.';
+      summary = 'Official seniority and gradation list published for $cadreLabel.';
     } else if (t.contains('transfer') ||
         t.contains('posting') ||
         t.contains('working arrangement') ||
         t.contains('स्थानांतरण')) {
-      summary = 'Official transfer, posting or working arrangement order for $cadre.';
+      summary = 'Official transfer, posting or working arrangement order for $cadreLabel.';
     } else if (t.contains('promotion') ||
         t.contains('macp') ||
         t.contains('पदोन्नति')) {
-      summary = 'Departmental promotion or financial upgradation under MACP scheme.';
+      summary = 'Departmental promotion or financial upgradation under MACP scheme for $cadreLabel.';
     } else if (t.contains('training') ||
         t.contains('course') ||
         t.contains('wmo') ||
         t.contains('fellowship')) {
-      summary = 'Departmental training course or fellowship nomination notice.';
+      summary = 'Departmental training course or fellowship nomination notice for $cadreLabel.';
     } else if (t.contains('vigilance') || t.contains('disciplinary')) {
       summary = 'Administrative vigilance governance and compliance directive.';
     } else if (t.contains('holiday') || t.contains('closed')) {
       summary = 'Official notification regarding office operational hours and holidays.';
     } else {
-      summary = 'Official departmental order: ${_cleanTitleForSummary(title)}';
+      summary = 'Official departmental order for $cadreLabel: ${_cleanTitleForSummary(title)}';
     }
 
     final id = _normalizeTitle(title).padRight(16, '0').substring(0, 16);
@@ -315,6 +266,111 @@ class AiCircularService {
       summaryEn: summary,
       source: 'device_smart_engine',
     );
+  }
+
+  /// Accurate Cadre Detector following Official IMD Cadre Classification
+  static String _detectCadre(String title) {
+    final t = title.toLowerCase();
+    final List<String> cadres = [];
+
+    // 1. Scientists: B to H
+    final scientistGrades = ['h', 'g', 'f', 'e', 'd', 'c', 'b'];
+    for (final g in scientistGrades) {
+      final reg = RegExp('\\b(sc[-. ]*$g|scientist[-. ]*$g)\\b', caseSensitive: false);
+      if (reg.hasMatch(t) ||
+          t.contains('वैज्ञानिक $g') ||
+          t.contains("वैज्ञानिक '$g'")) {
+        cadres.add('Scientist ${g.toUpperCase()}');
+      }
+    }
+
+    // 2. Scientific Officers: SO-I, SO-II, SO-III
+    if (RegExp(r'\b(so[-. ]*iii|scientific\s+officer[-. ]*iii|so[-. ]*3)\b', caseSensitive: false).hasMatch(t) ||
+        t.contains('वैज्ञानिक अधिकारी-iii') ||
+        t.contains('वैज्ञानिक अधिकारी iii') ||
+        t.contains('वैज्ञानिक अधिकारी 3')) {
+      cadres.add('SO-III');
+    }
+    if (RegExp(r'\b(so[-. ]*ii|scientific\s+officer[-. ]*ii|so[-. ]*2)\b', caseSensitive: false).hasMatch(t) ||
+        t.contains('वैज्ञानिक अधिकारी-ii') ||
+        t.contains('वैज्ञानिक अधिकारी ii') ||
+        t.contains('वैज्ञानिक अधिकारी 2')) {
+      cadres.add('SO-II');
+    }
+    if (RegExp(r'\b(so[-. ]*i\b|scientific\s+officer[-. ]*i\b|so[-. ]*1\b)', caseSensitive: false).hasMatch(t) ||
+        t.contains('वैज्ञानिक अधिकारी-i') ||
+        t.contains('वैज्ञानिक अधिकारी i') ||
+        t.contains('वैज्ञानिक अधिकारी 1')) {
+      cadres.add('SO-I');
+    }
+
+    // 3. Meteorologists: Met A and Met B (Check Met B first so Met-I doesn't match prefix of Met-II)
+    if (RegExp(r'\b(met[-. ]*b\b|met[-. ]*gr(ade)?[-. ]*b\b|meteorologist[-. ]*b\b|meteorologist[-. ]*gr(ade)?[-. ]*b\b|met[-. ]*ii\b|meteorologist[-. ]*ii\b)', caseSensitive: false).hasMatch(t) ||
+        t.contains('मौसम विज्ञानी-ii') ||
+        t.contains('मौसम विज्ञानी ii') ||
+        t.contains('मौसम विज्ञानी ख') ||
+        t.contains('मौसम विज्ञानी b')) {
+      cadres.add('Met B');
+    }
+    if (RegExp(r'\b(met[-. ]*a\b|met[-. ]*gr(ade)?[-. ]*a\b|meteorologist[-. ]*a\b|meteorologist[-. ]*gr(ade)?[-. ]*a\b|met[-. ]*i\b|meteorologist[-. ]*i\b)', caseSensitive: false).hasMatch(t) ||
+        t.contains('मौसम विज्ञानी-i') ||
+        t.contains('मौसम विज्ञानी i') ||
+        t.contains('मौसम विज्ञानी क') ||
+        t.contains('मौसम विज्ञानी a')) {
+      cadres.add('Met A');
+    }
+
+    // 4. Scientific Assistant (SA)
+    if (RegExp(r'\b(sa\b|s\.a\.|scientific\s+assistant|ssa\b|sr\.?\s*scientific\s+assistant)', caseSensitive: false).hasMatch(t) ||
+        t.contains('वैज्ञानिक सहायक')) {
+      cadres.add('Scientific Assistant (SA)');
+    }
+
+    // 5. Clerks (UDC / LDC)
+    if (RegExp(r'\b(clerk|clerks|udc|ldc|upper\s+division\s+clerk|lower\s+division\s+clerk|clerical)\b', caseSensitive: false).hasMatch(t) ||
+        t.contains('लिपिक') ||
+        t.contains('यूडीसी') ||
+        t.contains('एलडीसी')) {
+      cadres.add('Clerk (UDC/LDC)');
+    }
+
+    // 6. MTS / Attendant
+    if (RegExp(r'\b(mts|multi[- ]tasking|attendant|peon)\b', caseSensitive: false).hasMatch(t) ||
+        t.contains('एमटीएस') ||
+        t.contains('परिचारक')) {
+      cadres.add('MTS / Attendant');
+    }
+
+    // 7. Engineering & Technical
+    if (RegExp(r'\b(engineer|telecom|instrumentation|draughtsman|workshop)\b', caseSensitive: false).hasMatch(t) ||
+        t.contains('अभियंता') ||
+        t.contains('तकनीकी')) {
+      cadres.add('Engineering / Tech');
+    }
+
+    // 8. Finance & Accounts
+    if (RegExp(r'\b(finance|account|accounts|ddo|pao|audit|budget)\b', caseSensitive: false).hasMatch(t) ||
+        t.contains('लेखा') ||
+        t.contains('वित्त')) {
+      cadres.add('Finance & Accounts');
+    }
+
+    // 9. Fallback generic cadres
+    if (cadres.isEmpty) {
+      if (RegExp(r'\b(administrative|section\s+officer|steno|stenographer|ministerial)\b', caseSensitive: false).hasMatch(t) ||
+          t.contains('प्रशासनिक')) {
+        return 'Administrative';
+      }
+      if (t.contains('scientist') || t.contains('वैज्ञानिक')) {
+        return 'Scientist';
+      }
+      if (t.contains('meteorologist') || t.contains('मौसम विज्ञानी')) {
+        return 'Meteorologist';
+      }
+      return 'General / All';
+    }
+
+    return cadres.length == 1 ? cadres.first : cadres.reversed.join(' / ');
   }
 
   /// Clean title for summary string
