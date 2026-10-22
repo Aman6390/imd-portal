@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'package:flutter/services.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 import '../models/weather_data.dart';
@@ -7,6 +8,7 @@ import '../models/weather_data.dart';
 class WeatherService {
   static const String _keyCachedWeather = 'imd_cached_weather';
   static const String _keySelectedStation = 'imd_selected_station';
+  static const MethodChannel _locationChannel = MethodChannel('com.imd.portal/location');
 
   /// Standard IMD Regional Centres (RMCs) and State Meteorological Centres (MCs)
   static const List<StationInfo> stations = [
@@ -17,6 +19,7 @@ class WeatherService {
     StationInfo(name: 'Chennai (RMC)', state: 'Tamil Nadu', latitude: 13.0827, longitude: 80.2707),
     StationInfo(name: 'Nagpur (RMC)', state: 'Maharashtra', latitude: 21.1458, longitude: 79.0882),
     StationInfo(name: 'Guwahati (RMC)', state: 'Assam', latitude: 26.1445, longitude: 91.7362),
+    StationInfo(name: 'Srinagar (MC)', state: 'Jammu & Kashmir', latitude: 34.0837, longitude: 74.7973),
     StationInfo(name: 'Bengaluru (MC)', state: 'Karnataka', latitude: 12.9716, longitude: 77.5946),
     StationInfo(name: 'Hyderabad (MC)', state: 'Telangana', latitude: 17.3850, longitude: 78.4867),
     StationInfo(name: 'Ahmedabad (MC)', state: 'Gujarat', latitude: 23.0225, longitude: 72.5714),
@@ -26,7 +29,6 @@ class WeatherService {
     StationInfo(name: 'Bhubaneswar (MC)', state: 'Odisha', latitude: 20.2961, longitude: 85.8245),
     StationInfo(name: 'Thiruvananthapuram (MC)', state: 'Kerala', latitude: 8.5241, longitude: 76.9366),
     StationInfo(name: 'Dehradun (MC)', state: 'Uttarakhand', latitude: 30.3165, longitude: 78.0322),
-    StationInfo(name: 'Srinagar (MC)', state: 'Jammu & Kashmir', latitude: 34.0837, longitude: 74.7973),
     StationInfo(name: 'Shimla (MC)', state: 'Himachal Pradesh', latitude: 31.1048, longitude: 77.1734),
     StationInfo(name: 'Bhopal (MC)', state: 'Madhya Pradesh', latitude: 23.2599, longitude: 77.4126),
     StationInfo(name: 'Chandigarh (MC)', state: 'Punjab/Haryana', latitude: 30.7333, longitude: 76.7794),
@@ -46,13 +48,139 @@ class WeatherService {
     longitude: 77.2090,
   );
 
-  /// Loads the currently selected station from local storage
+  /// Searches any city, town, or district in India or worldwide via Open-Meteo's geocoding API
+  static Future<List<StationInfo>> searchLocations(String query) async {
+    final cleanQuery = query.trim();
+    if (cleanQuery.length < 2) return [];
+
+    final url = Uri.parse(
+      'https://geocoding-api.open-meteo.com/v1/search'
+      '?name=${Uri.encodeComponent(cleanQuery)}'
+      '&count=15'
+      '&language=en'
+      '&format=json',
+    );
+
+    try {
+      final response = await http.get(url).timeout(const Duration(seconds: 8));
+      if (response.statusCode == 200) {
+        final Map<String, dynamic> data = jsonDecode(response.body);
+        final results = data['results'] as List<dynamic>? ?? [];
+
+        return results.map((r) {
+          final name = r['name'] as String? ?? 'Unknown';
+          final admin1 = r['admin1'] as String? ?? '';
+          final country = r['country'] as String? ?? '';
+          final lat = (r['latitude'] as num?)?.toDouble() ?? 0.0;
+          final lon = (r['longitude'] as num?)?.toDouble() ?? 0.0;
+
+          final locationDetails = [admin1, country].where((s) => s.isNotEmpty).join(', ');
+
+          return StationInfo(
+            name: name,
+            state: locationDetails.isNotEmpty ? locationDetails : 'Location',
+            latitude: lat,
+            longitude: lon,
+          );
+        }).toList();
+      }
+    } catch (_) {}
+    return [];
+  }
+
+  /// Automatically detects device location via GPS hardware or fast IP fallback
+  static Future<StationInfo?> autoDetectLocation() async {
+    // 1. Try Native Android LocationManager (GPS / Network)
+    try {
+      final dynamic raw = await _locationChannel.invokeMethod('getDeviceLocation');
+      if (raw is Map) {
+        final lat = (raw['latitude'] as num?)?.toDouble();
+        final lon = (raw['longitude'] as num?)?.toDouble();
+        if (lat != null && lon != null) {
+          final reverseStation = await _reverseGeocode(lat, lon);
+          if (reverseStation != null) {
+            await saveSelectedStation(reverseStation);
+            return reverseStation;
+          }
+        }
+      }
+    } catch (_) {}
+
+    // 2. High-speed IP-based fallback (instant, zero permissions required)
+    try {
+      final ipUrl = Uri.parse('http://ip-api.com/json');
+      final resp = await http.get(ipUrl).timeout(const Duration(seconds: 6));
+      if (resp.statusCode == 200) {
+        final Map<String, dynamic> data = jsonDecode(resp.body);
+        final city = data['city'] as String?;
+        final region = data['regionName'] as String? ?? '';
+        final country = data['country'] as String? ?? 'India';
+        final lat = (data['lat'] as num?)?.toDouble();
+        final lon = (data['lon'] as num?)?.toDouble();
+
+        if (city != null && city.isNotEmpty && lat != null && lon != null) {
+          final station = StationInfo(
+            name: city,
+            state: [region, country].where((s) => s.isNotEmpty).join(', '),
+            latitude: lat,
+            longitude: lon,
+          );
+          await saveSelectedStation(station);
+          return station;
+        }
+      }
+    } catch (_) {}
+
+    return null;
+  }
+
+  /// Reverse-geocodes coordinates into a readable StationInfo
+  static Future<StationInfo?> _reverseGeocode(double lat, double lon) async {
+    try {
+      final url = Uri.parse(
+        'https://api.bigdatacloud.net/data/reverse-geocode-client'
+        '?latitude=$lat&longitude=$lon&localityLanguage=en',
+      );
+      final resp = await http.get(url).timeout(const Duration(seconds: 6));
+      if (resp.statusCode == 200) {
+        final Map<String, dynamic> data = jsonDecode(resp.body);
+        final city = (data['city'] as String? ?? data['locality'] as String? ?? '').trim();
+        final state = (data['principalSubdivision'] as String? ?? '').trim();
+        final country = (data['countryName'] as String? ?? 'India').trim();
+
+        final name = city.isNotEmpty ? city : (state.isNotEmpty ? state : 'My Location');
+        final region = [state, country].where((s) => s.isNotEmpty).join(', ');
+
+        return StationInfo(
+          name: name,
+          state: region,
+          latitude: lat,
+          longitude: lon,
+        );
+      }
+    } catch (_) {}
+
+    return StationInfo(
+      name: 'Current Location',
+      state: '${lat.toStringAsFixed(2)}°, ${lon.toStringAsFixed(2)}°',
+      latitude: lat,
+      longitude: lon,
+    );
+  }
+
+  /// Loads the currently selected station, automatically detecting current location on first launch
   static Future<StationInfo> loadSelectedStation() async {
     try {
       final prefs = await SharedPreferences.getInstance();
       final str = prefs.getString(_keySelectedStation);
       if (str != null && str.isNotEmpty) {
         return StationInfo.fromJson(jsonDecode(str) as Map<String, dynamic>);
+      }
+
+      // Auto-detect current location on first open
+      final detected = await autoDetectLocation();
+      if (detected != null) {
+        return detected;
       }
     } catch (_) {}
     return defaultStation;
@@ -131,7 +259,6 @@ class WeatherService {
         final rains = (hourlyJson['precipitation_probability'] as List<dynamic>? ?? []).cast<num>();
 
         final now = DateTime.now();
-        // Find index matching or immediately preceding current hour
         int startIndex = 0;
         for (int i = 0; i < times.length; i++) {
           final t = DateTime.tryParse(times[i]);

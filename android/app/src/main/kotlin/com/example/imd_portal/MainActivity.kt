@@ -1,8 +1,13 @@
 package com.example.imd_portal
 
+import android.Manifest
+import android.content.Context
 import android.content.Intent
+import android.content.pm.PackageManager
 import android.graphics.Bitmap
 import android.graphics.pdf.PdfRenderer
+import android.location.Location
+import android.location.LocationManager
 import android.net.Uri
 import android.os.Build
 import android.os.ParcelFileDescriptor
@@ -17,6 +22,7 @@ import java.io.FileOutputStream
 class MainActivity: FlutterFragmentActivity() {
     private val PDF_CHANNEL = "com.imd.portal/pdf_renderer"
     private val INSTALL_CHANNEL = "com.imd.portal/installer"
+    private val LOCATION_CHANNEL = "com.imd.portal/location"
     private val INSTALL_REQUEST_CODE = 8899
 
     private var pendingApkPath: String? = null
@@ -152,6 +158,66 @@ class MainActivity: FlutterFragmentActivity() {
                 } catch (e: Exception) {
                     result.error("INSTALL_ERROR", e.localizedMessage ?: "Unknown installation error", null)
                 }
+            } else {
+                result.notImplemented()
+            }
+        }
+
+        // Native Location Channel for device GPS / Network location
+        MethodChannel(flutterEngine.dartExecutor.binaryMessenger, LOCATION_CHANNEL).setMethodCallHandler { call, result ->
+            if (call.method == "getDeviceLocation") {
+                try {
+                    val hasFine = checkSelfPermission(Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED
+                    val hasCoarse = checkSelfPermission(Manifest.permission.ACCESS_COARSE_LOCATION) == PackageManager.PERMISSION_GRANTED
+
+                    if (!hasFine && !hasCoarse) {
+                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                            requestPermissions(arrayOf(Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION), 7722)
+                        }
+                        result.success(null)
+                        return@setMethodCallHandler
+                    }
+
+                    val locationManager = getSystemService(Context.LOCATION_SERVICE) as? LocationManager
+                    if (locationManager == null) {
+                        result.success(null)
+                        return@setMethodCallHandler
+                    }
+
+                    val providers = listOf(
+                        LocationManager.GPS_PROVIDER,
+                        LocationManager.NETWORK_PROVIDER,
+                        LocationManager.PASSIVE_PROVIDER
+                    )
+
+                    var bestLocation: Location? = null
+                    for (provider in providers) {
+                        try {
+                            if (locationManager.isProviderEnabled(provider)) {
+                                val loc = locationManager.getLastKnownLocation(provider)
+                                if (loc != null && (bestLocation == null || loc.time > bestLocation.time)) {
+                                    bestLocation = loc
+                                }
+                            }
+                        } catch (_: SecurityException) {}
+                    }
+
+                    if (bestLocation != null) {
+                        result.success(mapOf(
+                            "latitude" to bestLocation.latitude,
+                            "longitude" to bestLocation.longitude
+                        ))
+                    } else {
+                        result.success(null)
+                    }
+                } catch (t: Throwable) {
+                    result.success(null)
+                }
+            } else if (call.method == "requestLocationPermission") {
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                    requestPermissions(arrayOf(Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION), 7722)
+                }
+                result.success(true)
             } else {
                 result.notImplemented()
             }

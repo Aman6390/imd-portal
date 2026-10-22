@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../../models/weather_data.dart';
@@ -58,6 +59,32 @@ class _WeatherCardState extends State<WeatherCard> {
     }
   }
 
+  Future<void> _autoDetectAndLoad() async {
+    setState(() {
+      _isLoading = true;
+    });
+
+    final detected = await WeatherService.autoDetectLocation();
+    if (detected != null && mounted) {
+      await _loadWeather(station: detected);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('📍 Location updated: ${detected.name} (${detected.state})'),
+            backgroundColor: Colors.blueAccent,
+            duration: const Duration(seconds: 3),
+          ),
+        );
+      }
+    } else {
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+      }
+    }
+  }
+
   void _showStationPicker() {
     showModalBottomSheet(
       context: context,
@@ -67,17 +94,17 @@ class _WeatherCardState extends State<WeatherCard> {
       ),
       builder: (ctx) {
         String query = '';
+        bool isDetecting = false;
+        bool isSearching = false;
+        List<StationInfo> searchResults = [];
+        Timer? debounceTimer;
+
         return StatefulBuilder(
           builder: (context, setModalState) {
-            final filteredStations = WeatherService.stations.where((s) {
-              final q = query.toLowerCase().trim();
-              return s.name.toLowerCase().contains(q) || s.state.toLowerCase().contains(q);
-            }).toList();
-
             return DraggableScrollableSheet(
-              initialChildSize: 0.7,
-              minChildSize: 0.4,
-              maxChildSize: 0.9,
+              initialChildSize: 0.8,
+              minChildSize: 0.45,
+              maxChildSize: 0.95,
               expand: false,
               builder: (_, scrollController) {
                 return Padding(
@@ -98,21 +125,105 @@ class _WeatherCardState extends State<WeatherCard> {
                           const Icon(Icons.location_on_rounded, color: Colors.blueAccent),
                           const SizedBox(width: 8),
                           const Text(
-                            'Select IMD Station / Centre',
+                            'Choose Weather Location',
                             style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
                           ),
                           const Spacer(),
                           IconButton(
                             icon: const Icon(Icons.close),
-                            onPressed: () => Navigator.pop(ctx),
+                            onPressed: () {
+                              debounceTimer?.cancel();
+                              Navigator.pop(ctx);
+                            },
                           ),
                         ],
                       ),
                       const SizedBox(height: 10),
+
+                      // Auto-Detect Current Location Card Button
+                      InkWell(
+                        borderRadius: BorderRadius.circular(14),
+                        onTap: isDetecting
+                            ? null
+                            : () async {
+                                setModalState(() => isDetecting = true);
+                                final detected = await WeatherService.autoDetectLocation();
+                                setModalState(() => isDetecting = false);
+                                if (detected != null && mounted) {
+                                  Navigator.pop(ctx);
+                                  _loadWeather(station: detected);
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    SnackBar(
+                                      content: Text('📍 Location updated: ${detected.name} (${detected.state})'),
+                                      backgroundColor: Colors.blueAccent,
+                                      duration: const Duration(seconds: 3),
+                                    ),
+                                  );
+                                }
+                              },
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                          decoration: BoxDecoration(
+                            color: Colors.blueAccent.withOpacity(0.12),
+                            borderRadius: BorderRadius.circular(14),
+                            border: Border.all(color: Colors.blueAccent.withOpacity(0.35), width: 1.2),
+                          ),
+                          child: Row(
+                            children: [
+                              Container(
+                                padding: const EdgeInsets.all(8),
+                                decoration: BoxDecoration(
+                                  color: Colors.blueAccent.withOpacity(0.2),
+                                  shape: BoxShape.circle,
+                                ),
+                                child: isDetecting
+                                    ? const SizedBox(
+                                        width: 18,
+                                        height: 18,
+                                        child: CircularProgressIndicator(strokeWidth: 2),
+                                      )
+                                    : const Icon(Icons.my_location_rounded, color: Colors.blueAccent, size: 20),
+                              ),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    const Text(
+                                      'Use My Current Location',
+                                      style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                                    ),
+                                    Text(
+                                      isDetecting ? 'Detecting GPS / network location...' : 'Automatically detects your city / town',
+                                      style: const TextStyle(fontSize: 11, color: Colors.grey),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              const Icon(Icons.arrow_forward_ios_rounded, size: 14, color: Colors.blueAccent),
+                            ],
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 14),
+
+                      // Global Search Input Field
                       TextField(
                         decoration: InputDecoration(
-                          hintText: 'Search RMC, MC, or State (e.g. Pune, Delhi)',
+                          hintText: 'Search any city, town, or village in India/worldwide',
                           prefixIcon: const Icon(Icons.search),
+                          suffixIcon: query.isNotEmpty
+                              ? IconButton(
+                                  icon: const Icon(Icons.clear, size: 18),
+                                  onPressed: () {
+                                    setModalState(() {
+                                      query = '';
+                                      searchResults.clear();
+                                      isSearching = false;
+                                    });
+                                  },
+                                )
+                              : null,
                           isDense: true,
                           border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
                         ),
@@ -120,49 +231,157 @@ class _WeatherCardState extends State<WeatherCard> {
                           setModalState(() {
                             query = val;
                           });
+                          debounceTimer?.cancel();
+                          if (val.trim().length >= 2) {
+                            setModalState(() => isSearching = true);
+                            debounceTimer = Timer(const Duration(milliseconds: 350), () async {
+                              final results = await WeatherService.searchLocations(val);
+                              setModalState(() {
+                                searchResults = results;
+                                isSearching = false;
+                              });
+                            });
+                          } else {
+                            setModalState(() {
+                              searchResults.clear();
+                              isSearching = false;
+                            });
+                          }
                         },
                       ),
-                      const SizedBox(height: 12),
-                      Expanded(
-                        child: ListView.builder(
-                          controller: scrollController,
-                          itemCount: filteredStations.length,
-                          itemBuilder: (context, index) {
-                            final station = filteredStations[index];
-                            final isSelected = _weather?.station == station;
+                      const SizedBox(height: 10),
 
-                            return ListTile(
-                              leading: CircleAvatar(
-                                backgroundColor: isSelected
-                                    ? Colors.blueAccent.withOpacity(0.2)
-                                    : Colors.grey.withOpacity(0.1),
-                                child: Icon(
-                                  Icons.near_me_rounded,
-                                  size: 18,
-                                  color: isSelected ? Colors.blueAccent : Colors.grey,
-                                ),
+                      // Section Header
+                      Row(
+                        children: [
+                          Text(
+                            query.trim().length >= 2
+                                ? (isSearching ? '🔍 Searching...' : '🌍 Search Results (${searchResults.length})')
+                                : '⭐ Quick Select IMD Centres & RMCs',
+                            style: const TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.grey,
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 6),
+
+                      // Results / Preset List
+                      Expanded(
+                        child: query.trim().length >= 2
+                            ? (isSearching
+                                ? const Center(
+                                    child: Padding(
+                                      padding: EdgeInsets.all(24.0),
+                                      child: CircularProgressIndicator(),
+                                    ),
+                                  )
+                                : (searchResults.isEmpty
+                                    ? Center(
+                                        child: Padding(
+                                          padding: const EdgeInsets.all(24.0),
+                                          child: Column(
+                                            mainAxisSize: MainAxisSize.min,
+                                            children: [
+                                              const Icon(Icons.location_off_rounded, size: 40, color: Colors.grey),
+                                              const SizedBox(height: 8),
+                                              Text(
+                                                'No matching locations found for "$query"',
+                                                style: const TextStyle(color: Colors.grey, fontSize: 13),
+                                              ),
+                                              const SizedBox(height: 4),
+                                              const Text(
+                                                'Try checking the spelling or searching a nearby town/district',
+                                                style: TextStyle(color: Colors.grey, fontSize: 11),
+                                                textAlign: TextAlign.center,
+                                              ),
+                                            ],
+                                          ),
+                                        ),
+                                      )
+                                    : ListView.builder(
+                                        controller: scrollController,
+                                        itemCount: searchResults.length,
+                                        itemBuilder: (context, index) {
+                                          final station = searchResults[index];
+                                          final isSelected = _weather?.station.name == station.name &&
+                                              _weather?.station.state == station.state;
+
+                                          return ListTile(
+                                            leading: CircleAvatar(
+                                              backgroundColor: isSelected
+                                                  ? Colors.blueAccent.withOpacity(0.2)
+                                                  : Colors.grey.withOpacity(0.1),
+                                              child: Icon(
+                                                Icons.place_rounded,
+                                                size: 18,
+                                                color: isSelected ? Colors.blueAccent : Colors.grey,
+                                              ),
+                                            ),
+                                            title: Text(
+                                              station.name,
+                                              style: TextStyle(
+                                                fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
+                                                color: isSelected ? Colors.blueAccent : null,
+                                              ),
+                                            ),
+                                            subtitle: Text(
+                                              station.state,
+                                              style: const TextStyle(fontSize: 12, color: Colors.grey),
+                                            ),
+                                            trailing: isSelected
+                                                ? const Icon(Icons.check_circle_rounded, color: Colors.blueAccent)
+                                                : null,
+                                            onTap: () {
+                                              debounceTimer?.cancel();
+                                              Navigator.pop(ctx);
+                                              _loadWeather(station: station);
+                                            },
+                                          );
+                                        },
+                                      )))
+                            : ListView.builder(
+                                controller: scrollController,
+                                itemCount: WeatherService.stations.length,
+                                itemBuilder: (context, index) {
+                                  final station = WeatherService.stations[index];
+                                  final isSelected = _weather?.station == station;
+
+                                  return ListTile(
+                                    leading: CircleAvatar(
+                                      backgroundColor: isSelected
+                                          ? Colors.blueAccent.withOpacity(0.2)
+                                          : Colors.grey.withOpacity(0.1),
+                                      child: Icon(
+                                        Icons.near_me_rounded,
+                                        size: 18,
+                                        color: isSelected ? Colors.blueAccent : Colors.grey,
+                                      ),
+                                    ),
+                                    title: Text(
+                                      station.name,
+                                      style: TextStyle(
+                                        fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
+                                        color: isSelected ? Colors.blueAccent : null,
+                                      ),
+                                    ),
+                                    subtitle: Text(
+                                      station.state,
+                                      style: const TextStyle(fontSize: 12, color: Colors.grey),
+                                    ),
+                                    trailing: isSelected
+                                        ? const Icon(Icons.check_circle_rounded, color: Colors.blueAccent)
+                                        : null,
+                                    onTap: () {
+                                      debounceTimer?.cancel();
+                                      Navigator.pop(ctx);
+                                      _loadWeather(station: station);
+                                    },
+                                  );
+                                },
                               ),
-                              title: Text(
-                                station.name,
-                                style: TextStyle(
-                                  fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
-                                  color: isSelected ? Colors.blueAccent : null,
-                                ),
-                              ),
-                              subtitle: Text(
-                                station.state,
-                                style: const TextStyle(fontSize: 12, color: Colors.grey),
-                              ),
-                              trailing: isSelected
-                                  ? const Icon(Icons.check_circle_rounded, color: Colors.blueAccent)
-                                  : null,
-                              onTap: () {
-                                Navigator.pop(ctx);
-                                _loadWeather(station: station);
-                              },
-                            );
-                          },
-                        ),
                       ),
                     ],
                   ),
@@ -233,6 +452,11 @@ class _WeatherCardState extends State<WeatherCard> {
                                 fontSize: 14,
                                 color: Theme.of(context).colorScheme.outline,
                               ),
+                            ),
+                            Text(
+                              data.station.state,
+                              style: const TextStyle(fontSize: 11, color: Colors.grey),
+                              overflow: TextOverflow.ellipsis,
                             ),
                           ],
                         ),
@@ -379,7 +603,7 @@ class _WeatherCardState extends State<WeatherCard> {
                   // Footer note
                   Center(
                     child: Text(
-                      '100% Free • Open-Meteo & IMD High-Resolution Global Forecast System',
+                      '100% Free • Open-Meteo & IMD Numerical Weather Prediction Models',
                       style: TextStyle(fontSize: 10, color: Theme.of(context).colorScheme.outline),
                     ),
                   ),
@@ -492,7 +716,7 @@ class _WeatherCardState extends State<WeatherCard> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // Top bar: Station Selector Chip & Refresh Icon
+                // Top bar: Station Selector Chip, Auto-Detect & Refresh
                 Row(
                   children: [
                     InkWell(
@@ -509,12 +733,16 @@ class _WeatherCardState extends State<WeatherCard> {
                           children: [
                             const Icon(Icons.location_on, size: 14, color: Colors.amberAccent),
                             const SizedBox(width: 4),
-                            Text(
-                              data.station.name,
-                              style: const TextStyle(
-                                fontSize: 12,
-                                fontWeight: FontWeight.bold,
-                                color: Colors.white,
+                            ConstrainedBox(
+                              constraints: const BoxConstraints(maxWidth: 170),
+                              child: Text(
+                                data.station.name,
+                                style: const TextStyle(
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.bold,
+                                  color: Colors.white,
+                                ),
+                                overflow: TextOverflow.ellipsis,
                               ),
                             ),
                             const Icon(Icons.arrow_drop_down, size: 18, color: Colors.white70),
@@ -523,6 +751,15 @@ class _WeatherCardState extends State<WeatherCard> {
                       ),
                     ),
                     const Spacer(),
+                    IconButton(
+                      visualDensity: VisualDensity.compact,
+                      padding: EdgeInsets.zero,
+                      constraints: const BoxConstraints(),
+                      icon: const Icon(Icons.my_location_rounded, size: 18, color: Colors.white70),
+                      tooltip: 'Auto-Detect Current Location',
+                      onPressed: _isLoading ? null : _autoDetectAndLoad,
+                    ),
+                    const SizedBox(width: 12),
                     if (_isLoading)
                       const SizedBox(
                         width: 16,
