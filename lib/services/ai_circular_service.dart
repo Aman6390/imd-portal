@@ -288,7 +288,7 @@ class AiCircularService {
     // 1. Scientists: B to H (handles Sc. 'B', Sc.'B', Sc 'B', Scientist 'B', Sc-B, Sc. B, Sc B)
     final scientistGrades = ['b', 'c', 'd', 'e', 'f', 'g', 'h'];
     for (final g in scientistGrades) {
-      final reg = RegExp(r"(?:sc|scientist)[.\s-]*['\"]?\s*" + g + r"\b['\"]?", caseSensitive: false);
+      final reg = RegExp(r'(?:sc|scientist)[.\s-]*[\x27\x22]?\s*' + g + r'\b[\x27\x22]?', caseSensitive: false);
       final hindiVariants = hindiScientistMap[g] ?? [g];
       final hindiMatch = hindiVariants.any((h) =>
           t.contains('वैज्ञानिक $h') ||
@@ -324,14 +324,14 @@ class AiCircularService {
     }
 
     // 3. Meteorologists: Met A and Met B (handles Met. 'A', Met 'A', Met-A, AM-I, AM-II, Met. 'B', etc.)
-    if (RegExp(r"\b(?:met\.?|meteorologist|am)[-.\s]*(?:gr(?:ade)?\.?[-.\s]*)?['\"]?\s*(?:a|i)\b['\"]?", caseSensitive: false).hasMatch(t) ||
+    if (RegExp(r'\b(?:met\.?|meteorologist|am)[-.\s]*(?:gr(?:ade)?\.?[-.\s]*)?[\x27\x22]?\s*(?:a|i)\b[\x27\x22]?', caseSensitive: false).hasMatch(t) ||
         t.contains('मौसम विज्ञानी-i') ||
         t.contains('मौसम विज्ञानी i') ||
         t.contains('मौसम विज्ञानी क') ||
         t.contains('मौसम विज्ञानी a')) {
       cadres.add('Met A');
     }
-    if (RegExp(r"\b(?:met\.?|meteorologist|am)[-.\s]*(?:gr(?:ade)?\.?[-.\s]*)?['\"]?\s*(?:b|ii)\b['\"]?", caseSensitive: false).hasMatch(t) ||
+    if (RegExp(r'\b(?:met\.?|meteorologist|am)[-.\s]*(?:gr(?:ade)?\.?[-.\s]*)?[\x27\x22]?\s*(?:b|ii)\b[\x27\x22]?', caseSensitive: false).hasMatch(t) ||
         t.contains('मौसम विज्ञानी-ii') ||
         t.contains('मौसम विज्ञानी ii') ||
         t.contains('मौसम विज्ञानी ख') ||
