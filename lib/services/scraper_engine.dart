@@ -7,6 +7,7 @@ import 'package:http/http.dart' as http;
 import 'package:intl/intl.dart';
 
 import '../models/dashboard_data.dart';
+import 'ai_circular_service.dart';
 import 'ocr_service.dart';
 import 'rsa_crypto.dart';
 import 'storage_service.dart';
@@ -297,15 +298,40 @@ class ScraperEngine {
         continue;
       }
 
-      // 1. FAST-PATH: Title Pre-Filter (Junk)
-      if (dynamicJunkKeywords.any((junk) => titleLower.contains(junk.toLowerCase()))) {
+      // FAST-PATH: Title & AI Semantic Pre-Filter
+      final aiMeta = AiCircularService.getMetadata(link, title);
+      final hasSpecificCadre = aiMeta != null &&
+          aiMeta.targetCadre.isNotEmpty &&
+          aiMeta.targetCadre != 'General / All';
+      final cadreLower = hasSpecificCadre ? aiMeta.targetCadre.toLowerCase() : '';
+      final summaryLower = aiMeta?.summaryEn.toLowerCase() ?? '';
+      final vipReasonsLower =
+          aiMeta?.vipReasons.map((r) => r.toLowerCase()).join(' ') ?? '';
+
+      // Context for Junk filter: Title + Specific Cadre + AI Summary
+      final junkSearchContext = '$titleLower $cadreLower $summaryLower';
+
+      // 1. FAST-PATH: Junk Pre-Filter (checks Title + AI Cadre + AI Summary)
+      if (dynamicJunkKeywords.any((junk) {
+        final j = junk.toLowerCase().trim();
+        return j.isNotEmpty && junkSearchContext.contains(j);
+      })) {
         continue;
       }
 
       final item = CircularItem(title: title, link: link, date: uploadDate);
 
-      // 2. FAST-PATH: Title Pre-Filter (VIP)
-      if (dynamicVipKeywords.any((vip) => titleLower.contains(vip.toLowerCase()))) {
+      // Context for VIP filter: Title + Specific Cadre + AI Summary + VIP Reasons
+      final vipSearchContext =
+          '$titleLower $cadreLower $summaryLower $vipReasonsLower';
+
+      // 2. FAST-PATH: VIP Pre-Filter (checks Title + AI Cadre + AI Summary + VIP Reasons, or explicit AI VIP flag)
+      final matchesVipKeyword = dynamicVipKeywords.any((vip) {
+        final v = vip.toLowerCase().trim();
+        return v.isNotEmpty && vipSearchContext.contains(v);
+      });
+
+      if (matchesVipKeyword) {
         vipCirculars.add(item);
         continue;
       }

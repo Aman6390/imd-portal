@@ -164,22 +164,25 @@ class StorageService {
     return lowerText.contains(lowerKw);
   }
 
-  /// Finds all VIP keywords that match a circular either via its title
-  /// or smartly within its OCR text without signature block false-positives.
+  /// Finds all VIP keywords that match a circular either via its title,
+  /// AI semantic tags (cadre, summary), or smartly within its OCR text without signature block false-positives.
   static List<String> findMatchedVipKeywords({
     required String title,
     required String ocrText,
     required List<String> vipKeywords,
+    String? extraContext,
   }) {
     final titleLower = title.toLowerCase();
+    final extraLower = extraContext?.toLowerCase() ?? '';
     final matched = <String>{};
 
     for (final kw in vipKeywords) {
       final lowerKw = kw.toLowerCase().trim();
       if (lowerKw.isEmpty) continue;
 
-      // 1. Check title
-      if (titleLower.contains(lowerKw)) {
+      // 1. Check title or extra AI context (cadre, summary)
+      if (titleLower.contains(lowerKw) ||
+          (extraLower.isNotEmpty && extraLower.contains(lowerKw))) {
         matched.add(kw);
         continue;
       }

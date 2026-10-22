@@ -6,6 +6,7 @@ import 'package:http/http.dart' as http;
 import 'package:path_provider/path_provider.dart';
 import '../main.dart';
 import '../models/dashboard_data.dart';
+import 'ai_circular_service.dart';
 import 'ocr_service.dart';
 import 'rsa_crypto.dart';
 import 'scraper_engine.dart';
@@ -521,10 +522,15 @@ class CircularService {
     if (!resultContext.mounted) return;
 
     final vipKeywords = await StorageService.loadVipKeywords();
+    final aiMeta = AiCircularService.getMetadata(item.link, item.title);
+    final extraContext = aiMeta != null
+        ? '${aiMeta.targetCadre} ${aiMeta.summaryEn}'
+        : null;
     final matchedKeywords = StorageService.findMatchedVipKeywords(
       title: item.title,
       ocrText: recognizedText,
       vipKeywords: vipKeywords,
+      extraContext: extraContext,
     );
 
     showDialog(

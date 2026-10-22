@@ -1,6 +1,6 @@
 # 🚀 PROJECT MASTER BLUEPRINT: Meteorological Portal Android Application
 
-> **Project Status:** Production Ready — 100% Free & Open Edition (v1.4.7)  
+> **Project Status:** Production Ready — 100% Free & Open Edition (v1.4.8)  
 > **Target Platform:** Native Android (Flutter / Kotlin) [Why: Guarantees broad compatibility with all modern Android smartphones used by staff]  
 > **Output Release Artifact:** `build/app/outputs/flutter-apk/app-release.apk` [Why: Standard Android standalone package format for direct distribution]  
 > **CI/CD Pipeline:** GitHub Actions Automated Cloud Build (`Aman6390/imd-portal`) [Why: Eliminates the need for a high-end development computer by compiling APKs in the cloud automatically]  
@@ -142,7 +142,7 @@
 
 ---
 
-### E. AI Semantic Circular Summaries, Granular Cadre Tagging & Multi-Tier Architecture (v1.4.4 - v1.4.7)
+### E. AI Semantic Circular Summaries, Granular Cadre Tagging & Multi-Tier Architecture (v1.4.4 - v1.4.8)
 
 [Why: MetNet publishes dozens of daily administrative, scientific, and technical orders. Employees previously had to download every PDF or rely on basic keyword matching. The AI Semantic Architecture categorizes 100% of circulars with zero user effort, zero monthly server costs, and complete privacy preservation.]
 
@@ -360,6 +360,7 @@ E:\imd portal\
 | **v1.4.5** | `1.4.5+22` | Oct 2026 | **Granular Official IMD Cadre Classification:** Expanded cadre detection across both cloud worker and on-device smart engine to recognize the full official IMD organizational hierarchy: Clerks (UDC/LDC), Scientific Assistants (SA), Meteorologist Grade A (`Met A`), Meteorologist Grade B (`Met B`), Scientific Officers (`SO-I`, `SO-II`, `SO-III`), and Scientists Grade B through H (`Scientist B` to `Scientist H`). Added multi-cadre compound linking (`Met A / SO-I`, `Scientist B / Scientist C`) and long-press AI breakdown modal bottom sheet. [Why: Matches official departmental designations so employees can instantly filter notices relevant to their exact career rank] |
 | **v1.4.6** | `1.4.6+23` | Oct 2026 | **Smooth 1-Tap Update Installation & Process-Restart Recovery:** Solved the Android 10-14+ multi-attempt update bug caused by OS process-kills when toggling 'Allow from this source'. Persists update paths in SharedPreferences across app restarts, introduces 400ms filesystem buffer settling delay to prevent PackageParser race conditions, explicitly broadcasts URI permissions across all OEM package installers (Samsung, Xiaomi MIUI, OnePlus, Vivo), and purges stale APK caches. [Why: Guarantees a flawless, seamless 1-tap update installation on the very first attempt on any Android device] |
 | **v1.4.7** | `1.4.7+24` | Oct 2026 | **Robust Government-Pattern Cadre Detection Engine:** Solved the "General / All" fallback issue where official circulars with quotes (e.g. Sc. 'C', Sc.'B', Met. 'A'), abbreviations (Scientific Asstt., Sci. Asstt., S.A.(Met)), dots (S.O.-I, S.O.-II, S.O.-III), and Devanagari Hindi grade aliases (सी, ख, ग) missed previous strict regex boundaries. Synchronized on-device Dart smart engine and GitHub Actions Python indexer with a comprehensive 23-point test suite. [Why: Ensures employees in every cadre—from Scientific Assistants to Scientists B-H—accurately see their specific cadre tags instead of falling back to General/All] |
+| **v1.4.8** | `1.4.8+25` | Oct 2026 | **AI-Augmented VIP & Junk Filtering:** Expanded user keyword filtering beyond raw circular titles to simultaneously evaluate AI-generated semantic metadata (`targetCadre`, `summaryEn`, and `vipReasons`). Guarantees that circulars with abbreviated or obscure titles (e.g. `Draft Seniority list of Sci. Asstt.`) reliably land in the VIP Tab ⭐ when users track their cadre, while unwanted orders (e.g. peons/attendants/clerks) are cleanly discarded by Junk filters even if titles avoid explicit junk words. [Why: Gives staff bulletproof notice filtering that understands meaning and departmental designations rather than relying solely on literal word matching] |
 
 ---
 
