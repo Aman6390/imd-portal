@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../../models/weather_data.dart';
 import '../../services/weather_service.dart';
 
@@ -22,14 +23,38 @@ class WeatherCard extends StatefulWidget {
 class _WeatherCardState extends State<WeatherCard> {
   WeatherData? _weather;
   bool _isLoading = false;
+  bool _isExpanded = false;
 
   @override
   void initState() {
     super.initState();
     _weather = widget.initialData;
+    _loadExpandedState();
     if (_weather == null) {
       _loadWeather();
     }
+  }
+
+  Future<void> _loadExpandedState() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final expanded = prefs.getBool('weather_card_expanded') ?? false;
+      if (mounted) {
+        setState(() {
+          _isExpanded = expanded;
+        });
+      }
+    } catch (_) {}
+  }
+
+  void _toggleExpanded() async {
+    setState(() {
+      _isExpanded = !_isExpanded;
+    });
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setBool('weather_card_expanded', _isExpanded);
+    } catch (_) {}
   }
 
   @override
@@ -616,6 +641,109 @@ class _WeatherCardState extends State<WeatherCard> {
     );
   }
 
+  Widget _buildMetricCard({
+    required IconData icon,
+    required String label,
+    required String value,
+    Color? iconColor,
+  }) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+      decoration: BoxDecoration(
+        color: Colors.white.withOpacity(0.12),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Colors.white.withOpacity(0.18)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 14, color: iconColor ?? Colors.white70),
+          const SizedBox(width: 5),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  label,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(fontSize: 9, color: Colors.white70),
+                ),
+                Text(
+                  value,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold, color: Colors.white),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildInlineHourlyStrip(List<HourlyForecast> hourly) {
+    return SizedBox(
+      height: 84,
+      child: ListView.builder(
+        scrollDirection: Axis.horizontal,
+        physics: const BouncingScrollPhysics(),
+        itemCount: hourly.take(16).length,
+        itemBuilder: (context, index) {
+          final h = hourly[index];
+          final isNow = index == 0;
+          final hourStr = isNow ? 'Now' : DateFormat('ha').format(h.time);
+
+          return Container(
+            width: 56,
+            margin: const EdgeInsets.only(right: 6),
+            padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 4),
+            decoration: BoxDecoration(
+              color: isNow
+                  ? Colors.white.withOpacity(0.25)
+                  : Colors.black.withOpacity(0.16),
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(
+                color: isNow ? Colors.white.withOpacity(0.5) : Colors.transparent,
+                width: 1,
+              ),
+            ),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.spaceAround,
+              children: [
+                Text(
+                  hourStr,
+                  style: const TextStyle(
+                    fontSize: 9.5,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.white,
+                  ),
+                ),
+                Text(
+                  h.conditionIcon,
+                  style: const TextStyle(fontSize: 16),
+                ),
+                Text(
+                  '${h.temperature.round()}°',
+                  style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.white),
+                ),
+                if (h.precipitationProbability > 0)
+                  Text(
+                    '${h.precipitationProbability}%',
+                    style: const TextStyle(fontSize: 8.5, color: Colors.amberAccent, fontWeight: FontWeight.bold),
+                  )
+                else
+                  const SizedBox(height: 9),
+              ],
+            ),
+          );
+        },
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     if (_weather == null && _isLoading) {
@@ -673,157 +801,286 @@ class _WeatherCardState extends State<WeatherCard> {
         color: Colors.transparent,
         child: InkWell(
           borderRadius: BorderRadius.circular(16),
-          onTap: _showForecastSheet,
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                // Top Row: Location Chip (Left) + Quick Actions & Expand Arrow (Right)
-                Row(
-                  children: [
-                    InkWell(
-                      borderRadius: BorderRadius.circular(16),
-                      onTap: _showStationPicker,
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                        decoration: BoxDecoration(
-                          color: Colors.white.withOpacity(0.18),
-                          borderRadius: BorderRadius.circular(16),
-                        ),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            const Icon(Icons.location_on, size: 12, color: Colors.amberAccent),
-                            const SizedBox(width: 4),
-                            ConstrainedBox(
-                              constraints: const BoxConstraints(maxWidth: 160),
-                              child: Text(
-                                data.station.name,
-                                style: const TextStyle(
-                                  fontSize: 11,
-                                  fontWeight: FontWeight.bold,
-                                  color: Colors.white,
+          onTap: _toggleExpanded,
+          child: AnimatedSize(
+            duration: const Duration(milliseconds: 280),
+            curve: Curves.easeInOut,
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  // Top Row: Location Chip (Left) + Quick Actions & Expand Chevron (Right)
+                  Row(
+                    children: [
+                      InkWell(
+                        borderRadius: BorderRadius.circular(16),
+                        onTap: _showStationPicker,
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                          decoration: BoxDecoration(
+                            color: Colors.white.withOpacity(0.18),
+                            borderRadius: BorderRadius.circular(16),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              const Icon(Icons.location_on, size: 12, color: Colors.amberAccent),
+                              const SizedBox(width: 4),
+                              ConstrainedBox(
+                                constraints: const BoxConstraints(maxWidth: 160),
+                                child: Text(
+                                  data.station.name,
+                                  style: const TextStyle(
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.bold,
+                                    color: Colors.white,
+                                  ),
+                                  overflow: TextOverflow.ellipsis,
                                 ),
-                                overflow: TextOverflow.ellipsis,
                               ),
-                            ),
-                            const Icon(Icons.arrow_drop_down, size: 16, color: Colors.white70),
-                          ],
+                              const Icon(Icons.arrow_drop_down, size: 16, color: Colors.white70),
+                            ],
+                          ),
                         ),
                       ),
-                    ),
-                    const Spacer(),
-                    IconButton(
-                      visualDensity: VisualDensity.compact,
-                      padding: EdgeInsets.zero,
-                      constraints: const BoxConstraints(minWidth: 28, minHeight: 28),
-                      icon: const Icon(Icons.my_location_rounded, size: 15, color: Colors.white70),
-                      tooltip: 'Auto-Detect Location',
-                      onPressed: _isLoading ? null : _autoDetectAndLoad,
-                    ),
-                    const SizedBox(width: 2),
-                    if (_isLoading)
-                      const SizedBox(
-                        width: 14,
-                        height: 14,
-                        child: CircularProgressIndicator(
-                          strokeWidth: 2,
-                          valueColor: AlwaysStoppedAnimation<Color>(Colors.white70),
-                        ),
-                      )
-                    else
+                      const Spacer(),
                       IconButton(
                         visualDensity: VisualDensity.compact,
                         padding: EdgeInsets.zero,
                         constraints: const BoxConstraints(minWidth: 28, minHeight: 28),
-                        icon: const Icon(Icons.refresh, size: 15, color: Colors.white70),
-                        tooltip: 'Refresh Weather',
-                        onPressed: () => _loadWeather(station: data.station),
+                        icon: const Icon(Icons.my_location_rounded, size: 15, color: Colors.white70),
+                        tooltip: 'Auto-Detect Location',
+                        onPressed: _isLoading ? null : _autoDetectAndLoad,
                       ),
-                    const SizedBox(width: 4),
-                    const Icon(Icons.arrow_forward_ios_rounded, size: 11, color: Colors.white54),
-                  ],
-                ),
-                const SizedBox(height: 6),
+                      const SizedBox(width: 2),
+                      if (_isLoading)
+                        const SizedBox(
+                          width: 14,
+                          height: 14,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            valueColor: AlwaysStoppedAnimation<Color>(Colors.white70),
+                          ),
+                        )
+                      else
+                        IconButton(
+                          visualDensity: VisualDensity.compact,
+                          padding: EdgeInsets.zero,
+                          constraints: const BoxConstraints(minWidth: 28, minHeight: 28),
+                          icon: const Icon(Icons.refresh, size: 15, color: Colors.white70),
+                          tooltip: 'Refresh Weather',
+                          onPressed: () => _loadWeather(station: data.station),
+                        ),
+                      const SizedBox(width: 4),
+                      // Animated Expand / Collapse Chevron
+                      IconButton(
+                        visualDensity: VisualDensity.compact,
+                        padding: EdgeInsets.zero,
+                        constraints: const BoxConstraints(minWidth: 24, minHeight: 24),
+                        icon: AnimatedRotation(
+                          turns: _isExpanded ? 0.5 : 0.0,
+                          duration: const Duration(milliseconds: 250),
+                          child: const Icon(
+                            Icons.keyboard_arrow_down_rounded,
+                            size: 22,
+                            color: Colors.white70,
+                          ),
+                        ),
+                        tooltip: _isExpanded ? 'Collapse weather panel' : 'Expand weather panel',
+                        onPressed: _toggleExpanded,
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 6),
 
-                // Main Metric Row: Temp + Icon + Condition/HL (Left) & Compact Stats (Right)
-                Row(
-                  crossAxisAlignment: CrossAxisAlignment.center,
-                  children: [
-                    Text(
-                      '${data.current.temperature.round()}°C',
-                      style: const TextStyle(
-                        fontSize: 27,
-                        fontWeight: FontWeight.w900,
-                        color: Colors.white,
-                        letterSpacing: -0.5,
+                  // Main Metric Row: Temp + Icon + Condition/HL (Left) & Compact Stats (Right)
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.center,
+                    children: [
+                      Text(
+                        '${data.current.temperature.round()}°C',
+                        style: const TextStyle(
+                          fontSize: 27,
+                          fontWeight: FontWeight.w900,
+                          color: Colors.white,
+                          letterSpacing: -0.5,
+                        ),
                       ),
-                    ),
-                    const SizedBox(width: 8),
-                    Text(data.current.conditionIcon, style: const TextStyle(fontSize: 18)),
-                    const SizedBox(width: 6),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Text(
-                            data.current.conditionText,
-                            style: const TextStyle(
-                              fontSize: 12.5,
-                              fontWeight: FontWeight.bold,
-                              color: Colors.white,
+                      const SizedBox(width: 8),
+                      Text(data.current.conditionIcon, style: const TextStyle(fontSize: 18)),
+                      const SizedBox(width: 6),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Text(
+                              data.current.conditionText,
+                              style: const TextStyle(
+                                fontSize: 12.5,
+                                fontWeight: FontWeight.bold,
+                                color: Colors.white,
+                              ),
+                              overflow: TextOverflow.ellipsis,
                             ),
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                          Text(
-                            'Feels ${data.current.feelsLike.round()}° • H: $maxTemp° L: $minTemp°',
-                            style: const TextStyle(fontSize: 10, color: Colors.white70),
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ],
+                            Text(
+                              'Feels ${data.current.feelsLike.round()}° • H: $maxTemp° L: $minTemp°',
+                              style: const TextStyle(fontSize: 10, color: Colors.white70),
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ],
+                        ),
                       ),
-                    ),
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                      decoration: BoxDecoration(
-                        color: Colors.black.withOpacity(0.18),
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.end,
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              const Icon(Icons.water_drop_rounded, size: 11, color: Colors.lightBlueAccent),
-                              const SizedBox(width: 2),
-                              Text('${data.current.humidity}%', style: const TextStyle(fontSize: 10, color: Colors.white, fontWeight: FontWeight.bold)),
-                              const SizedBox(width: 5),
-                              const Icon(Icons.air_rounded, size: 11, color: Colors.tealAccent),
-                              const SizedBox(width: 2),
-                              Text('${data.current.windSpeed.round()}k/h', style: const TextStyle(fontSize: 10, color: Colors.white, fontWeight: FontWeight.bold)),
-                            ],
-                          ),
-                          if (rainProb > 0) ...[
-                            const SizedBox(height: 2),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: Colors.black.withOpacity(0.18),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.end,
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
                             Row(
                               mainAxisSize: MainAxisSize.min,
                               children: [
-                                const Icon(Icons.umbrella_rounded, size: 10, color: Colors.amberAccent),
-                                const SizedBox(width: 3),
-                                Text('$rainProb% rain', style: const TextStyle(fontSize: 9.5, color: Colors.amberAccent, fontWeight: FontWeight.bold)),
+                                const Icon(Icons.water_drop_rounded, size: 11, color: Colors.lightBlueAccent),
+                                const SizedBox(width: 2),
+                                Text('${data.current.humidity}%', style: const TextStyle(fontSize: 10, color: Colors.white, fontWeight: FontWeight.bold)),
+                                const SizedBox(width: 5),
+                                const Icon(Icons.air_rounded, size: 11, color: Colors.tealAccent),
+                                const SizedBox(width: 2),
+                                Text('${data.current.windSpeed.round()}k/h', style: const TextStyle(fontSize: 10, color: Colors.white, fontWeight: FontWeight.bold)),
                               ],
                             ),
+                            if (rainProb > 0) ...[
+                              const SizedBox(height: 2),
+                              Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  const Icon(Icons.umbrella_rounded, size: 10, color: Colors.amberAccent),
+                                  const SizedBox(width: 3),
+                                  Text('$rainProb% rain', style: const TextStyle(fontSize: 9.5, color: Colors.amberAccent, fontWeight: FontWeight.bold)),
+                                ],
+                              ),
+                            ],
                           ],
-                        ],
+                        ),
                       ),
+                    ],
+                  ),
+
+                  // EXPANDED BODY (Unfolds smoothly on click)
+                  if (_isExpanded) ...[
+                    const SizedBox(height: 12),
+                    Divider(color: Colors.white.withOpacity(0.18), height: 1),
+                    const SizedBox(height: 12),
+
+                    // 4 Micro Metric Cards
+                    Row(
+                      children: [
+                        Expanded(
+                          child: _buildMetricCard(
+                            icon: Icons.thermostat_rounded,
+                            label: 'Feels Like',
+                            value: '${data.current.feelsLike.round()}°C',
+                            iconColor: Colors.orangeAccent,
+                          ),
+                        ),
+                        const SizedBox(width: 6),
+                        Expanded(
+                          child: _buildMetricCard(
+                            icon: Icons.water_drop_rounded,
+                            label: 'Humidity',
+                            value: '${data.current.humidity}%',
+                            iconColor: Colors.lightBlueAccent,
+                          ),
+                        ),
+                        const SizedBox(width: 6),
+                        Expanded(
+                          child: _buildMetricCard(
+                            icon: Icons.air_rounded,
+                            label: 'Wind',
+                            value: '${data.current.windSpeed.round()}k/h',
+                            iconColor: Colors.tealAccent,
+                          ),
+                        ),
+                        const SizedBox(width: 6),
+                        Expanded(
+                          child: _buildMetricCard(
+                            icon: Icons.umbrella_rounded,
+                            label: 'Rain Chance',
+                            value: '$rainProb%',
+                            iconColor: Colors.amberAccent,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 14),
+
+                    // Inline Hourly Forecast Strip
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        const Text(
+                          '⏰ Next 16 Hours Forecast',
+                          style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.white,
+                          ),
+                        ),
+                        Text(
+                          'Hourly',
+                          style: TextStyle(
+                            fontSize: 10.5,
+                            color: Colors.white.withOpacity(0.7),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                    _buildInlineHourlyStrip(data.hourly),
+                    const SizedBox(height: 10),
+
+                    // Bottom Bar: 7-Day Outlook Button & Tap to collapse hint
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        InkWell(
+                          borderRadius: BorderRadius.circular(8),
+                          onTap: _showForecastSheet,
+                          child: Padding(
+                            padding: const EdgeInsets.symmetric(vertical: 4, horizontal: 2),
+                            child: Row(
+                              children: [
+                                Icon(Icons.calendar_month_rounded, size: 13, color: Colors.amberAccent.shade200),
+                                const SizedBox(width: 4),
+                                Text(
+                                  'View 7-Day Detailed Outlook Sheet ›',
+                                  style: TextStyle(
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.bold,
+                                    color: Colors.amberAccent.shade200,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                        Text(
+                          'Tap strip to collapse',
+                          style: TextStyle(
+                            fontSize: 10,
+                            color: Colors.white.withOpacity(0.6),
+                          ),
+                        ),
+                      ],
                     ),
                   ],
-                ),
-              ],
+                ],
+              ),
             ),
           ),
         ),
