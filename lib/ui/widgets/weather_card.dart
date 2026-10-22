@@ -616,60 +616,23 @@ class _WeatherCardState extends State<WeatherCard> {
     );
   }
 
-  Widget _buildMetricPill({
-    required IconData icon,
-    required String label,
-    required String value,
-    Color? iconColor,
-  }) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-      decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.12),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.white.withOpacity(0.18)),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(icon, size: 15, color: iconColor ?? Colors.white70),
-          const SizedBox(width: 6),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text(
-                label,
-                style: const TextStyle(fontSize: 10, color: Colors.white70),
-              ),
-              Text(
-                value,
-                style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.white),
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
     if (_weather == null && _isLoading) {
       return Container(
-        height: 140,
-        margin: const EdgeInsets.only(bottom: 20),
+        height: 54,
+        margin: const EdgeInsets.only(bottom: 12),
         decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(20),
+          borderRadius: BorderRadius.circular(16),
           color: Theme.of(context).colorScheme.surfaceVariant.withOpacity(0.3),
         ),
         child: const Center(
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2)),
-              SizedBox(width: 12),
-              Text('Fetching live station weather...'),
+              SizedBox(width: 14, height: 14, child: CircularProgressIndicator(strokeWidth: 2)),
+              SizedBox(width: 10),
+              Text('Fetching live station weather...', style: TextStyle(fontSize: 12)),
             ],
           ),
         ),
@@ -687,9 +650,9 @@ class _WeatherCardState extends State<WeatherCard> {
     final rainProb = todayDaily?.precipitationProbabilityMax ?? 0;
 
     return Container(
-      margin: const EdgeInsets.only(bottom: 22),
+      margin: const EdgeInsets.only(bottom: 14),
       decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(22),
+        borderRadius: BorderRadius.circular(16),
         gradient: const LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
@@ -700,52 +663,52 @@ class _WeatherCardState extends State<WeatherCard> {
         ),
         boxShadow: [
           BoxShadow(
-            color: const Color(0xFF1E3A8A).withOpacity(0.3),
-            blurRadius: 16,
-            offset: const Offset(0, 6),
+            color: const Color(0xFF1E3A8A).withOpacity(0.25),
+            blurRadius: 10,
+            offset: const Offset(0, 3),
           ),
         ],
       ),
       child: Material(
         color: Colors.transparent,
         child: InkWell(
-          borderRadius: BorderRadius.circular(22),
+          borderRadius: BorderRadius.circular(16),
           onTap: _showForecastSheet,
           child: Padding(
-            padding: const EdgeInsets.all(16),
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
             child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
               children: [
-                // Top bar: Station Selector Chip, Auto-Detect & Refresh
+                // Top Row: Location Chip (Left) + Quick Actions & Expand Arrow (Right)
                 Row(
                   children: [
                     InkWell(
-                      borderRadius: BorderRadius.circular(20),
+                      borderRadius: BorderRadius.circular(16),
                       onTap: _showStationPicker,
                       child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                         decoration: BoxDecoration(
                           color: Colors.white.withOpacity(0.18),
-                          borderRadius: BorderRadius.circular(20),
+                          borderRadius: BorderRadius.circular(16),
                         ),
                         child: Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            const Icon(Icons.location_on, size: 14, color: Colors.amberAccent),
+                            const Icon(Icons.location_on, size: 12, color: Colors.amberAccent),
                             const SizedBox(width: 4),
                             ConstrainedBox(
-                              constraints: const BoxConstraints(maxWidth: 170),
+                              constraints: const BoxConstraints(maxWidth: 160),
                               child: Text(
                                 data.station.name,
                                 style: const TextStyle(
-                                  fontSize: 12,
+                                  fontSize: 11,
                                   fontWeight: FontWeight.bold,
                                   color: Colors.white,
                                 ),
                                 overflow: TextOverflow.ellipsis,
                               ),
                             ),
-                            const Icon(Icons.arrow_drop_down, size: 18, color: Colors.white70),
+                            const Icon(Icons.arrow_drop_down, size: 16, color: Colors.white70),
                           ],
                         ),
                       ),
@@ -754,16 +717,16 @@ class _WeatherCardState extends State<WeatherCard> {
                     IconButton(
                       visualDensity: VisualDensity.compact,
                       padding: EdgeInsets.zero,
-                      constraints: const BoxConstraints(),
-                      icon: const Icon(Icons.my_location_rounded, size: 18, color: Colors.white70),
-                      tooltip: 'Auto-Detect Current Location',
+                      constraints: const BoxConstraints(minWidth: 28, minHeight: 28),
+                      icon: const Icon(Icons.my_location_rounded, size: 15, color: Colors.white70),
+                      tooltip: 'Auto-Detect Location',
                       onPressed: _isLoading ? null : _autoDetectAndLoad,
                     ),
-                    const SizedBox(width: 12),
+                    const SizedBox(width: 2),
                     if (_isLoading)
                       const SizedBox(
-                        width: 16,
-                        height: 16,
+                        width: 14,
+                        height: 14,
                         child: CircularProgressIndicator(
                           strokeWidth: 2,
                           valueColor: AlwaysStoppedAnimation<Color>(Colors.white70),
@@ -773,119 +736,90 @@ class _WeatherCardState extends State<WeatherCard> {
                       IconButton(
                         visualDensity: VisualDensity.compact,
                         padding: EdgeInsets.zero,
-                        constraints: const BoxConstraints(),
-                        icon: const Icon(Icons.refresh, size: 18, color: Colors.white70),
+                        constraints: const BoxConstraints(minWidth: 28, minHeight: 28),
+                        icon: const Icon(Icons.refresh, size: 15, color: Colors.white70),
                         tooltip: 'Refresh Weather',
                         onPressed: () => _loadWeather(station: data.station),
                       ),
+                    const SizedBox(width: 4),
+                    const Icon(Icons.arrow_forward_ios_rounded, size: 11, color: Colors.white54),
                   ],
                 ),
-                const SizedBox(height: 14),
+                const SizedBox(height: 6),
 
-                // Main Metric Row: Big Temp + Condition Emoji/Text + High/Low
+                // Main Metric Row: Temp + Icon + Condition/HL (Left) & Compact Stats (Right)
                 Row(
                   crossAxisAlignment: CrossAxisAlignment.center,
                   children: [
                     Text(
                       '${data.current.temperature.round()}°C',
                       style: const TextStyle(
-                        fontSize: 42,
+                        fontSize: 27,
                         fontWeight: FontWeight.w900,
                         color: Colors.white,
-                        letterSpacing: -1,
+                        letterSpacing: -0.5,
                       ),
                     ),
-                    const SizedBox(width: 14),
+                    const SizedBox(width: 8),
+                    Text(data.current.conditionIcon, style: const TextStyle(fontSize: 18)),
+                    const SizedBox(width: 6),
                     Expanded(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
+                        mainAxisSize: MainAxisSize.min,
                         children: [
-                          Row(
-                            children: [
-                              Text(data.current.conditionIcon, style: const TextStyle(fontSize: 22)),
-                              const SizedBox(width: 6),
-                              Expanded(
-                                child: Text(
-                                  data.current.conditionText,
-                                  style: const TextStyle(
-                                    fontSize: 15,
-                                    fontWeight: FontWeight.bold,
-                                    color: Colors.white,
-                                  ),
-                                  overflow: TextOverflow.ellipsis,
-                                ),
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 2),
                           Text(
-                            'H: $maxTemp°  •  L: $minTemp°',
-                            style: const TextStyle(fontSize: 12, color: Colors.white70),
+                            data.current.conditionText,
+                            style: const TextStyle(
+                              fontSize: 12.5,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.white,
+                            ),
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                          Text(
+                            'Feels ${data.current.feelsLike.round()}° • H: $maxTemp° L: $minTemp°',
+                            style: const TextStyle(fontSize: 10, color: Colors.white70),
+                            overflow: TextOverflow.ellipsis,
                           ),
                         ],
                       ),
                     ),
-                  ],
-                ),
-                const SizedBox(height: 16),
-
-                // Micro metrics row (4 cards)
-                Row(
-                  children: [
-                    Expanded(
-                      child: _buildMetricPill(
-                        icon: Icons.thermostat_rounded,
-                        label: 'Feels Like',
-                        value: '${data.current.feelsLike.round()}°',
-                        iconColor: Colors.orangeAccent,
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: Colors.black.withOpacity(0.18),
+                        borderRadius: BorderRadius.circular(8),
                       ),
-                    ),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: _buildMetricPill(
-                        icon: Icons.water_drop_rounded,
-                        label: 'Humidity',
-                        value: '${data.current.humidity}%',
-                        iconColor: Colors.lightBlueAccent,
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.end,
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              const Icon(Icons.water_drop_rounded, size: 11, color: Colors.lightBlueAccent),
+                              const SizedBox(width: 2),
+                              Text('${data.current.humidity}%', style: const TextStyle(fontSize: 10, color: Colors.white, fontWeight: FontWeight.bold)),
+                              const SizedBox(width: 5),
+                              const Icon(Icons.air_rounded, size: 11, color: Colors.tealAccent),
+                              const SizedBox(width: 2),
+                              Text('${data.current.windSpeed.round()}k/h', style: const TextStyle(fontSize: 10, color: Colors.white, fontWeight: FontWeight.bold)),
+                            ],
+                          ),
+                          if (rainProb > 0) ...[
+                            const SizedBox(height: 2),
+                            Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                const Icon(Icons.umbrella_rounded, size: 10, color: Colors.amberAccent),
+                                const SizedBox(width: 3),
+                                Text('$rainProb% rain', style: const TextStyle(fontSize: 9.5, color: Colors.amberAccent, fontWeight: FontWeight.bold)),
+                              ],
+                            ),
+                          ],
+                        ],
                       ),
-                    ),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: _buildMetricPill(
-                        icon: Icons.air_rounded,
-                        label: 'Wind',
-                        value: '${data.current.windSpeed.round()} km/h',
-                        iconColor: Colors.tealAccent,
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: _buildMetricPill(
-                        icon: Icons.umbrella_rounded,
-                        label: 'Rain Chance',
-                        value: '$rainProb%',
-                        iconColor: Colors.amberAccent,
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 12),
-
-                // Bottom CTA
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Text(
-                      'Tap to view 24h & 7-day outlook',
-                      style: TextStyle(
-                        fontSize: 11,
-                        color: Colors.white.withOpacity(0.7),
-                      ),
-                    ),
-                    Icon(
-                      Icons.arrow_forward_ios_rounded,
-                      size: 12,
-                      color: Colors.white.withOpacity(0.7),
                     ),
                   ],
                 ),
