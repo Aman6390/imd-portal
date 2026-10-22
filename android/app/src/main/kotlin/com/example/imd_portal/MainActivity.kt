@@ -143,6 +143,7 @@ class MainActivity: FlutterFragmentActivity() {
                     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
                         if (!packageManager.canRequestPackageInstalls()) {
                             pendingApkPath = apkPath
+                            savePendingApkPath(apkPath)
                             val permIntent = Intent(Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES).apply {
                                 data = Uri.parse("package:$packageName")
                             }
@@ -224,6 +225,20 @@ class MainActivity: FlutterFragmentActivity() {
         }
     }
 
+    private fun savePendingApkPath(path: String?) {
+        val prefs = getSharedPreferences("imd_installer_prefs", Context.MODE_PRIVATE)
+        if (path == null) {
+            prefs.edit().remove("pending_apk_path").apply()
+        } else {
+            prefs.edit().putString("pending_apk_path", path).apply()
+        }
+    }
+
+    private fun getPendingApkPath(): String? {
+        val prefs = getSharedPreferences("imd_installer_prefs", Context.MODE_PRIVATE)
+        return prefs.getString("pending_apk_path", null)
+    }
+
     private fun triggerInstallIntent(apkFile: File) {
         apkFile.setReadable(true, false)
         val contentUri = FileProvider.getUriForFile(
@@ -234,8 +249,20 @@ class MainActivity: FlutterFragmentActivity() {
 
         val installIntent = Intent(Intent.ACTION_VIEW).apply {
             setDataAndType(contentUri, "application/vnd.android.package-archive")
-            flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_GRANT_READ_URI_PERMISSION
+            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+            addFlags(Intent.FLAG_GRANT_PREFIX_URI_PERMISSION)
+            addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP)
+            putExtra(Intent.EXTRA_NOT_UNKNOWN_SOURCE, true)
         }
+
+        // Grant URI permission explicitly to all package installer handlers
+        val resInfoList = packageManager.queryIntentActivities(installIntent, PackageManager.MATCH_DEFAULT_ONLY)
+        for (resolveInfo in resInfoList) {
+            val pkg = resolveInfo.activityInfo.packageName
+            grantUriPermission(pkg, contentUri, Intent.FLAG_GRANT_READ_URI_PERMISSION)
+        }
+
         startActivity(installIntent)
     }
 
@@ -253,12 +280,13 @@ class MainActivity: FlutterFragmentActivity() {
     }
 
     private fun checkAndResumePendingInstall() {
-        val path = pendingApkPath ?: return
+        val path = pendingApkPath ?: getPendingApkPath() ?: return
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             if (packageManager.canRequestPackageInstalls()) {
                 pendingApkPath = null
+                savePendingApkPath(null)
                 val file = File(path)
-                if (file.exists() && file.length() > 0L) {
+                if (file.exists() && file.length() > 1000000L) {
                     try {
                         triggerInstallIntent(file)
                     } catch (_: Exception) {

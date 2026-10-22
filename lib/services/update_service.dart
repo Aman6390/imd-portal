@@ -44,7 +44,7 @@ class UpdateDownloadProgress {
 /// and manage background APK downloading without interrupting user experience.
 class UpdateService {
   /// Current app version
-  static const String currentVersion = '1.4.5';
+  static const String currentVersion = '1.4.6';
 
   /// GitHub public releases endpoint
   static const String latestReleaseApi =
@@ -156,7 +156,18 @@ class UpdateService {
           dir = await getTemporaryDirectory();
         }
 
-        final file = File('${dir.path}/Meteorological_Portal_Latest.apk');
+        // 1. Clean up old update APK files to prevent cache collisions
+        try {
+          final list = dir.listSync();
+          for (final entity in list) {
+            if (entity is File && entity.path.toLowerCase().endsWith('.apk')) {
+              try { entity.deleteSync(); } catch (_) {}
+            }
+          }
+        } catch (_) {}
+
+        // 2. Stream downloaded bytes into clean file
+        final file = File('${dir.path}/IMD_Portal_Update.apk');
         final sink = file.openWrite();
 
         await for (final chunk in response.stream) {
@@ -173,6 +184,13 @@ class UpdateService {
         await sink.flush();
         await sink.close();
         client.close();
+
+        // 3. Verify file integrity and allow 400ms for OS filesystem buffers to settle
+        if (!await file.exists() || await file.length() < 1000000) {
+          throw Exception('Downloaded update is incomplete or corrupted.');
+        }
+        await Future.delayed(const Duration(milliseconds: 400));
+
         isDownloading = false;
 
         _progressController.add(UpdateDownloadProgress(
