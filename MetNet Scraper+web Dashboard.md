@@ -33,6 +33,7 @@
 * **Over-The-Air (OTA) Updates:** [Why: Because the app is distributed directly via APK rather than Google Play, users need a smooth way to get updates without manually searching GitHub]. In-app check for new releases and features via GitHub Releases, allowing colleagues to update their installed app seamlessly over the internet.
 * **Never-Download-Twice Cache Registry:** [Why: Mobile networks in regional meteorological centers can be slow; re-downloading the same PDFs repeatedly drains data and battery]. Deduplication cache ensuring circular PDFs are processed only once in their lifetime, keeping daily sync under 3 seconds and mobile data under 100 KB.
 * **Biometric & Device Security:** [Why: MetNet credentials and leave balances are private employee records that must be protected if someone else holds the phone]. Safeguard sensitive intranet credentials and departmental records with Android native Biometrics (Fingerprint / Face Unlock) and device PIN/pattern fallback on both app launch and credentials management.
+* **100% Free Live Weather Forecast & Global Geocoding:** [Why: As the central mobile client for meteorological staff, having live real-time station weather, 24-hour shift timelines, and 7-day outlooks gives forecasters and observers instant environmental situational awareness without needing external weather apps or third-party API keys]. Integrates Open-Meteo and IMD numerical weather models, native GPS auto-location detection, and worldwide geocoding search for any city, town, or district.
 * **Settings & Customization:** [Why: Gives users full control over visual appearance, security preferences, and filter keywords in one central location]. Unified settings panel featuring Theme selection (Dark / Light Mode), keyword filters, account credentials, updates, and an About Section honoring developer Aman (Aman6390).
 
 ---
@@ -56,6 +57,8 @@
 | **Document Launching**| `url_launcher: ^6.2.4` | Fallback browser and document launcher [Why: Standard utility to invoke system handlers for web links] |
 | **Notice Resolver** | `webview_flutter: ^4.10.0` | In-app authenticated WebView for resolving MetNet notices & pop-ups [Why: Allows employees to interact directly with MetNet popups without leaving the app or re-entering credentials] |
 | **Formatting** | `intl: ^0.19.0` | Date formatting and timeline parsing [Why: Reliably handles diverse date string formats used across government records (`dd-MM-yyyy`, `dd/MM/yyyy`, etc.)] |
+| **Weather Engine** | **Open-Meteo API & WMO Decoders** | 100% Free global numerical weather prediction API [Why: Provides real-time temperatures, WMO codes, 24h hourly curves, and 7-day outlooks with zero API keys or user signups] |
+| **Location Services**| Native Android `LocationManager` & Reverse Geocoder | Dual-mode native GPS/Network channel + IP fallback [Why: Automatically pinpoints exact employee duty stations or cities in milliseconds without third-party plugin bloat] |
 
 ---
 
@@ -124,18 +127,30 @@
 8. **Graceful Handling of Withdrawn / Removed Notices (404 Interception):** [Why: Department staff sometimes revoke orders by deleting the PDF file while leaving the title on the portal; catching this in-app prevents ugly browser crashes and clearly informs the user: `⚠️ Notice Unavailable on Server`].
 9. **Native PDF Launch via Android FileProvider & Local Offline Cache:** [Why: Saves verified circulars in the device cache so colleagues can view them offline at any time without re-downloading].
 
+### D. Live Weather Forecast Engine & Dual-Mode Positioning
+[Why: Meteorological staff require immediate environmental situational awareness and shift-planning forecasts without juggling multiple third-party apps or paying for weather API keys.]
+
+1. **Zero-Configuration Open-Meteo Integration:** Queries Open-Meteo's high-resolution global forecast system (`https://api.open-meteo.com/v1/forecast`), which synthesizes ECMWF, GFS, and regional Indian numerical models. Extracts temperature, apparent temperature ("Feels like"), humidity, wind speed, precipitation, WMO weather codes, 24-hour hourly timelines, and 7-day outlooks with 100% free, zero-key public access.
+2. **Dual-Mode Auto-Location Positioning:**
+   * **Primary:** Native Android `LocationManager` invoked via Kotlin MethodChannel (`com.imd.portal/location`). Queries `GPS_PROVIDER`, `NETWORK_PROVIDER`, and `PASSIVE_PROVIDER` with runtime permission checks.
+   * **Secondary Fallback:** High-speed IP-based geolocation (`http://ip-api.com/json`) resolving city and region in under 300ms without requiring location permissions.
+   * **Reverse-Geocoding Client:** Converts raw coordinates into readable city, state, and country descriptors (`https://api.bigdatacloud.net/data/reverse-geocode-client`).
+3. **Global City & Town Geocoding Search:** Leverages Open-Meteo Geocoding Search (`https://geocoding-api.open-meteo.com/v1/search`), allowing staff to search and monitor any city, town, or remote observatory across India or globally.
+4. **Persistent Offline Caching:** Automatically persists the latest weather reading and user's selected station in `SharedPreferences`. The weather card loads immediately on app startup with zero network blocking.
+
 ---
 
 ## 4. UI / UX Features & Keyword Customization
 
-1. **Material 3 Theme:** [Why: Modern, battery-saving dark interface that reduces eye strain during night-shift duty operations]. Dark Theme (`#121212` background, `#1E1E1E` cards) with one-tap Light/Dark theme toggle.
-2. **Leave Balance Cards:** [Why: Clean visual hierarchy letting staff see their CL, RH, and C-Off balances within one second of unlocking the app].
-3. **12-Month Alert Grid:** [Why: Visual warning matrix showing which upcoming months have expiring C-Offs so employees can plan leave applications in advance].
-4. **Interactive Month Calendar Screen (`month_calendar_screen.dart`):** [Why: Provides an intuitive calendar view where days with expiring leaves are marked with alert borders and day counters].
-5. **Custom Keyword Filter in Settings (`settings_dialog.dart`):** [Why: Empowers each employee to personalize their notice board by tracking their own station, name, or cadre while hiding unwanted notices].
-6. **Tabbed Circulars Section:** [Why: Separates urgent starred notices from general announcements so users can prioritize what to read first].
-7. **Sync Controls:** [Why: Gives users immediate visual feedback with animated spinners and SnackBars while data is refreshing from MetNet].
-8. **Settings Panel (4 Tabs):** [Why: Organizes credentials, VIP filters, junk terms, and app updates into logical tabs for effortless navigation].
+1. **Interactive Live Weather Card (`weather_card.dart`):** [Why: Greets employees with instant station weather, feels-like metric, humidity, wind, and precipitation probability at the very top of the dashboard]. Includes one-tap station switcher, automatic location detection, a 24-hour horizontal hourly carousel, and a 7-day weather outlook bottom sheet.
+2. **Material 3 Theme:** [Why: Modern, battery-saving dark interface that reduces eye strain during night-shift duty operations]. Dark Theme (`#121212` background, `#1E1E1E` cards) with one-tap Light/Dark theme toggle.
+3. **Leave Balance Cards:** [Why: Clean visual hierarchy letting staff see their CL, RH, and C-Off balances within one second of unlocking the app].
+4. **12-Month Alert Grid:** [Why: Visual warning matrix showing which upcoming months have expiring C-Offs so employees can plan leave applications in advance].
+5. **Interactive Month Calendar Screen (`month_calendar_screen.dart`):** [Why: Provides an intuitive calendar view where days with expiring leaves are marked with alert borders and day counters].
+6. **Custom Keyword Filter in Settings (`settings_dialog.dart`):** [Why: Empowers each employee to personalize their notice board by tracking their own station, name, or cadre while hiding unwanted notices].
+7. **Tabbed Circulars Section:** [Why: Separates urgent starred notices from general announcements so users can prioritize what to read first].
+8. **Sync Controls:** [Why: Gives users immediate visual feedback with animated spinners and SnackBars while data is refreshing from MetNet].
+9. **Settings Panel (4 Tabs):** [Why: Organizes credentials, VIP filters, junk terms, and app updates into logical tabs for effortless navigation].
 
 ---
 
