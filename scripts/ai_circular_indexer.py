@@ -66,43 +66,72 @@ def save_index(data: dict):
         json.dump(data, f, indent=2, ensure_ascii=False)
     print(f"[✓] Saved {len(data.get('circulars', {}))} indexed circulars to {INDEX_FILE_PATH}")
 
+HINDI_SCIENTIST_MAP = {
+    'b': ['b', 'बी', 'ख'],
+    'c': ['c', 'सी', 'ग'],
+    'd': ['d', 'डी', 'घ'],
+    'e': ['e', 'ई'],
+    'f': ['f', 'एफ'],
+    'g': ['g', 'जी'],
+    'h': ['h', 'एच']
+}
+
 def detect_imd_cadre(title: str) -> str:
+    """Accurate IMD Cadre Detector handling quotes (Sc. 'C'), abbreviations (Scientific Asstt.), dots (S.O.-I), and Hindi."""
     t = title.lower()
-    found = []
+    cadres = []
 
-    # Scientists H to B
-    for g in ['h', 'g', 'f', 'e', 'd', 'c', 'b']:
-        if re.search(r'\b(sc[-. ]*' + g + r'|scientist[-. ]*' + g + r')\b', t) or f'वैज्ञानिक {g}' in t or f"वैज्ञानिक '{g}'" in t:
-            found.append(f'Scientist {g.upper()}')
+    # 1. Scientists: B to H (handles Sc. 'B', Sc.'B', Scientist 'B', Sc-B, Sc. B, Sc B)
+    for g in ['b', 'c', 'd', 'e', 'f', 'g', 'h']:
+        reg = re.compile(r"(?:sc|scientist)[.\s-]*['\"]?\s*" + g + r"\b['\"]?", re.IGNORECASE)
+        hindi_variants = HINDI_SCIENTIST_MAP.get(g, [g])
+        hindi_match = any(
+            f"वैज्ञानिक {h}" in t or 
+            f"वैज्ञानिक '{h}'" in t or 
+            f'वैज्ञानिक "{h}"' in t or
+            f"वैज्ञानिक-{h}" in t
+            for h in hindi_variants
+        )
+        if reg.search(t) or hindi_match:
+            cadres.append(f'Scientist {g.upper()}')
 
-    # SO-III, II, I
-    if re.search(r'\b(so[-. ]*iii|scientific\s+officer[-. ]*iii|so[-. ]*3)\b', t) or 'वैज्ञानिक अधिकारी-iii' in t or 'वैज्ञानिक अधिकारी iii' in t:
-        found.append('SO-III')
-    if re.search(r'\b(so[-. ]*ii|scientific\s+officer[-. ]*ii|so[-. ]*2)\b', t) or 'वैज्ञानिक अधिकारी-ii' in t or 'वैज्ञानिक अधिकारी ii' in t:
-        found.append('SO-II')
-    if re.search(r'\b(so[-. ]*i\b|scientific\s+officer[-. ]*i\b|so[-. ]*1\b)', t) or 'वैज्ञानिक अधिकारी-i' in t or 'वैज्ञानिक अधिकारी i' in t:
-        found.append('SO-I')
+    # 2. Scientific Officers: SO-I, SO-II, SO-III (handles S.O.-I, S.O. I, SO-I, SO 1, Scientific Officer I)
+    if re.search(r'\b(?:s\.?\s*o\.?|scientific\s+officer)[-.\s]*(?:i|1)\b', t) or any(x in t for x in ['वैज्ञानिक अधिकारी-i', 'वैज्ञानिक अधिकारी i', 'वैज्ञानिक अधिकारी 1', 'वैज्ञानिक अधिकारी-1']):
+        cadres.append('SO-I')
+    if re.search(r'\b(?:s\.?\s*o\.?|scientific\s+officer)[-.\s]*(?:ii|2)\b', t) or any(x in t for x in ['वैज्ञानिक अधिकारी-ii', 'वैज्ञानिक अधिकारी ii', 'वैज्ञानिक अधिकारी 2', 'वैज्ञानिक अधिकारी-2']):
+        cadres.append('SO-II')
+    if re.search(r'\b(?:s\.?\s*o\.?|scientific\s+officer)[-.\s]*(?:iii|3)\b', t) or any(x in t for x in ['वैज्ञानिक अधिकारी-iii', 'वैज्ञानिक अधिकारी iii', 'वैज्ञानिक अधिकारी 3', 'वैज्ञानिक अधिकारी-3']):
+        cadres.append('SO-III')
 
-    # Met B before Met A
-    if re.search(r'\b(met[-. ]*b\b|met[-. ]*gr(ade)?[-. ]*b\b|meteorologist[-. ]*b\b|meteorologist[-. ]*gr(ade)?[-. ]*b\b|met[-. ]*ii\b|meteorologist[-. ]*ii\b)', t) or 'मौसम विज्ञानी-ii' in t or 'मौसम विज्ञानी ii' in t or 'मौसम विज्ञानी ख' in t:
-        found.append('Met B')
-    if re.search(r'\b(met[-. ]*a\b|met[-. ]*gr(ade)?[-. ]*a\b|meteorologist[-. ]*a\b|meteorologist[-. ]*gr(ade)?[-. ]*a\b|met[-. ]*i\b|meteorologist[-. ]*i\b)', t) or 'मौसम विज्ञानी-i' in t or 'मौसम विज्ञानी i' in t or 'मौसम विज्ञानी क' in t:
-        found.append('Met A')
+    # 3. Meteorologists: Met A and Met B (handles Met. 'A', Met 'A', Met-A, AM-I, AM-II, Met. 'B', etc.)
+    if re.search(r"\b(?:met\.?|meteorologist|am)[-.\s]*(?:gr(?:ade)?\.?[-.\s]*)?['\"]?\s*(?:a|i)\b['\"]?", t) or any(x in t for x in ['मौसम विज्ञानी-i', 'मौसम विज्ञानी i', 'मौसम विज्ञानी क', 'मौसम विज्ञानी a']):
+        cadres.append('Met A')
+    if re.search(r"\b(?:met\.?|meteorologist|am)[-.\s]*(?:gr(?:ade)?\.?[-.\s]*)?['\"]?\s*(?:b|ii)\b['\"]?", t) or any(x in t for x in ['मौसम विज्ञानी-ii', 'मौसम विज्ञानी ii', 'मौसम विज्ञानी ख', 'मौसम विज्ञानी b']):
+        cadres.append('Met B')
 
-    # Scientific Assistant (SA)
-    if re.search(r'\b(sa\b|s\.a\.|scientific\s+assistant|ssa\b|sr\.?\s*scientific\s+assistant)', t) or 'वैज्ञानिक सहायक' in t:
-        found.append('Scientific Assistant (SA)')
+    # 4. Scientific Assistant (SA) (handles SA, S.A., S.A.(Met), Scientific Asstt, Sci Asstt, Sc Asstt)
+    if re.search(r'\b(?:s\.?\s*a\.?|ssa|scientific\s+asstt?\.?|sci\.?\s*asstt?\.?|sc\.?\s*asstt?\.?|scientific\s+assistant)\b', t) or 'वैज्ञानिक सहायक' in t:
+        cadres.append('Scientific Assistant (SA)')
 
-    # Clerk
-    if re.search(r'\b(clerk|clerks|udc|ldc|upper\s+division\s+clerk|lower\s+division\s+clerk|clerical)\b', t) or 'लिपिक' in t or 'यूडीसी' in t or 'एलडीसी' in t:
-        found.append('Clerk (UDC/LDC)')
+    # 5. Clerks (UDC / LDC / Clerical)
+    if re.search(r'\b(?:clerk|clerks|udc|ldc|upper\s+div\w*\s+clerk|lower\s+div\w*\s+clerk|clerical)\b', t) or any(x in t for x in ['लिपिक', 'यूडीसी', 'एलडीसी']):
+        cadres.append('Clerk (UDC/LDC)')
 
-    # MTS
-    if re.search(r'\b(mts|multi[- ]tasking|attendant|peon)\b', t) or 'एमटीएस' in t or 'परिचारक' in t:
-        found.append('MTS / Attendant')
+    # 6. MTS / Attendant
+    if re.search(r'\b(?:mts|multi[- ]tasking|attendant|peon)\b', t) or any(x in t for x in ['एमटीएस', 'परिचारक']):
+        cadres.append('MTS / Attendant')
 
-    if not found:
-        if 'administrative' in t or 'section officer' in t or 'steno' in t or 'प्रशासनिक' in t:
+    # 7. Engineering & Technical
+    if re.search(r'\b(?:engineer|telecom|instrumentation|draughtsman|workshop)\b', t) or any(x in t for x in ['अभियंता', 'तकनीकी']):
+        cadres.append('Engineering / Tech')
+
+    # 8. Finance & Accounts
+    if re.search(r'\b(?:finance|account|accounts|ddo|pao|audit|budget)\b', t) or any(x in t for x in ['लेखा', 'वित्त']):
+        cadres.append('Finance & Accounts')
+
+    # 9. Fallback generic cadres
+    if not cadres:
+        if re.search(r'\b(?:administrative|section\s+officer|steno\w*|ministerial)\b', t) or 'प्रशासनिक' in t:
             return 'Administrative'
         if 'scientist' in t or 'वैज्ञानिक' in t:
             return 'Scientist'
@@ -110,7 +139,7 @@ def detect_imd_cadre(title: str) -> str:
             return 'Meteorologist'
         return 'General / All'
 
-    return ' / '.join(reversed(found)) if len(found) > 1 else found[0]
+    return ' / '.join(cadres)
 
 def analyze_with_rules(title: str, section: str = "") -> dict:
     """Fallback Tier 2: Deterministic keyword analysis if Gemini API is unavailable."""

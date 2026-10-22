@@ -269,65 +269,84 @@ class AiCircularService {
   }
 
   /// Accurate Cadre Detector following Official IMD Cadre Classification
+  /// Robustly handles quotes (e.g. Sc. 'C'), abbreviations (e.g. Scientific Asstt.), dots (e.g. S.O.-I), and Hindi titles
   static String _detectCadre(String title) {
     final t = title.toLowerCase();
     final List<String> cadres = [];
 
-    // 1. Scientists: B to H
-    final scientistGrades = ['h', 'g', 'f', 'e', 'd', 'c', 'b'];
+    // Hindi grade aliases for Scientists
+    const hindiScientistMap = {
+      'b': ['b', 'बी', 'ख'],
+      'c': ['c', 'सी', 'ग'],
+      'd': ['d', 'डी', 'घ'],
+      'e': ['e', 'ई'],
+      'f': ['f', 'एफ'],
+      'g': ['g', 'जी'],
+      'h': ['h', 'एच'],
+    };
+
+    // 1. Scientists: B to H (handles Sc. 'B', Sc.'B', Sc 'B', Scientist 'B', Sc-B, Sc. B, Sc B)
+    final scientistGrades = ['b', 'c', 'd', 'e', 'f', 'g', 'h'];
     for (final g in scientistGrades) {
-      final reg = RegExp('\\b(sc[-. ]*$g|scientist[-. ]*$g)\\b', caseSensitive: false);
-      if (reg.hasMatch(t) ||
-          t.contains('वैज्ञानिक $g') ||
-          t.contains("वैज्ञानिक '$g'")) {
+      final reg = RegExp(r"(?:sc|scientist)[.\s-]*['\"]?\s*" + g + r"\b['\"]?", caseSensitive: false);
+      final hindiVariants = hindiScientistMap[g] ?? [g];
+      final hindiMatch = hindiVariants.any((h) =>
+          t.contains('वैज्ञानिक $h') ||
+          t.contains("वैज्ञानिक '$h'") ||
+          t.contains('वैज्ञानिक "$h"') ||
+          t.contains('वैज्ञानिक-$h'));
+      if (reg.hasMatch(t) || hindiMatch) {
         cadres.add('Scientist ${g.toUpperCase()}');
       }
     }
 
-    // 2. Scientific Officers: SO-I, SO-II, SO-III
-    if (RegExp(r'\b(so[-. ]*iii|scientific\s+officer[-. ]*iii|so[-. ]*3)\b', caseSensitive: false).hasMatch(t) ||
-        t.contains('वैज्ञानिक अधिकारी-iii') ||
-        t.contains('वैज्ञानिक अधिकारी iii') ||
-        t.contains('वैज्ञानिक अधिकारी 3')) {
-      cadres.add('SO-III');
-    }
-    if (RegExp(r'\b(so[-. ]*ii|scientific\s+officer[-. ]*ii|so[-. ]*2)\b', caseSensitive: false).hasMatch(t) ||
-        t.contains('वैज्ञानिक अधिकारी-ii') ||
-        t.contains('वैज्ञानिक अधिकारी ii') ||
-        t.contains('वैज्ञानिक अधिकारी 2')) {
-      cadres.add('SO-II');
-    }
-    if (RegExp(r'\b(so[-. ]*i\b|scientific\s+officer[-. ]*i\b|so[-. ]*1\b)', caseSensitive: false).hasMatch(t) ||
+    // 2. Scientific Officers: SO-I, SO-II, SO-III (handles S.O.-I, S.O. I, SO-I, SO 1, Scientific Officer I)
+    if (RegExp(r'\b(?:s\.?\s*o\.?|scientific\s+officer)[-.\s]*(?:i|1)\b', caseSensitive: false).hasMatch(t) ||
         t.contains('वैज्ञानिक अधिकारी-i') ||
         t.contains('वैज्ञानिक अधिकारी i') ||
-        t.contains('वैज्ञानिक अधिकारी 1')) {
+        t.contains('वैज्ञानिक अधिकारी 1') ||
+        t.contains('वैज्ञानिक अधिकारी-1')) {
       cadres.add('SO-I');
     }
-
-    // 3. Meteorologists: Met A and Met B (Check Met B first so Met-I doesn't match prefix of Met-II)
-    if (RegExp(r'\b(met[-. ]*b\b|met[-. ]*gr(ade)?[-. ]*b\b|meteorologist[-. ]*b\b|meteorologist[-. ]*gr(ade)?[-. ]*b\b|met[-. ]*ii\b|meteorologist[-. ]*ii\b)', caseSensitive: false).hasMatch(t) ||
-        t.contains('मौसम विज्ञानी-ii') ||
-        t.contains('मौसम विज्ञानी ii') ||
-        t.contains('मौसम विज्ञानी ख') ||
-        t.contains('मौसम विज्ञानी b')) {
-      cadres.add('Met B');
+    if (RegExp(r'\b(?:s\.?\s*o\.?|scientific\s+officer)[-.\s]*(?:ii|2)\b', caseSensitive: false).hasMatch(t) ||
+        t.contains('वैज्ञानिक अधिकारी-ii') ||
+        t.contains('वैज्ञानिक अधिकारी ii') ||
+        t.contains('वैज्ञानिक अधिकारी 2') ||
+        t.contains('वैज्ञानिक अधिकारी-2')) {
+      cadres.add('SO-II');
     }
-    if (RegExp(r'\b(met[-. ]*a\b|met[-. ]*gr(ade)?[-. ]*a\b|meteorologist[-. ]*a\b|meteorologist[-. ]*gr(ade)?[-. ]*a\b|met[-. ]*i\b|meteorologist[-. ]*i\b)', caseSensitive: false).hasMatch(t) ||
+    if (RegExp(r'\b(?:s\.?\s*o\.?|scientific\s+officer)[-.\s]*(?:iii|3)\b', caseSensitive: false).hasMatch(t) ||
+        t.contains('वैज्ञानिक अधिकारी-iii') ||
+        t.contains('वैज्ञानिक अधिकारी iii') ||
+        t.contains('वैज्ञानिक अधिकारी 3') ||
+        t.contains('वैज्ञानिक अधिकारी-3')) {
+      cadres.add('SO-III');
+    }
+
+    // 3. Meteorologists: Met A and Met B (handles Met. 'A', Met 'A', Met-A, AM-I, AM-II, Met. 'B', etc.)
+    if (RegExp(r"\b(?:met\.?|meteorologist|am)[-.\s]*(?:gr(?:ade)?\.?[-.\s]*)?['\"]?\s*(?:a|i)\b['\"]?", caseSensitive: false).hasMatch(t) ||
         t.contains('मौसम विज्ञानी-i') ||
         t.contains('मौसम विज्ञानी i') ||
         t.contains('मौसम विज्ञानी क') ||
         t.contains('मौसम विज्ञानी a')) {
       cadres.add('Met A');
     }
+    if (RegExp(r"\b(?:met\.?|meteorologist|am)[-.\s]*(?:gr(?:ade)?\.?[-.\s]*)?['\"]?\s*(?:b|ii)\b['\"]?", caseSensitive: false).hasMatch(t) ||
+        t.contains('मौसम विज्ञानी-ii') ||
+        t.contains('मौसम विज्ञानी ii') ||
+        t.contains('मौसम विज्ञानी ख') ||
+        t.contains('मौसम विज्ञानी b')) {
+      cadres.add('Met B');
+    }
 
-    // 4. Scientific Assistant (SA)
-    if (RegExp(r'\b(sa\b|s\.a\.|scientific\s+assistant|ssa\b|sr\.?\s*scientific\s+assistant)', caseSensitive: false).hasMatch(t) ||
+    // 4. Scientific Assistant (SA) (handles SA, S.A., S.A.(Met), Scientific Asstt, Sci Asstt, Sc Asstt)
+    if (RegExp(r'\b(?:s\.?\s*a\.?|ssa|scientific\s+asstt?\.?|sci\.?\s*asstt?\.?|sc\.?\s*asstt?\.?|scientific\s+assistant)\b', caseSensitive: false).hasMatch(t) ||
         t.contains('वैज्ञानिक सहायक')) {
       cadres.add('Scientific Assistant (SA)');
     }
 
-    // 5. Clerks (UDC / LDC)
-    if (RegExp(r'\b(clerk|clerks|udc|ldc|upper\s+division\s+clerk|lower\s+division\s+clerk|clerical)\b', caseSensitive: false).hasMatch(t) ||
+    // 5. Clerks (UDC / LDC / Clerical)
+    if (RegExp(r'\b(?:clerk|clerks|udc|ldc|upper\s+div\w*\s+clerk|lower\s+div\w*\s+clerk|clerical)\b', caseSensitive: false).hasMatch(t) ||
         t.contains('लिपिक') ||
         t.contains('यूडीसी') ||
         t.contains('एलडीसी')) {
@@ -335,21 +354,21 @@ class AiCircularService {
     }
 
     // 6. MTS / Attendant
-    if (RegExp(r'\b(mts|multi[- ]tasking|attendant|peon)\b', caseSensitive: false).hasMatch(t) ||
+    if (RegExp(r'\b(?:mts|multi[- ]tasking|attendant|peon)\b', caseSensitive: false).hasMatch(t) ||
         t.contains('एमटीएस') ||
         t.contains('परिचारक')) {
       cadres.add('MTS / Attendant');
     }
 
     // 7. Engineering & Technical
-    if (RegExp(r'\b(engineer|telecom|instrumentation|draughtsman|workshop)\b', caseSensitive: false).hasMatch(t) ||
+    if (RegExp(r'\b(?:engineer|telecom|instrumentation|draughtsman|workshop)\b', caseSensitive: false).hasMatch(t) ||
         t.contains('अभियंता') ||
         t.contains('तकनीकी')) {
       cadres.add('Engineering / Tech');
     }
 
     // 8. Finance & Accounts
-    if (RegExp(r'\b(finance|account|accounts|ddo|pao|audit|budget)\b', caseSensitive: false).hasMatch(t) ||
+    if (RegExp(r'\b(?:finance|account|accounts|ddo|pao|audit|budget)\b', caseSensitive: false).hasMatch(t) ||
         t.contains('लेखा') ||
         t.contains('वित्त')) {
       cadres.add('Finance & Accounts');
@@ -357,7 +376,7 @@ class AiCircularService {
 
     // 9. Fallback generic cadres
     if (cadres.isEmpty) {
-      if (RegExp(r'\b(administrative|section\s+officer|steno|stenographer|ministerial)\b', caseSensitive: false).hasMatch(t) ||
+      if (RegExp(r'\b(?:administrative|section\s+officer|steno\w*|ministerial)\b', caseSensitive: false).hasMatch(t) ||
           t.contains('प्रशासनिक')) {
         return 'Administrative';
       }
@@ -370,7 +389,7 @@ class AiCircularService {
       return 'General / All';
     }
 
-    return cadres.length == 1 ? cadres.first : cadres.reversed.join(' / ');
+    return cadres.join(' / ');
   }
 
   /// Clean title for summary string
