@@ -24,8 +24,8 @@
 ## 1. Project Overview & Objectives
 
 * **Automate Intranet Data Extraction:** [Why: Manual portal login requires solving dynamic RSA encryption and navigating slow web pages; automated extraction retrieves leave records and circulars in under 3 seconds]. Securely authenticates into the Intranet Portal (`https://metnet.imd.gov.in`), bypasses dynamic RSA login encryption, and scrapes real-time balances and circulars.
-* **Smart Leave & Expiry Management:** [Why: Compensatory Offs lapse after exactly 6 months, and employees frequently lose hard-earned leaves simply because they forget when they were earned]. Extracts balances for Casual Leave (CL), Restricted Holiday (RH), and Compensatory Off (C-Off). Accurately predicts expiration dates for C-Offs ($\text{Date of Credit} + 6 \text{ months}$) and provides a 12-month visual timeline with an interactive, dedicated calendar view.
-* **Intelligent Circular Categorization:** [Why: MetNet publishes dozens of daily notices (driver duties, canteen menus, carpenter jobs) that bury critical orders like promotions, transfers, and allowances]. Automatically parses departmental orders, discards irrelevant junk notices, and prioritizes high-value VIP circulars (Scientific Assistants, Scientist transfers, promotions, LDCE, allowances) with direct PDF launch capabilities.
+* **Smart Leave & Expiry Management:** [Why: Compensatory Offs lapse after exactly 6 months, and employees frequently lose hard-earned leaves simply because they forget when they were earned]. Extracts balances for Casual Leave (CL), Restricted Holiday (RH), and Compensatory Off (C-Off). Accurately predicts expiration dates for C-Offs ($\text{Date of Credit} + 6 \text{ months}$) and provides a 12-month visual timeline with an interactive, dedicated calendar view. Dynamic rotating sweep-gradient neon border highlights active expiring months (e.g. March 2027) with zero layout shift.
+* **Intelligent Circular Categorization & "For You" Personalization:** [Why: MetNet publishes dozens of daily notices (driver duties, canteen menus, carpenter jobs) that bury critical orders like promotions, transfers, and allowances]. Automatically parses departmental orders, discards irrelevant junk notices, and prioritizes high-value orders in a personalized **"For You"** tab with 1-tap cadre filter chips (`[ All ]`, `[ ⛅ Met B ]`, `[ 🌤️ Met A ]`, `[ 🔬 SA ]`, `[ 🧪 Scientists ]`, `[ ⚠️ Action Required ]`, `[ 🔖 Bookmarked ]`). Removed leading star to grant full horizontal space to notice titles, and integrated persistent offline bookmarking.
 * **Fast-Path Title Pre-Filter & On-Device Devanagari OCR:** [Why: 90% of orders have clear titles that can be filtered in milliseconds, but vague scanned Hindi notices require reading the actual document without wasting mobile data]. Instant title matching from the web page for 90% of orders, coupled with lightweight on-device Devanagari OCR (Google ML Kit) for ambiguous scanned documents and Hindi circulars.
 * **Custom Keyword Editor:** [Why: Every employee cares about different things—some track their specific station (e.g. Pune, Delhi), their own name, or specialized sections]. Allows users to dynamically customize, add, and delete tracked VIP keywords and junk keywords directly from Settings.
 * **In-App MetNet Notice Resolver WebView:** [Why: MetNet periodically blocks login with mandatory popups, unread inbox messages, or duty declarations that break automated scrapers]. When portal sync encounters unread notices, displays `⚠️ MetNet Notice or Action Required` with an `Open MetNet to Resolve` button. Auto-logs into MetNet, lets the user dismiss the notice, and automatically closes and triggers re-sync upon returning.
@@ -34,7 +34,7 @@
 * **Never-Download-Twice Cache Registry:** [Why: Mobile networks in regional meteorological centers can be slow; re-downloading the same PDFs repeatedly drains data and battery]. Deduplication cache ensuring circular PDFs are processed only once in their lifetime, keeping daily sync under 3 seconds and mobile data under 100 KB.
 * **Biometric & Device Security:** [Why: MetNet credentials and leave balances are private employee records that must be protected if someone else holds the phone]. Safeguard sensitive intranet credentials and departmental records with Android native Biometrics (Fingerprint / Face Unlock) and device PIN/pattern fallback on both app launch and credentials management.
 * **100% Free Live Weather Forecast & Global Geocoding:** [Why: As the central mobile client for meteorological staff, having live real-time station weather, 24-hour shift timelines, and 7-day outlooks gives forecasters and observers instant environmental situational awareness without needing external weather apps or third-party API keys]. Integrates Open-Meteo and IMD numerical weather models, native GPS auto-location detection, and worldwide geocoding search for any city, town, or district.
-* **AI Semantic Circular Summaries & Granular Cadre Tagging:** [Why: MetNet circular titles are often cryptic, bilingual, or bury crucial deadlines inside multi-page PDFs; employees need to immediately know who an order is for and what action is required without downloading and opening every document]. Integrates a multi-tier AI and on-device semantic engine that classifies every circular into the exact official IMD hierarchy (Clerks, Scientific Assistants, Met A/B, SO I-III, Scientists B through H), detects action-required notices (representations, objections, options, proformas), and displays instant 1-sentence plain-English summaries (`🤖 ...`).
+* **AI Semantic Circular Summaries, Plain-Words Explanations & Dual-Tap Navigation:** [Why: MetNet circular titles are often cryptic, bilingual, or bury crucial deadlines inside multi-page PDFs; employees need to immediately know who an order is for and what action is required without downloading and opening every document]. Integrates a multi-tier AI and on-device semantic engine that classifies every circular into the exact official IMD hierarchy (Clerks, Scientific Assistants, Met A/B, SO I-III, Scientists B through H), detects action-required notices (representations, objections, options, proformas), and displays instant 1-sentence plain-English summaries (`🤖 ...`). Features dual-action tap architecture where 1 tap on the notice opens the official PDF directly, and 1 tap on the summary box below smoothly unfolds an in-place plain-words breakdown with actionable advice and a built-in government Jargon Buster.
 * **Smooth 1-Tap Update Installation & Process-Restart Recovery:** [Why: Android 10-14+ security policies kill app processes when users grant 'Allow from this source', and rapid file descriptor transitions cause silent PackageParser race conditions, making updates take multiple attempts]. Re-architected in-app updating with persistent SharedPreferences state recovery across process restarts, 400ms filesystem buffer settling delay, broadcast URI permissions across all OEM package installers, and automatic stale APK cache cleanup for a guaranteed 1-tap installation experience.
 * **Settings & Customization:** [Why: Gives users full control over visual appearance, security preferences, and filter keywords in one central location]. Unified settings panel featuring Theme selection (Dark / Light Mode), keyword filters, account credentials, updates, and an About Section honoring developer Aman (Aman6390).
 
@@ -142,7 +142,7 @@
 
 ---
 
-### E. AI Semantic Circular Summaries, Granular Cadre Tagging & Multi-Tier Architecture (v1.4.4 - v1.4.8)
+### E. AI Semantic Circular Summaries, Plain-Words Explanations & Dual-Tap Navigation (v1.4.4 - v1.4.10)
 
 [Why: MetNet publishes dozens of daily administrative, scientific, and technical orders. Employees previously had to download every PDF or rely on basic keyword matching. The AI Semantic Architecture categorizes 100% of circulars with zero user effort, zero monthly server costs, and complete privacy preservation.]
 
@@ -170,17 +170,51 @@ Every circular is mapped to the exact organizational structure of the India Mete
 * **Interactive AI Breakdown Sheet:** Long-pressing any circular opens a modal bottom sheet displaying full target cadre, action requirement, VIP status, processing tier (Cloud Gemini vs. On-Device Engine), and upload metadata.
 * **User Control & Remote Kill-Switch:** Users can toggle summaries on/off in **Settings ➔ Cloud AI Summaries**. The central index includes an `enable_ai_index` remote flag that can disable the feature instantly if ever required.
 
+#### 4. Dual-Action Tap Architecture & In-Place Expandable Breakdown (v1.4.10)
+[Why: Employees previously had to download every PDF just to know who was transferred or what action was needed. Dual-tap navigation gives users 100% control: 1 tap for the PDF, 1 tap for the AI breakdown without leaving the screen.]
+* **1 Tap on the Notice Card / Title:** Immediately launches the PDF viewer and downloads/opens the official MetNet document.
+* **1 Tap on the Summary Box Right Below:** Smoothly unfolds the summary **right in place** using `AnimatedSize` without shifting list scroll position.
+  * **Plain-Words Meaning:** Translates dense administrative orders (seniority rankings, postings, pay upgrades, working arrangements) into clear, everyday English.
+  * **Action Advice (👉 What you should do):** Provides direct, actionable guidance (e.g. verify name & date on seniority list, representations cutoff, or station joining instructions).
+  * **Built-in Jargon Buster (💡):** Decodes confusing government abbreviations (`MACP`, `LACD`, `LDCE`, `Seniority Lists`, `Representations`).
+  * **In-Card PDF Shortcut:** Added an **[ Open Original Document ]** button right inside the expanded summary box so you can open the official PDF whenever you're ready.
+* **Tapping Again Collapses:** Tapping the summary box again collapses it back to the neat 1-line **IN BRIEF** preview.
+
+#### 5. Personalized "For You" Section & 1-Tap Cadre Quick Filters (v1.4.9)
+[Why: Employees care primarily about circulars affecting their own career or grade. Quick filters allow 0ms switching without opening Settings.]
+* **"For You" Branding:** VIP Tab rebranded to **"For You"** (`✨`) to emphasize personalized, relevant notices while keeping **"Other Notices"** for general browsing.
+* **1-Tap Horizontal Cadre Filter Chips:** Interactive horizontal scrolling strip right inside "For You":
+  * `[ All ]`
+  * `[ ⛅ Met B ]`
+  * `[ 🌤️ Met A ]`
+  * `[ 🔬 SA ]`
+  * `[ 🧪 Scientists ]`
+  * `[ ⚠️ Action Required ]`
+  * `[ 🔖 Bookmarked ]`
+* **Full Horizontal Width Reading:** Removed leading star icon so notice titles and cadre tags display cleanly across the entire screen without truncation.
+* **Persistent Offline Bookmarking (🔖):** 1-tap bookmark button next to the download button; bookmarked notices are saved locally in private `SharedPreferences` (`imd_bookmarked_urls`) and persist across updates.
+
+#### 6. Dynamic Rotating Neon Border on Expiring C-Off Months (v1.4.9)
+[Why: Staff need an unmissable visual cue when hard-earned Compensatory Offs are close to their 6-month expiry.]
+* In `AlertGrid`, months with active expiring C-Offs (such as **March 2027**) feature a dynamic rotating sweep-gradient neon light border (`_AnimatedMonthBox` and `_RotatingBorderPainter`).
+* **Zero Layout Shift:** Dimensions remain strictly fixed at **`105dp × 105dp`**, preserving calendar navigation and layout alignment with zero jitter.
+
+#### 7. Smart 18:00 AI Push Notification Digest (v1.4.9)
+[Why: Staff on afternoon shift or at home want a quick summary of new notices without opening the app.]
+* Upgraded `BackgroundSyncService` so the daily 18:00 evening sync puts the AI executive summary directly into the Android notification drawer (e.g. `🤖 New Notice: Met B` / `In Brief: ...`).
+
 ## 4. UI / UX Features & Keyword Customization
 
 1. **Interactive Live Weather Card (`weather_card.dart`):** [Why: Greets employees with instant station weather, feels-like metric, humidity, wind, and precipitation probability at the very top of the dashboard]. Includes one-tap station switcher, automatic location detection, a 24-hour horizontal hourly carousel, and a 7-day weather outlook bottom sheet.
 2. **Material 3 Theme:** [Why: Modern, battery-saving dark interface that reduces eye strain during night-shift duty operations]. Dark Theme (`#121212` background, `#1E1E1E` cards) with one-tap Light/Dark theme toggle.
 3. **Leave Balance Cards:** [Why: Clean visual hierarchy letting staff see their CL, RH, and C-Off balances within one second of unlocking the app].
-4. **12-Month Alert Grid:** [Why: Visual warning matrix showing which upcoming months have expiring C-Offs so employees can plan leave applications in advance].
+4. **12-Month Alert Grid with Dynamic Rotating Border (`alert_grid.dart`):** [Why: Visual warning matrix showing which upcoming months have expiring C-Offs so employees can plan leave applications in advance]. Features a dynamic rotating sweep-gradient neon light border around active expiring months (e.g. March 2027) with zero layout shift (maintains strict 105x105 dimensions).
 5. **Interactive Month Calendar Screen (`month_calendar_screen.dart`):** [Why: Provides an intuitive calendar view where days with expiring leaves are marked with alert borders and day counters].
 6. **Custom Keyword Filter in Settings (`settings_dialog.dart`):** [Why: Empowers each employee to personalize their notice board by tracking their own station, name, or cadre while hiding unwanted notices].
-7. **Tabbed Circulars Section:** [Why: Separates urgent starred notices from general announcements so users can prioritize what to read first].
+7. **Tabbed Circulars Section ("For You" & "Other Notices"):** [Why: Rebrands VIP notices to a personalized "For You" board while organizing general announcements into "Other Notices"]. Features 1-tap horizontal cadre filter chips (`All`, `Met B`, `Met A`, `SA`, `Scientists`, `Action Required`, `Bookmarked`), full-width title layout (leading star icon removed), and 1-tap local offline bookmarking (`🔖`).
 8. **Sync Controls:** [Why: Gives users immediate visual feedback with animated spinners and SnackBars while data is refreshing from MetNet].
 9. **Settings Panel (4 Tabs):** [Why: Organizes credentials, VIP filters, junk terms, and app updates into logical tabs for effortless navigation].
+10. **Interactive In-Place Expandable Plain-Words Summary:** [Why: Employees want quick clarity on dense government orders without leaving their list position or downloading heavy PDFs]. Dual-tap navigation allows 1 tap on the notice card to open the PDF directly, while 1 tap on the summary box right below smoothly unfolds an in-place plain-words breakdown (`AnimatedSize`) explaining the order in everyday English, detailing action items, decoding confusing jargon, and offering an in-card PDF button.
 
 ---
 
@@ -271,6 +305,7 @@ Every circular is mapped to the exact organizational structure of the India Mete
 E:\imd portal\
 ├── .github\
 │   └── workflows\
+│       ├── ai_circular_indexer.yml           # Automated serverless AI circular semantic indexer [Why: Generates cloud AI metadata every 4h]
 │       └── build_apk.yml                     # GitHub Actions Cloud APK Build workflow [Why: Automates cloud compilation]
 ├── android\
 │   ├── app\
@@ -302,30 +337,35 @@ E:\imd portal\
 ├── lib\
 │   ├── main.dart                             # App entry, Material 3 theme manager [Why: Initializes services & boots UI]
 │   ├── models\
+│   │   ├── ai_circular_entry.dart            # Model: AiCircularEntry with cadre, summary & actions [Why: AI metadata serialization]
 │   │   └── dashboard_data.dart               # Models: DashboardData, CircularItem, LapsingAlert [Why: Type-safe JSON serialization]
 │   ├── services\
+│   │   ├── ai_circular_service.dart          # Multi-tier AI semantic indexer, on-device synthesizer & plain-words engine [Why: Decodes circulars & jargon]
 │   │   ├── auth_service.dart                 # Local biometrics & PIN authentication service [Why: Manages device lock security]
-│   │   ├── background_sync_service.dart      # WorkManager 18:00 worker & reminder logic [Why: Manages daily background automation]
+│   │   ├── background_sync_service.dart      # WorkManager 18:00 worker & AI push notification digest [Why: Manages daily background automation]
 │   │   ├── circular_service.dart             # Pre-flight verified PDF downloader, sibling fallback & cache [Why: Fixes 404 & loads PDFs]
 │   │   ├── notification_service.dart         # Android notification channels & dispatcher [Why: Posts system push notifications]
 │   │   ├── ocr_service.dart                  # On-Device Google ML Kit Devanagari OCR service [Why: Scans ambiguous Hindi orders]
 │   │   ├── rsa_crypto.dart                   # RSA PKCS1_v1_5 dynamic password encrypter [Why: Bypasses MetNet login encryption]
-│   │   ├── scraper_engine.dart               # Fast-path pre-filter, session scraper & retries [Why: Scrapes portal data & circulars]
-│   │   ├── storage_service.dart              # SharedPreferences for credentials, keywords & cache [Why: Persistent local storage]
+│   │   ├── scraper_engine.dart               # AI-augmented VIP & junk filtering, session scraper & retries [Why: Scrapes portal data & circulars]
+│   │   ├── storage_service.dart              # SharedPreferences for credentials, keywords, bookmarks & cache [Why: Persistent local storage]
 │   │   ├── update_service.dart               # GitHub Releases automated update checker & installer [Why: Handles OTA background updates]
 │   │   └── widget_service.dart               # HomeWidget multi-provider updater [Why: Synchronizes data to home widgets]
 │   └── ui\
 │       ├── dashboard_screen.dart             # Main dashboard view, lock screen, notice banner & FAB [Why: Core app user interface]
 │       ├── month_calendar_screen.dart        # Interactive monthly calendar expiry view [Why: Dedicated C-Off expiry calendar]
 │       └── widgets\
-│           ├── alert_grid.dart               # 12-Month alert grid with tap navigation [Why: 12-month visual leave matrix]
-│           ├── circular_tabs.dart            # Tabbed VIP & FOMO circulars with status badges [Why: Organizes & displays circulars]
+│           ├── alert_grid.dart               # 12-Month alert grid with dynamic rotating neon border [Why: Visual leave matrix with active expiry glow]
+│           ├── circular_tabs.dart            # "For You" & "Other Notices" with cadre chips, bookmarks & expandable plain-words summaries [Why: Displays circulars]
 │           ├── leave_card.dart               # Horizontal color-coded leave cards [Why: Displays CL, RH, C-Off balances]
 │           ├── notice_resolver_webview.dart  # In-App MetNet Notice Resolver WebView [Why: Dismisses portal blocking popups]
-│           └── settings_dialog.dart          # 4-Tab settings: Account, VIP, Junk, About & Updates [Why: User configuration modal]
+│           ├── settings_dialog.dart          # 4-Tab settings: Account, VIP, Junk, About & Updates [Why: User configuration modal]
+│           └── weather_card.dart             # Expandable high-density station weather card [Why: Real-time meteorological station situational awareness]
+├── scripts\
+│   └── ai_circular_indexer.py                # Serverless Python circular scraper & Gemini 1.5 Flash Vision indexer [Why: Automated cloud indexing]
 ├── .gitignore                                # Build & artifact ignore rules [Why: Prevents binary files in git]
 ├── analysis_options.yaml                     # Dart analyzer configuration [Why: Enforces Dart code quality standards]
-├── pubspec.yaml                              # Flutter dependencies & metadata [Why: Defines app version & third-party packages]
+├── pubspec.yaml                              # Flutter dependencies & metadata (v1.4.10+27) [Why: Defines app version & third-party packages]
 └── MetNet Scraper+web Dashboard.md           # Master Project Blueprint & Documentation [Why: Single source of truth for the project]
 ```
 
