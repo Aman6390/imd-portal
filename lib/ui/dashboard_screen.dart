@@ -124,18 +124,34 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
     final update = await UpdateService.checkForUpdate();
     if (update != null && update.hasUpdate && mounted) {
       _apkDownloadUrl = update.downloadUrl;
-      UpdateService.showUrgentUpdateDialog(
-        context,
-        update,
-        onStartBackgroundDownload: () {
-          setState(() {
-            _isDownloadingUpdate = true;
-            _downloadProgress = 0.0;
-            _downloadCompleted = false;
-          });
-          UpdateService.startBackgroundDownload(update.downloadUrl);
-        },
-      );
+      final cachedPath =
+          await UpdateService.getAlreadyDownloadedApkPath(update.latestVersion);
+      if (cachedPath != null && mounted) {
+        setState(() {
+          _downloadedApkPath = cachedPath;
+          _downloadProgress = 1.0;
+          _downloadCompleted = true;
+          _isDownloadingUpdate = false;
+        });
+      }
+      if (mounted) {
+        UpdateService.showUrgentUpdateDialog(
+          context,
+          update,
+          alreadyDownloadedPath: cachedPath,
+          onStartBackgroundDownload: () {
+            setState(() {
+              _isDownloadingUpdate = true;
+              _downloadProgress = 0.0;
+              _downloadCompleted = false;
+            });
+            UpdateService.startBackgroundDownload(
+              update.downloadUrl,
+              versionTag: update.latestVersion,
+            );
+          },
+        );
+      }
     }
   }
 

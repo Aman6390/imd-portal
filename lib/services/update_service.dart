@@ -44,7 +44,7 @@ class UpdateDownloadProgress {
 /// and manage background APK downloading without interrupting user experience.
 class UpdateService {
   /// Current app version
-  static const String currentVersion = '1.4.16';
+  static const String currentVersion = '1.4.17';
 
   /// GitHub public releases endpoint
   static const String latestReleaseApi =
@@ -58,6 +58,44 @@ class UpdateService {
       _progressController.stream;
 
   static bool isDownloading = false;
+
+  /// Returns the optimal storage directory for update APKs
+  static Future<Directory> getUpdateDirectory() async {
+    try {
+      final extDirs = await getExternalCacheDirectories();
+      if (extDirs != null && extDirs.isNotEmpty) {
+        return extDirs.first;
+      }
+    } catch (_) {}
+    return await getTemporaryDirectory();
+  }
+
+  /// Formats a version tag into a clean, safe filename
+  static Future<File> getUpdateFileForVersion(String versionTag) async {
+    final dir = await getUpdateDirectory();
+    final sanitizedVersion = versionTag
+        .replaceAll(RegExp(r'[^a-zA-Z0-9._-]'), '_')
+        .replaceAll(RegExp(r'_+'), '_');
+    final filename = sanitizedVersion.isNotEmpty
+        ? 'IMD_Portal_Update_$sanitizedVersion.apk'
+        : 'IMD_Portal_Update.apk';
+    return File('${dir.path}/$filename');
+  }
+
+  /// Checks if an APK for the target version has already been fully downloaded
+  static Future<String?> getAlreadyDownloadedApkPath(String versionTag) async {
+    try {
+      final file = await getUpdateFileForVersion(versionTag);
+      if (await file.exists()) {
+        final length = await file.length();
+        // A genuine IMD Portal APK is ~49MB. Any valid complete APK will exceed 5MB.
+        if (length > 5000000) {
+          return file.path;
+        }
+      }
+    } catch (_) {}
+    return null;
+  }
 
   /// Queries GitHub Releases API to see if a newer version is available
   static Future<UpdateInfo?> checkForUpdate() async {
@@ -128,12 +166,64 @@ class UpdateService {
     }
   }
 
-  /// Starts downloading the APK in the background while user continues using the app
-  static Future<void> startBackgroundDownload(String downloadUrl) async {
+  /// Starts downloading the APK in the background while user continues using the app.
+  /// If the target version APK is already present on disk, immediately triggers installation
+  /// with 0 MB data usage unless [forceRedownload] is true.
+  static Future<void> startBackgroundDownload(
+    String downloadUrl, {
+    String versionTag = '',
+    bool forceRedownload = false,
+  }) async {
     if (isDownloading) return;
+
+    // Resolve version tag if empty (extract from URL e.g. v1.4.17)
+    String effectiveVersion = versionTag.trim();
+    if (effectiveVersion.isEmpty) {
+      final match = RegExp(r'v?(\d+\.\d+\.\d+)').firstMatch(downloadUrl);
+      if (match != null) {
+        effectiveVersion = match.group(0) ?? '';
+      }
+    }
+
+    // 1. Fast-path: Check if the APK is already fully downloaded on the device
+    if (!forceRedownload && effectiveVersion.isNotEmpty) {
+      final cachedPath = await getAlreadyDownloadedApkPath(effectiveVersion);
+      if (cachedPath != null) {
+        _progressController.add(UpdateDownloadProgress(
+          receivedBytes: 100,
+          totalBytes: 100,
+          progress: 1.0,
+          isCompleted: true,
+          filePath: cachedPath,
+        ));
+        await NotificationService.showUpdateDownloadedNotification(
+          filePath: cachedPath,
+        );
+        await installDownloadedApk(cachedPath);
+        return;
+      }
+    }
+
     isDownloading = true;
 
     try {
+      final targetFile = await getUpdateFileForVersion(effectiveVersion);
+      final dir = targetFile.parent;
+
+      // Clean up ONLY older or different version APKs to free storage
+      try {
+        final list = dir.listSync();
+        for (final entity in list) {
+          if (entity is File &&
+              entity.path.toLowerCase().endsWith('.apk') &&
+              entity.path != targetFile.path) {
+            try {
+              entity.deleteSync();
+            } catch (_) {}
+          }
+        }
+      } catch (_) {}
+
       final client = http.Client();
       final request = http.Request('GET', Uri.parse(downloadUrl));
       request.headers['User-Agent'] = 'Meteorological-Portal-App/$currentVersion';
@@ -143,32 +233,14 @@ class UpdateService {
         final totalBytes = response.contentLength ?? 0;
         int receivedBytes = 0;
 
-        // Use external cache directory if available for maximum package installer compatibility
-        Directory dir;
-        try {
-          final extDirs = await getExternalCacheDirectories();
-          if (extDirs != null && extDirs.isNotEmpty) {
-            dir = extDirs.first;
-          } else {
-            dir = await getTemporaryDirectory();
-          }
-        } catch (_) {
-          dir = await getTemporaryDirectory();
+        // Stream into temporary .part file to avoid partially-written file corruption
+        final tempFile = File('${targetFile.path}.part');
+        if (await tempFile.exists()) {
+          try {
+            tempFile.deleteSync();
+          } catch (_) {}
         }
-
-        // 1. Clean up old update APK files to prevent cache collisions
-        try {
-          final list = dir.listSync();
-          for (final entity in list) {
-            if (entity is File && entity.path.toLowerCase().endsWith('.apk')) {
-              try { entity.deleteSync(); } catch (_) {}
-            }
-          }
-        } catch (_) {}
-
-        // 2. Stream downloaded bytes into clean file
-        final file = File('${dir.path}/IMD_Portal_Update.apk');
-        final sink = file.openWrite();
+        final sink = tempFile.openWrite();
 
         await for (final chunk in response.stream) {
           sink.add(chunk);
@@ -185,10 +257,23 @@ class UpdateService {
         await sink.close();
         client.close();
 
-        // 3. Verify file integrity and allow 400ms for OS filesystem buffers to settle
-        if (!await file.exists() || await file.length() < 1000000) {
+        // Verify file integrity (must be > 5MB)
+        if (!await tempFile.exists() || await tempFile.length() < 5000000) {
+          try {
+            tempFile.deleteSync();
+          } catch (_) {}
           throw Exception('Downloaded update is incomplete or corrupted.');
         }
+
+        // Atomically replace targetFile
+        if (await targetFile.exists()) {
+          try {
+            targetFile.deleteSync();
+          } catch (_) {}
+        }
+        await tempFile.rename(targetFile.path);
+
+        // Allow 400ms for OS filesystem buffers to settle
         await Future.delayed(const Duration(milliseconds: 400));
 
         isDownloading = false;
@@ -198,16 +283,16 @@ class UpdateService {
           totalBytes: totalBytes,
           progress: 1.0,
           isCompleted: true,
-          filePath: file.path,
+          filePath: targetFile.path,
         ));
 
         // Show Android system notification with 1-tap install action
         await NotificationService.showUpdateDownloadedNotification(
-          filePath: file.path,
+          filePath: targetFile.path,
         );
 
         // Automatically trigger native package installer with downloaded APK file
-        await installDownloadedApk(file.path);
+        await installDownloadedApk(targetFile.path);
       } else {
         isDownloading = false;
         _progressController.add(UpdateDownloadProgress(
@@ -262,33 +347,45 @@ class UpdateService {
     } catch (_) {}
   }
 
-  /// Displays an urgent, high-conversion update dialog using proven psychological triggers
+  /// Displays an urgent, high-conversion update dialog using proven psychological triggers.
+  /// If [alreadyDownloadedPath] is provided, displays an immediate install prompt with zero network download.
   static void showUrgentUpdateDialog(
     BuildContext context,
     UpdateInfo update, {
+    String? alreadyDownloadedPath,
     required VoidCallback onStartBackgroundDownload,
   }) {
+    final bool isAlreadyCached =
+        alreadyDownloadedPath != null && alreadyDownloadedPath.isNotEmpty;
+
     showDialog(
       context: context,
       barrierDismissible: false, // Prevents tapping outside to force attention
       builder: (ctx) => AlertDialog(
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(16),
-          side: const BorderSide(color: Colors.redAccent, width: 1.5),
+          side: BorderSide(
+            color: isAlreadyCached ? Colors.green : Colors.redAccent,
+            width: 1.5,
+          ),
         ),
         titlePadding: const EdgeInsets.fromLTRB(20, 20, 20, 0),
         contentPadding: const EdgeInsets.fromLTRB(20, 12, 20, 0),
-        title: const Row(
+        title: Row(
           children: [
-            Icon(Icons.warning_amber_rounded, color: Colors.redAccent, size: 28),
-            SizedBox(width: 10),
+            Icon(
+              isAlreadyCached ? Icons.check_circle_rounded : Icons.warning_amber_rounded,
+              color: isAlreadyCached ? Colors.green : Colors.redAccent,
+              size: 28,
+            ),
+            const SizedBox(width: 10),
             Expanded(
               child: Text(
-                'Critical Update Required',
+                isAlreadyCached ? 'Update Ready to Install' : 'Critical Update Required',
                 style: TextStyle(
                   fontSize: 18,
                   fontWeight: FontWeight.bold,
-                  color: Colors.redAccent,
+                  color: isAlreadyCached ? Colors.green.shade800 : Colors.redAccent,
                 ),
               ),
             ),
@@ -302,31 +399,40 @@ class UpdateService {
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
               decoration: BoxDecoration(
-                color: Colors.redAccent.withOpacity(0.12),
+                color: (isAlreadyCached ? Colors.green : Colors.redAccent).withOpacity(0.12),
                 borderRadius: BorderRadius.circular(8),
               ),
               child: Row(
                 children: [
-                  const Icon(Icons.bolt, color: Colors.orange, size: 16),
+                  Icon(
+                    isAlreadyCached ? Icons.download_done_rounded : Icons.bolt,
+                    color: isAlreadyCached ? Colors.green : Colors.orange,
+                    size: 16,
+                  ),
                   const SizedBox(width: 6),
                   Text(
-                    'Meteorological Portal ${update.latestVersion} Available',
-                    style: const TextStyle(
+                    isAlreadyCached
+                        ? 'Update Downloaded (${update.latestVersion})'
+                        : 'Meteorological Portal ${update.latestVersion} Available',
+                    style: TextStyle(
                       fontWeight: FontWeight.bold,
                       fontSize: 12,
-                      color: Colors.redAccent,
+                      color: isAlreadyCached ? Colors.green.shade800 : Colors.redAccent,
                     ),
                   ),
                 ],
               ),
             ),
             const SizedBox(height: 12),
-            // Urgency Body (Fear of sync failure & missing circulars)
-            const Text(
-              '⚠️ Important Notice: An essential portal update is required to ensure synchronization with MetNet intranet protocols.\n\n'
-              'Older versions may encounter login authentication failures, inaccurate leave balance predictions, or miss critical departmental orders.\n\n'
-              'The update downloads silently in the background while you continue using the app.',
-              style: TextStyle(fontSize: 13, height: 1.4),
+            // Urgency Body
+            Text(
+              isAlreadyCached
+                  ? '✅ The update package has already been downloaded to your device.\n\n'
+                    'Tap below to install it immediately — no mobile data or download time required!'
+                  : '⚠️ Important Notice: An essential portal update is required to ensure synchronization with MetNet intranet protocols.\n\n'
+                    'Older versions may encounter login authentication failures, inaccurate leave balance predictions, or miss critical departmental orders.\n\n'
+                    'The update downloads silently in the background while you continue using the app.',
+              style: const TextStyle(fontSize: 13, height: 1.4),
             ),
             if (update.releaseNotes.isNotEmpty) ...[
               const SizedBox(height: 10),
@@ -359,14 +465,21 @@ class UpdateService {
           // High-conversion primary call to action
           FilledButton.icon(
             style: FilledButton.styleFrom(
-              backgroundColor: Colors.redAccent,
+              backgroundColor: isAlreadyCached ? Colors.green.shade700 : Colors.redAccent,
               foregroundColor: Colors.white,
             ),
-            icon: const Icon(Icons.download_rounded, size: 18),
-            label: const Text('Update Now (Background)'),
+            icon: Icon(
+              isAlreadyCached ? Icons.system_update_rounded : Icons.download_rounded,
+              size: 18,
+            ),
+            label: Text(isAlreadyCached ? 'Install Now (No Download)' : 'Update Now (Background)'),
             onPressed: () {
               Navigator.of(ctx).pop();
-              onStartBackgroundDownload();
+              if (isAlreadyCached) {
+                installDownloadedApk(alreadyDownloadedPath);
+              } else {
+                onStartBackgroundDownload();
+              }
             },
           ),
         ],
@@ -375,12 +488,18 @@ class UpdateService {
   }
 
   /// Backward compatible helper
-  static void showUpdateDialog(BuildContext context, UpdateInfo update) {
+  static void showUpdateDialog(BuildContext context, UpdateInfo update) async {
+    final cached = await getAlreadyDownloadedApkPath(update.latestVersion);
+    if (!context.mounted) return;
     showUrgentUpdateDialog(
       context,
       update,
+      alreadyDownloadedPath: cached,
       onStartBackgroundDownload: () {
-        startBackgroundDownload(update.downloadUrl);
+        startBackgroundDownload(
+          update.downloadUrl,
+          versionTag: update.latestVersion,
+        );
       },
     );
   }
