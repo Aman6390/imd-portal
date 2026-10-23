@@ -473,7 +473,16 @@ class ScraperEngine {
         // --- SMART "SKIP NOW" INTERSTITIAL BYPASS ---
         // If MetNet presents a password policy warning with an active "SKIP NOW" button,
         // extract the skip URL (including its dynamic session token) and bypass the interstitial!
-        final skipInput = soupMain.querySelector('input[name="skip"], input[title*="Skip" i], button[name="skip"]');
+        dom.Element? skipInput;
+        for (final el in soupMain.querySelectorAll('input, button')) {
+          final name = (el.attributes['name'] ?? '').toLowerCase();
+          final title = (el.attributes['title'] ?? '').toLowerCase();
+          final val = (el.attributes['value'] ?? '').toLowerCase();
+          if (name == 'skip' || title.contains('skip') || val.contains('skip')) {
+            skipInput = el;
+            break;
+          }
+        }
         String? skipUrlStr;
 
         if (skipInput != null) {
