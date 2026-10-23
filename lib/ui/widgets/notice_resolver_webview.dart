@@ -220,7 +220,7 @@ class _NoticeResolverWebViewState extends State<NoticeResolverWebView> {
                     const SizedBox(width: 8),
                     const Expanded(
                       child: Text(
-                        'Desktop View: Change your password on MetNet, then tap [Done / Sync].',
+                        '💡 Tip: Tap [SKIP NOW] below to keep current password, or [PROCEED] to change it.',
                         style: TextStyle(
                           color: Colors.white,
                           fontSize: 12,

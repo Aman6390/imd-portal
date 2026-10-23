@@ -190,7 +190,7 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
     final passController = TextEditingController();
     bool obscurePassword = true;
 
-    final updated = await showDialog<bool>(
+    final actionResult = await showDialog<String>(
       context: context,
       barrierDismissible: false,
       builder: (dialogContext) {
@@ -202,7 +202,7 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
                 children: const [
                   Icon(Icons.vpn_key_rounded, color: Colors.orangeAccent),
                   SizedBox(width: 8),
-                  Text('Update App Password', style: TextStyle(fontSize: 18)),
+                  Text('MetNet Password Update', style: TextStyle(fontSize: 18)),
                 ],
               ),
               content: Column(
@@ -210,16 +210,16 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   const Text(
-                    'If you changed your MetNet password in the web view, enter your new password below so the app can update your credentials and sync your portal:',
+                    'Did you change your password on MetNet, or tap "SKIP NOW" to keep using your current password?',
                     style: TextStyle(fontSize: 13, height: 1.4),
                   ),
                   const SizedBox(height: 16),
                   TextField(
                     controller: passController,
                     obscureText: obscurePassword,
-                    autofocus: true,
                     decoration: InputDecoration(
-                      labelText: 'New MetNet Password',
+                      labelText: 'New Password (if changed)',
+                      hintText: 'Leave blank if you tapped Skip Now',
                       prefixIcon: const Icon(Icons.lock_outline),
                       suffixIcon: IconButton(
                         icon: Icon(
@@ -240,8 +240,13 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
               ),
               actions: [
                 TextButton(
-                  onPressed: () => Navigator.of(dialogContext).pop(false),
-                  child: const Text('Not Changed Yet', style: TextStyle(color: Colors.grey)),
+                  onPressed: () => Navigator.of(dialogContext).pop('cancel'),
+                  child: const Text('Cancel', style: TextStyle(color: Colors.grey)),
+                ),
+                OutlinedButton.icon(
+                  icon: const Icon(Icons.fast_forward, size: 16, color: Colors.amber),
+                  label: const Text('I Skipped for Now', style: TextStyle(color: Colors.amber)),
+                  onPressed: () => Navigator.of(dialogContext).pop('skipped'),
                 ),
                 ElevatedButton.icon(
                   style: ElevatedButton.styleFrom(
@@ -249,16 +254,16 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
                     foregroundColor: Colors.white,
                   ),
                   icon: const Icon(Icons.check, size: 18),
-                  label: const Text('Save & Sync'),
+                  label: const Text('Save New Password'),
                   onPressed: () {
                     final newPass = passController.text.trim();
                     if (newPass.isEmpty) {
                       ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(content: Text('Please enter your new password.')),
+                        const SnackBar(content: Text('Please enter your new password or tap "I Skipped for Now".')),
                       );
                       return;
                     }
-                    Navigator.of(dialogContext).pop(true);
+                    Navigator.of(dialogContext).pop('saved');
                   },
                 ),
               ],
@@ -268,7 +273,20 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
       },
     );
 
-    if (updated == true && passController.text.trim().isNotEmpty) {
+    if (actionResult == 'skipped') {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('⏩ Syncing portal with current password...'),
+            backgroundColor: Colors.blueAccent,
+          ),
+        );
+        setState(() {
+          _hasMetNetNotice = false;
+        });
+        _triggerSync();
+      }
+    } else if (actionResult == 'saved' && passController.text.trim().isNotEmpty) {
       final newPass = passController.text.trim();
       await StorageService.saveCredentials(username, newPass);
       if (mounted) {

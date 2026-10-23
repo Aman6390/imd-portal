@@ -462,13 +462,43 @@ class ScraperEngine {
 
         // Step 6: Fetch main dashboard page
         final mainUri = Uri.parse('https://metnet.imd.gov.in/phps/main2.php?ver=e');
-        final mainPage = await session.get(mainUri).timeout(const Duration(seconds: 25));
+        var mainPage = await session.get(mainUri).timeout(const Duration(seconds: 25));
 
         if (mainPage.statusCode != 200) {
           throw HttpException('Main page returned HTTP ${mainPage.statusCode}');
         }
 
-        final soupMain = html_parser.parse(mainPage.body);
+        var soupMain = html_parser.parse(mainPage.body);
+
+        // --- SMART "SKIP NOW" INTERSTITIAL BYPASS ---
+        // If MetNet presents a password policy warning with an active "SKIP NOW" button,
+        // extract the skip URL (including its dynamic session token) and bypass the interstitial!
+        final skipInput = soupMain.querySelector('input[name="skip"], input[title*="Skip" i], button[name="skip"]');
+        String? skipUrlStr;
+
+        if (skipInput != null) {
+          final onClick = skipInput.attributes['onclick'] ?? '';
+          final match = RegExp(r'''window\.location\s*=\s*['"](.*?)['"]''', caseSensitive: false).firstMatch(onClick);
+          if (match != null) {
+            skipUrlStr = match.group(1);
+          }
+        }
+
+        // Fallback regex scan across the HTML in case DOM parsing missed it
+        if (skipUrlStr == null) {
+          final match = RegExp(r'''onclick=["']window\.location\s*=\s*['"](main2\.php\?[^'"]*sc=[^'"]*)['"]''', caseSensitive: false)
+              .firstMatch(mainPage.body);
+          if (match != null) {
+            skipUrlStr = match.group(1);
+          }
+        }
+
+        if (skipUrlStr != null) {
+          final resolvedSkipPath = skipUrlStr.replaceAll('&amp;', '&');
+          final skipUri = Uri.parse('https://metnet.imd.gov.in/phps/').resolve(resolvedSkipPath);
+          mainPage = await session.get(skipUri).timeout(const Duration(seconds: 25));
+          soupMain = html_parser.parse(mainPage.body);
+        }
         String? leaveUrl;
         const baseUrl = 'https://metnet.imd.gov.in/phps/';
 
@@ -521,13 +551,16 @@ class ScraperEngine {
 
         final combinedBody = '${mainPage.body.toLowerCase()} ${leavePage.body.toLowerCase()}';
 
-        final isPasswordChange = combinedBody.contains('change password') ||
+        final isPasswordChange = leaveBalances.isEmpty && (
+            combinedBody.contains('change password') ||
             combinedBody.contains('change_password') ||
             combinedBody.contains('password expired') ||
             combinedBody.contains('expired password') ||
             combinedBody.contains('chgpass') ||
+            combinedBody.contains('password policy') ||
             combinedBody.contains('पासवर्ड बदलें') ||
-            combinedBody.contains('नया पासवर्ड');
+            combinedBody.contains('नया पासवर्ड')
+        );
 
         final isEmailPrompt = combinedBody.contains('unread mail') ||
             combinedBody.contains('unread email') ||
