@@ -8,7 +8,6 @@ import '../services/notification_service.dart';
 import '../services/scraper_engine.dart';
 import '../services/storage_service.dart';
 import '../services/update_service.dart';
-import '../services/widget_service.dart';
 import 'widgets/alert_grid.dart';
 import 'widgets/circular_tabs.dart';
 import 'widgets/leave_card.dart';
@@ -366,7 +365,6 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
 
       if (success && freshData != null) {
         await StorageService.saveDashboardData(freshData);
-        await WidgetService.updateFromDashboard(freshData);
         AiCircularService.syncIndex();
       }
 

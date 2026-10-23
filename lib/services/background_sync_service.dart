@@ -1,6 +1,5 @@
 import 'dart:async';
 import 'package:flutter/widgets.dart';
-import 'package:home_widget/home_widget.dart';
 import 'package:workmanager/workmanager.dart';
 
 import '../models/dashboard_data.dart';
@@ -10,7 +9,6 @@ import 'notification_service.dart';
 import 'scraper_engine.dart';
 import 'storage_service.dart';
 import 'update_service.dart';
-import 'widget_service.dart';
 
 const String imdDailySyncTask = 'com.imd.portal.dailySyncTask';
 
@@ -112,9 +110,6 @@ void callbackDispatcher() {
 
           // Save new data to storage
           await StorageService.saveDashboardData(freshData);
-
-          // Update Home Screen Widget
-          await WidgetService.updateFromDashboard(freshData);
         }
 
         // Check for app updates in background and notify if a new version is available

@@ -1,6 +1,4 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">Meteorological Portal</string>
-    <string name="widget_description">Full 2x2 card showing CL, RH, C-Off, and expiry alerts.</string>
-    <string name="compact_widget_description">Compact 1x1 quick view showing your C-Off balance.</string>
 </resources>

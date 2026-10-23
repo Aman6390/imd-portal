@@ -1,6 +1,6 @@
 # 🚀 PROJECT MASTER BLUEPRINT: Meteorological Portal Android Application
 
-> **Project Status:** Production Ready — 100% Free & Open Edition (v1.4.17)  
+> **Project Status:** Production Ready — 100% Free & Open Edition (v1.4.18)  
 > **Target Platform:** Native Android (Flutter / Kotlin) [Why: Guarantees broad compatibility with all modern Android smartphones used by staff]  
 > **Output Release Artifact:** `build/app/outputs/flutter-apk/app-release.apk` [Why: Standard Android standalone package format for direct distribution]  
 > **CI/CD Pipeline:** GitHub Actions Automated Cloud Build (`Aman6390/imd-portal`) [Why: Eliminates the need for a high-end development computer by compiling APKs in the cloud automatically]  
@@ -235,12 +235,9 @@ Every circular is mapped to the exact organizational structure of the India Mete
 
 ---
 
-## 7. Multiple Native Home Screen Widgets
+## 7. Multiple Native Home Screen Widgets (Retired in v1.4.18)
 
-[Why: Staff often just want to check their leave balances quickly; widgets display real-time numbers right on the home screen without needing to launch the app.]
-
-* **Widget 1: Full Card Multi-Metric Widget (2x2):** [Why: Shows all 3 leave metrics (CL, RH, C-Off) along with the earliest expiring date and timestamp at a glance].
-* **Widget 2: Compact Quick-View Widget (1x1):** [Why: Minimalist single-cell tile showing active C-Off balance for employees with crowded home screen setups].
+[Why: Retired in v1.4.18 to streamline the app bundle, eliminate unnecessary background broadcast receivers, and reduce APK size. Leave balances and C-Off expiry alerts remain fully accessible within the app dashboard.]
 
 ---
 
@@ -411,6 +408,7 @@ E:\imd portal\
 | **v1.4.7** | `1.4.7+24` | Oct 2026 | **Robust Government-Pattern Cadre Detection Engine:** Solved the "General / All" fallback issue where official circulars with quotes (e.g. Sc. 'C', Sc.'B', Met. 'A'), abbreviations (Scientific Asstt., Sci. Asstt., S.A.(Met)), dots (S.O.-I, S.O.-II, S.O.-III), and Devanagari Hindi grade aliases (सी, ख, ग) missed previous strict regex boundaries. Synchronized on-device Dart smart engine and GitHub Actions Python indexer with a comprehensive 23-point test suite. [Why: Ensures employees in every cadre—from Scientific Assistants to Scientists B-H—accurately see their specific cadre tags instead of falling back to General/All] |
 | **v1.4.8** | `1.4.8+25` | Oct 2026 | **AI-Augmented VIP & Junk Filtering:** Expanded user keyword filtering beyond raw circular titles to simultaneously evaluate AI-generated semantic metadata (`targetCadre`, `summaryEn`, and `vipReasons`). Guarantees that circulars with abbreviated or obscure titles (e.g. `Draft Seniority list of Sci. Asstt.`) reliably land in the VIP Tab ⭐ when users track their cadre, while unwanted orders (e.g. peons/attendants/clerks) are cleanly discarded by Junk filters even if titles avoid explicit junk words. [Why: Gives staff bulletproof notice filtering that understands meaning and departmental designations rather than relying solely on literal word matching] |
 | **v1.4.9** | `1.4.9+26` | Oct 2026 | **"For You" AI Executive Experience, Bookmarking & Dynamic Expiring C-Off Border:** Rebranded VIP tab to "For You" with one-tap horizontal cadre filter chips (`[ All ]`, `[ ⛅ Met B ]`, `[ 🌤️ Met A ]`, `[ 🔬 SA ]`, `[ 🧪 Scientists ]`, `[ ⚠️ Action Required ]`, `[ 🔖 Bookmarked ]`). Removed leading star icon to give full horizontal screen width to titles. Added instant 1-tap bookmarking/favorite toggle (`🔖`) next to the download button with local persistence. Designed an Executive "In-Brief" highlight card for AI summaries with frosted accents. Implemented dynamic rotating sweep-gradient neon border on active expiring C-Off months (e.g. March 2027) with zero layout shift (strictly preserved 105x105 dimensions). Upgraded daily 18:00 background sync to dispatch smart notification digests containing AI executive summaries. [Why: Transforms AI summaries into the premier daily driver feature of the app while giving users seamless cadre discovery, offline bookmarking, and visually compelling C-Off expiry alerts] |
+| **v1.4.18** | `1.4.18+35` | Oct 2026 | **Streamlined Core Architecture & Widget Deprecation:** Completely removed the legacy Android home screen widget subsystem (`home_widget` plugin dependency, native Kotlin widget providers, and XML layouts). Reduced APK size, eliminated unnecessary background broadcast receivers, and streamlined background sync routines. [Why: Simplifies app lifecycle, saves battery by eliminating redundant broadcast updates, and reduces APK footprint] |
 | **v1.4.17** | `1.4.17+34` | Oct 2026 | **Version-Tagged Smart APK Caching & Redundant Download Prevention:** Implemented smart on-device APK caching keyed by release version tags (`IMD_Portal_Update_vX.X.X.apk`). If an update APK has already been downloaded to the device, subsequent launches or retries bypass the 49 MB download completely, consuming 0 MB mobile data and presenting an immediate [ Install Now (No Download) ] dialog. Cleans up obsolete APK versions only upon fetching newer releases. [Why: Eliminates repetitive multi-megabyte data consumption and waiting time when an update installation fails, is cancelled, or requires permission toggling] |
 | **v1.4.16** | `1.4.16+33` | Oct 2026 | **Strict Interstitial Classification Guard & Menu Keyword Cleanup:** Wrapped unread email and password change classification strictly inside `if (leaveBalances.isEmpty)`. Removed generic navigation keywords (`inbox`, `webmail`, `mail.gov.in`) that exist on every MetNet page, preventing false-positive email prompt triggers when leave balances are successfully retrieved. |
 | **v1.4.15** | `1.4.15+32` | Oct 2026 | **CSS Parser Compatibility Fix for Skip Now Element Detection:** Replaced CSS Level 4 case-insensitive selector (`[title*="Skip" i]`) with native Dart programmatic element filtering (`querySelectorAll('input, button')`), resolving a `FormatException` crash during portal sync and ensuring 100% reliable automated background bypass. |

@@ -55,30 +55,6 @@
             android:name="com.google.mlkit.vision.DEPENDENCIES"
             android:value="ocr,ocr_devanagari" />
 
-        <!-- Android Home Screen Widget Receiver (2x2 Full Card) -->
-        <receiver
-            android:name=".ImdAppWidgetProvider"
-            android:exported="true">
-            <intent-filter>
-                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
-            </intent-filter>
-            <meta-data
-                android:name="android.appwidget.provider"
-                android:resource="@xml/imd_app_widget_info" />
-        </receiver>
-
-        <!-- Android Home Screen Widget Receiver (1x1 Compact Quick-View) -->
-        <receiver
-            android:name=".ImdCompactWidgetProvider"
-            android:exported="true">
-            <intent-filter>
-                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
-            </intent-filter>
-            <meta-data
-                android:name="android.appwidget.provider"
-                android:resource="@xml/imd_compact_widget_info" />
-        </receiver>
-
         <!-- FileProvider for secure APK package installation -->
         <provider
             android:name="androidx.core.content.FileProvider"
