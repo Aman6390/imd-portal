@@ -558,51 +558,47 @@ class ScraperEngine {
         final leavePage = await session.get(Uri.parse(leaveUrl)).timeout(const Duration(seconds: 25));
         final (leaveBalances, lapsingAlerts) = parseLeaves(html_parser.parse(leavePage.body));
 
-        final combinedBody = '${mainPage.body.toLowerCase()} ${leavePage.body.toLowerCase()}';
-
-        final isPasswordChange = leaveBalances.isEmpty && (
-            combinedBody.contains('change password') ||
-            combinedBody.contains('change_password') ||
-            combinedBody.contains('password expired') ||
-            combinedBody.contains('expired password') ||
-            combinedBody.contains('chgpass') ||
-            combinedBody.contains('password policy') ||
-            combinedBody.contains('पासवर्ड बदलें') ||
-            combinedBody.contains('नया पासवर्ड')
-        );
-
-        final isEmailPrompt = combinedBody.contains('unread mail') ||
-            combinedBody.contains('unread email') ||
-            combinedBody.contains('new mail') ||
-            combinedBody.contains('new email') ||
-            combinedBody.contains('zimbra') ||
-            combinedBody.contains('webmail') ||
-            combinedBody.contains('mail.gov.in') ||
-            combinedBody.contains('inbox') ||
-            combinedBody.contains('ईमेल') ||
-            combinedBody.contains('डाक');
-
-        if (isPasswordChange) {
-          session.close();
-          return (
-            false,
-            '🔑 MetNet requires a Password Change. Please update your password on MetNet.',
-            null,
-          );
-        }
-
-        if (isEmailPrompt) {
-          session.close();
-          return (
-            false,
-            '📬 MetNet Prompt: You have unread official emails blocking portal access.',
-            null,
-          );
-        }
-
         // Protective Zero-Shield: If leave balances could not be parsed,
-        // it means MetNet showed an interstitial notice or mandatory declaration.
+        // determine the exact interstitial barrier (Password Change vs Unread Emails vs Notice)
         if (leaveBalances.isEmpty) {
+          final combinedBody = '${mainPage.body.toLowerCase()} ${leavePage.body.toLowerCase()}';
+
+          final isPasswordChange = combinedBody.contains('change password') ||
+              combinedBody.contains('change_password') ||
+              combinedBody.contains('password expired') ||
+              combinedBody.contains('expired password') ||
+              combinedBody.contains('chgpass') ||
+              combinedBody.contains('password policy') ||
+              combinedBody.contains('पासवर्ड बदलें') ||
+              combinedBody.contains('नया पासवर्ड');
+
+          if (isPasswordChange) {
+            session.close();
+            return (
+              false,
+              '🔑 MetNet requires a Password Change. Please update your password on MetNet.',
+              null,
+            );
+          }
+
+          final isEmailPrompt = combinedBody.contains('unread mail') ||
+              combinedBody.contains('unread email') ||
+              combinedBody.contains('unread message') ||
+              combinedBody.contains('you have unread') ||
+              combinedBody.contains('new mail') ||
+              combinedBody.contains('new email') ||
+              combinedBody.contains('अपठित ईमेल') ||
+              combinedBody.contains('नए संदेश');
+
+          if (isEmailPrompt) {
+            session.close();
+            return (
+              false,
+              '📬 MetNet Prompt: You have unread official emails blocking portal access.',
+              null,
+            );
+          }
+
           session.close();
           return (
             false,
