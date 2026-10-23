@@ -55,7 +55,7 @@
 | **Authentication** | `local_auth: ^2.3.0` | BiometricPrompt (Fingerprint/Face/PIN) app lock & settings gate [Why: Standard Android security bridge that automatically adapts to each device's biometric hardware or lock-screen PIN] |
 | **Background Tasks** | `workmanager: ^0.5.2` | Android WorkManager daily 18:00 background worker [Why: Android's official recommended battery-efficient background scheduler that survives phone reboots and app termination] |
 | **Push Notifications** | `flutter_local_notifications: ^17.0.0` | Android system notifications with custom notification channels [Why: Delivers heads-up alerts for expiring leaves, new circulars, and background app updates] |
-| **Home Widgets** | `home_widget: ^0.6.0` | Native Android AppWidgets (2x2 Multi-metric & 1x1 Compact) [Why: Lets staff view their leave balances directly on their phone home screen without opening the app] |
+| **Home Widgets** | *(Retired in v1.4.18)* | Deprecated in v1.4.18 to reduce APK footprint, eliminate background broadcast receivers, and conserve device battery. |
 | **Document Launching**| `url_launcher: ^6.2.4` | Fallback browser and document launcher [Why: Standard utility to invoke system handlers for web links] |
 | **Notice Resolver** | `webview_flutter: ^4.10.0` | In-app authenticated WebView for resolving MetNet notices & pop-ups [Why: Allows employees to interact directly with MetNet popups without leaving the app or re-entering credentials] |
 | **Formatting** | `intl: ^0.19.0` | Date formatting and timeline parsing [Why: Reliably handles diverse date string formats used across government records (`dd-MM-yyyy`, `dd/MM/yyyy`, etc.)] |
@@ -318,25 +318,17 @@ E:\imd portal\
 │   │   ├── build.gradle                      # Android build config & permanent release signing [Why: Manages dependencies & keystore]
 │   │   ├── release.keystore                  # Permanent 30-year production cryptographic key [Why: Eliminates signature conflicts]
 │   │   └── src\main\
-│   │       ├── AndroidManifest.xml           # Permissions, activities, & widget receivers [Why: Declares Android OS capabilities]
+│   │       ├── AndroidManifest.xml           # Permissions, activities, & application manifest [Why: Declares Android OS capabilities]
 │   │       ├── kotlin\com\example\imd_portal\
-│   │       │   ├── MainActivity.kt           # Native FileProvider, PdfRenderer & installer bridge [Why: Executes native Android tasks]
-│   │       │   ├── ImdAppWidgetProvider.kt   # 2x2 multi-metric widget provider [Why: Renders 2x2 home screen card]
-│   │       │   └── ImdCompactWidgetProvider.kt # 1x1 compact widget provider [Why: Renders 1x1 home screen tile]
+│   │       │   └── MainActivity.kt           # Native FileProvider, PdfRenderer & installer bridge [Why: Executes native Android tasks]
 │   │       └── res\
 │   │           ├── drawable\
-│   │           │   ├── ic_stat_notification.xml # Dedicated vector notification icon [Why: Conforms to Android status bar specs]
-│   │           │   └── widget_background.xml # Native rounded dark shape drawable [Why: Consistent dark styling]
-│   │           ├── layout\
-│   │           │   ├── imd_app_widget.xml    # 2x2 widget RemoteViews layout [Why: Native Android widget UI structure]
-│   │           │   └── imd_compact_widget.xml # 1x1 compact widget layout [Why: Minimalist widget UI structure]
+│   │           │   └── ic_stat_notification.xml # Dedicated vector notification icon [Why: Conforms to Android status bar specs]
 │   │           ├── values\
-│   │           │   ├── strings.xml           # App & widget string definitions [Why: Centralized string labels]
+│   │           │   ├── strings.xml           # Centralized string labels [Why: Application string resources]
 │   │           │   └── styles.xml            # LaunchTheme and NormalTheme styles [Why: Native splash screen transition]
 │   │           └── xml\
-│   │               ├── file_paths.xml        # Secure FileProvider paths for APK & PDF sharing [Why: Grants temporary file access to OS]
-│   │               ├── imd_app_widget_info.xml # 2x2 widget metadata [Why: Android widget dimension & resize config]
-│   │               └── imd_compact_widget_info.xml # 1x1 widget metadata [Why: Android 1x1 cell config]
+│   │               └── file_paths.xml        # Secure FileProvider paths for APK & PDF sharing [Why: Grants temporary file access to OS]
 │   ├── build.gradle                          # Root Gradle configuration [Why: Builds Android project dependencies]
 │   ├── gradle.properties                     # AndroidX & Jetifier flags [Why: AndroidX compatibility]
 │   └── settings.gradle                       # Gradle project settings [Why: Multi-module Gradle routing]
@@ -355,8 +347,7 @@ E:\imd portal\
 │   │   ├── rsa_crypto.dart                   # RSA PKCS1_v1_5 dynamic password encrypter [Why: Bypasses MetNet login encryption]
 │   │   ├── scraper_engine.dart               # AI-augmented VIP & junk filtering, session scraper & retries [Why: Scrapes portal data & circulars]
 │   │   ├── storage_service.dart              # SharedPreferences for credentials, keywords, bookmarks & cache [Why: Persistent local storage]
-│   │   ├── update_service.dart               # GitHub Releases automated update checker & installer [Why: Handles OTA background updates]
-│   │   └── widget_service.dart               # HomeWidget multi-provider updater [Why: Synchronizes data to home widgets]
+│   │   └── update_service.dart               # GitHub Releases automated update checker, smart version cache & installer [Why: Handles OTA updates]
 │   └── ui\
 │       ├── dashboard_screen.dart             # Main dashboard view, lock screen, notice banner & FAB [Why: Core app user interface]
 │       ├── month_calendar_screen.dart        # Interactive monthly calendar expiry view [Why: Dedicated C-Off expiry calendar]
@@ -371,7 +362,7 @@ E:\imd portal\
 │   └── ai_circular_indexer.py                # Serverless Python circular scraper & Gemini 1.5 Flash Vision indexer [Why: Automated cloud indexing]
 ├── .gitignore                                # Build & artifact ignore rules [Why: Prevents binary files in git]
 ├── analysis_options.yaml                     # Dart analyzer configuration [Why: Enforces Dart code quality standards]
-├── pubspec.yaml                              # Flutter dependencies & metadata (v1.4.10+27) [Why: Defines app version & third-party packages]
+├── pubspec.yaml                              # Flutter dependencies & metadata (v1.4.18+35) [Why: Defines app version & third-party packages]
 └── MetNet Scraper+web Dashboard.md           # Master Project Blueprint & Documentation [Why: Single source of truth for the project]
 ```
 
