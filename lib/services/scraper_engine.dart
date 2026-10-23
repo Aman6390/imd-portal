@@ -97,6 +97,12 @@ class ScraperEngine {
     final rhMatch = RegExp(r'Restricted Holidays.*?Balance\s*=\s*(\d+)').firstMatch(htmlText);
     final coffMatch = RegExp(r'Compensatory Off.*?Balance\s*=\s*(\d+)').firstMatch(htmlText);
 
+    // Protective Shield: If none of the 3 balance patterns matched in the HTML,
+    // the page is an interstitial prompt (email/password/notice), not the real leave page!
+    if (clMatch == null && rhMatch == null && coffMatch == null) {
+      return (<String, String>{}, <LapsingAlert>[]);
+    }
+
     final balances = <String, String>{
       'Casual Leave (CL)': clMatch?.group(1) ?? '0',
       'Restricted Holiday (RH)': rhMatch?.group(1) ?? '0',
@@ -513,9 +519,49 @@ class ScraperEngine {
         final leavePage = await session.get(Uri.parse(leaveUrl)).timeout(const Duration(seconds: 25));
         final (leaveBalances, lapsingAlerts) = parseLeaves(html_parser.parse(leavePage.body));
 
-        // If leave balances could not be parsed and leave link was absent on main,
+        final combinedBody = '${mainPage.body.toLowerCase()} ${leavePage.body.toLowerCase()}';
+
+        final isPasswordChange = combinedBody.contains('change password') ||
+            combinedBody.contains('change_password') ||
+            combinedBody.contains('password expired') ||
+            combinedBody.contains('expired password') ||
+            combinedBody.contains('chgpass') ||
+            combinedBody.contains('पासवर्ड बदलें') ||
+            combinedBody.contains('नया पासवर्ड');
+
+        final isEmailPrompt = combinedBody.contains('unread mail') ||
+            combinedBody.contains('unread email') ||
+            combinedBody.contains('new mail') ||
+            combinedBody.contains('new email') ||
+            combinedBody.contains('zimbra') ||
+            combinedBody.contains('webmail') ||
+            combinedBody.contains('mail.gov.in') ||
+            combinedBody.contains('inbox') ||
+            combinedBody.contains('ईमेल') ||
+            combinedBody.contains('डाक');
+
+        if (isPasswordChange) {
+          session.close();
+          return (
+            false,
+            '🔑 MetNet requires a Password Change. Please update your password on MetNet.',
+            null,
+          );
+        }
+
+        if (isEmailPrompt) {
+          session.close();
+          return (
+            false,
+            '📬 MetNet Prompt: You have unread official emails blocking portal access.',
+            null,
+          );
+        }
+
+        // Protective Zero-Shield: If leave balances could not be parsed,
         // it means MetNet showed an interstitial notice or mandatory declaration.
-        if (leaveBalances.isEmpty && !mainPage.body.contains('leave_1.php')) {
+        if (leaveBalances.isEmpty) {
+          session.close();
           return (
             false,
             '⚠️ MetNet Notice or Action Required',

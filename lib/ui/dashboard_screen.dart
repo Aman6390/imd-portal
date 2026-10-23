@@ -39,6 +39,7 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
 
   // Notice state
   bool _hasMetNetNotice = false;
+  String _noticeType = "notice"; // "password", "email", "notice"
 
   // Weather state key
   Key _weatherKey = UniqueKey();
@@ -172,9 +173,19 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
     );
 
     if (resolved == true) {
+      final wasPassword = _noticeType == 'password';
       setState(() {
         _hasMetNetNotice = false;
       });
+      if (wasPassword && mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('🔑 If you changed your password, remember to update it in Settings (⚙️)!'),
+            duration: Duration(seconds: 6),
+            backgroundColor: Colors.blueAccent,
+          ),
+        );
+      }
       _triggerSync();
     }
   }
@@ -211,8 +222,15 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
         if (success && freshData != null) {
           _data = freshData;
           _hasMetNetNotice = false;
+        } else if (message.contains('Password Change') || message.contains('password')) {
+          _hasMetNetNotice = true;
+          _noticeType = 'password';
+        } else if (message.contains('unread') || message.contains('email') || message.contains('mail')) {
+          _hasMetNetNotice = true;
+          _noticeType = 'email';
         } else if (message.contains('Notice') || message.contains('Action Required')) {
           _hasMetNetNotice = true;
+          _noticeType = 'notice';
         }
       });
 
@@ -266,27 +284,65 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
   }
 
   Widget _buildNoticeCard() {
+    IconData icon;
+    Color iconColor;
+    Color titleColor;
+    Color buttonColor;
+    String titleText;
+    String descText;
+    String buttonText;
+
+    switch (_noticeType) {
+      case 'password':
+        icon = Icons.lock_reset_rounded;
+        iconColor = Colors.deepOrangeAccent;
+        titleColor = Colors.deepOrange.shade400;
+        buttonColor = Colors.deepOrange.shade700;
+        titleText = '🔑 Action Required: MetNet Password Expired';
+        descText = 'MetNet is requiring you to change your password before your leave records and circulars can load. Tap below to change it in MetNet, then save your new password in Settings (⚙️).';
+        buttonText = 'Open MetNet to Change Password';
+        break;
+      case 'email':
+        icon = Icons.mark_email_unread_rounded;
+        iconColor = Colors.amber.shade700;
+        titleColor = Colors.amber.shade900;
+        buttonColor = Colors.amber.shade800;
+        titleText = '📬 Action Required: Unread Official Email Prompt';
+        descText = 'MetNet is holding portal access behind unread email notifications. Tap below to read and clear your email prompts to unlock the portal.';
+        buttonText = 'Open MetNet to Clear Emails';
+        break;
+      default:
+        icon = Icons.warning_amber_rounded;
+        iconColor = Colors.amber.shade800;
+        titleColor = Colors.amber.shade900;
+        buttonColor = Colors.amber.shade700;
+        titleText = '⚠️ MetNet Notice or Action Required';
+        descText = 'MetNet has an unread inbox notice, mandatory declaration, or prompt that needs acknowledgment before data can be extracted.';
+        buttonText = 'Open MetNet to Resolve';
+        break;
+    }
+
     return Container(
-      margin: const EdgeInsets.only(bottom: 18),
-      padding: const EdgeInsets.all(16),
+      margin: const EdgeInsets.only(bottom: 16),
+      padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: Colors.amber.withOpacity(0.12),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: Colors.amber.shade700, width: 1.5),
+        color: iconColor.withOpacity(0.12),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: iconColor.withOpacity(0.6), width: 1.5),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             children: [
-              Icon(Icons.warning_amber_rounded, color: Colors.amber.shade800, size: 24),
+              Icon(icon, color: iconColor, size: 24),
               const SizedBox(width: 8),
               Expanded(
                 child: Text(
-                  '⚠️ MetNet Notice or Action Required',
+                  titleText,
                   style: TextStyle(
                     fontWeight: FontWeight.bold,
-                    color: Colors.amber.shade900,
+                    color: titleColor,
                     fontSize: 14,
                   ),
                 ),
@@ -295,20 +351,21 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
           ),
           const SizedBox(height: 6),
           Text(
-            'MetNet has an unread inbox notice, shift roster, or prompt that needs acknowledgment.',
+            descText,
             style: TextStyle(
               fontSize: 12,
-              color: Theme.of(context).colorScheme.onSurface.withOpacity(0.7),
+              color: Theme.of(context).colorScheme.onSurface.withOpacity(0.75),
+              height: 1.3,
             ),
           ),
           const SizedBox(height: 12),
           FilledButton.icon(
             style: FilledButton.styleFrom(
-              backgroundColor: Colors.amber.shade700,
+              backgroundColor: buttonColor,
               foregroundColor: Colors.white,
             ),
             icon: const Icon(Icons.open_in_browser, size: 18),
-            label: const Text('Open MetNet to Resolve'),
+            label: Text(buttonText),
             onPressed: _openNoticeResolver,
           ),
         ],
