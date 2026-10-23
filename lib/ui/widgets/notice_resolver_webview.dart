@@ -4,17 +4,18 @@ import 'package:webview_flutter/webview_flutter.dart';
 
 /// In-App Authenticated MetNet WebView.
 /// Automatically handles login and allows the user to read, acknowledge,
-/// or dismiss any interstitial notice, unread inbox message, or duty roster.
-/// Includes a 4-second settling delay to ensure sequential unread emails or prompts
-/// don't get interrupted if MetNet briefly redirects to main2.php before showing the next one.
+/// or dismiss any interstitial notice, unread inbox message, or change their password.
+/// Gives user full control via [ Done / Sync ] with non-intrusive status banners.
 class NoticeResolverWebView extends StatefulWidget {
   final String username;
   final String password;
+  final String noticeType; // 'password', 'email', 'notice'
 
   const NoticeResolverWebView({
     Key? key,
     required this.username,
     required this.password,
+    this.noticeType = 'notice',
   }) : super(key: key);
 
   @override
@@ -25,20 +26,12 @@ class _NoticeResolverWebViewState extends State<NoticeResolverWebView> {
   late final WebViewController _controller;
   bool _isLoading = true;
   String _currentUrl = '';
-  Timer? _settlingTimer;
-  int _countdownSeconds = 4;
-  bool _isSettling = false;
+  bool _dashboardReached = false;
 
   @override
   void initState() {
     super.initState();
     _initWebView();
-  }
-
-  @override
-  void dispose() {
-    _settlingTimer?.cancel();
-    super.dispose();
   }
 
   void _initWebView() {
@@ -78,35 +71,9 @@ class _NoticeResolverWebViewState extends State<NoticeResolverWebView> {
 
   void _checkDashboardNavigation(String url) {
     if (_isDashboardUrl(url)) {
-      if (!_isSettling) {
+      if (!_dashboardReached) {
         setState(() {
-          _isSettling = true;
-          _countdownSeconds = 4;
-        });
-        _settlingTimer?.cancel();
-        _settlingTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
-          if (!mounted) {
-            timer.cancel();
-            return;
-          }
-          if (_countdownSeconds <= 1) {
-            timer.cancel();
-            Navigator.of(context).pop(true);
-          } else {
-            setState(() {
-              _countdownSeconds--;
-            });
-          }
-        });
-      }
-    } else {
-      // If MetNet redirected away from the dashboard (e.g. to a second email or notice),
-      // cancel the settling timer immediately so the user can resolve the remaining prompts!
-      if (_isSettling) {
-        _settlingTimer?.cancel();
-        _settlingTimer = null;
-        setState(() {
-          _isSettling = false;
+          _dashboardReached = true;
         });
       }
     }
@@ -138,15 +105,22 @@ class _NoticeResolverWebViewState extends State<NoticeResolverWebView> {
 
   @override
   Widget build(BuildContext context) {
+    final isPasswordMode = widget.noticeType == 'password';
+
     return Scaffold(
       appBar: AppBar(
-        title: const Column(
+        title: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('MetNet Intranet Viewer', style: TextStyle(fontSize: 16)),
             Text(
-              'Clear emails/notices or change password',
-              style: TextStyle(fontSize: 11, color: Colors.white70),
+              isPasswordMode ? 'MetNet Password Update' : 'MetNet Intranet Viewer',
+              style: const TextStyle(fontSize: 16),
+            ),
+            Text(
+              isPasswordMode
+                  ? 'Change password below, then tap Done / Sync'
+                  : 'Clear emails/notices, then tap Done / Sync',
+              style: const TextStyle(fontSize: 11, color: Colors.white70),
             ),
           ],
         ),
@@ -163,7 +137,6 @@ class _NoticeResolverWebViewState extends State<NoticeResolverWebView> {
               style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
             ),
             onPressed: () {
-              _settlingTimer?.cancel();
               Navigator.of(context).pop(true);
             },
           ),
@@ -179,38 +152,22 @@ class _NoticeResolverWebViewState extends State<NoticeResolverWebView> {
               right: 0,
               child: LinearProgressIndicator(),
             ),
-          if (_isSettling)
+          if (isPasswordMode)
             Positioned(
               top: 0,
               left: 0,
               right: 0,
               child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-                decoration: BoxDecoration(
-                  color: Colors.green.shade800,
-                  boxShadow: const [
-                    BoxShadow(
-                      color: Colors.black26,
-                      blurRadius: 4,
-                      offset: Offset(0, 2),
-                    ),
-                  ],
-                ),
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                color: Colors.amber.shade900,
                 child: Row(
                   children: [
-                    const SizedBox(
-                      width: 14,
-                      height: 14,
-                      child: CircularProgressIndicator(
-                        strokeWidth: 2,
-                        valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
+                    const Icon(Icons.vpn_key_rounded, color: Colors.white, size: 16),
+                    const SizedBox(width: 8),
+                    const Expanded(
                       child: Text(
-                        '🟢 Dashboard reached! Settling in ${_countdownSeconds}s... (clearing remaining prompts)',
-                        style: const TextStyle(
+                        'Change your password on MetNet, then tap [Done / Sync] above.',
+                        style: TextStyle(
                           color: Colors.white,
                           fontSize: 12,
                           fontWeight: FontWeight.w600,
@@ -223,10 +180,54 @@ class _NoticeResolverWebViewState extends State<NoticeResolverWebView> {
                         padding: const EdgeInsets.symmetric(horizontal: 8),
                         visualDensity: VisualDensity.compact,
                       ),
-                      onPressed: () {
-                        _settlingTimer?.cancel();
-                        Navigator.of(context).pop(true);
-                      },
+                      onPressed: () => Navigator.of(context).pop(true),
+                      child: const Text(
+                        'DONE',
+                        style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            )
+          else if (_dashboardReached)
+            Positioned(
+              top: 0,
+              left: 0,
+              right: 0,
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                decoration: BoxDecoration(
+                  color: Colors.green.shade800,
+                  boxShadow: const [
+                    BoxShadow(
+                      color: Colors.black26,
+                      blurRadius: 4,
+                      offset: Offset(0, 2),
+                    ),
+                  ],
+                ),
+                child: Row(
+                  children: [
+                    const Icon(Icons.check_circle, color: Colors.white, size: 16),
+                    const SizedBox(width: 10),
+                    const Expanded(
+                      child: Text(
+                        '🟢 Dashboard reached! All notices cleared?',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
+                    TextButton(
+                      style: TextButton.styleFrom(
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(horizontal: 8),
+                        visualDensity: VisualDensity.compact,
+                      ),
+                      onPressed: () => Navigator.of(context).pop(true),
                       child: const Text(
                         'SYNC NOW',
                         style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11),

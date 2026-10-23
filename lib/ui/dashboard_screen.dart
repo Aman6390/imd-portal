@@ -168,25 +168,121 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
         builder: (context) => NoticeResolverWebView(
           username: user,
           password: pass,
+          noticeType: _noticeType,
         ),
       ),
     );
 
     if (resolved == true) {
-      final wasPassword = _noticeType == 'password';
-      setState(() {
-        _hasMetNetNotice = false;
-      });
-      if (wasPassword && mounted) {
+      if (_noticeType == 'password') {
+        if (!mounted) return;
+        await _promptNewPasswordDialog(user);
+      } else {
+        setState(() {
+          _hasMetNetNotice = false;
+        });
+        _triggerSync();
+      }
+    }
+  }
+
+  Future<void> _promptNewPasswordDialog(String username) async {
+    final passController = TextEditingController();
+    bool obscurePassword = true;
+
+    final updated = await showDialog<bool>(
+      context: context,
+      barrierDismissible: false,
+      builder: (dialogContext) {
+        return StatefulBuilder(
+          builder: (context, setDialogState) {
+            return AlertDialog(
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+              title: Row(
+                children: const [
+                  Icon(Icons.vpn_key_rounded, color: Colors.orangeAccent),
+                  SizedBox(width: 8),
+                  Text('Update App Password', style: TextStyle(fontSize: 18)),
+                ],
+              ),
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    'If you changed your MetNet password in the web view, enter your new password below so the app can update your credentials and sync your portal:',
+                    style: TextStyle(fontSize: 13, height: 1.4),
+                  ),
+                  const SizedBox(height: 16),
+                  TextField(
+                    controller: passController,
+                    obscureText: obscurePassword,
+                    autofocus: true,
+                    decoration: InputDecoration(
+                      labelText: 'New MetNet Password',
+                      prefixIcon: const Icon(Icons.lock_outline),
+                      suffixIcon: IconButton(
+                        icon: Icon(
+                          obscurePassword ? Icons.visibility_off : Icons.visibility,
+                        ),
+                        onPressed: () {
+                          setDialogState(() {
+                            obscurePassword = !obscurePassword;
+                          });
+                        },
+                      ),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.of(dialogContext).pop(false),
+                  child: const Text('Not Changed Yet', style: TextStyle(color: Colors.grey)),
+                ),
+                ElevatedButton.icon(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.blueAccent,
+                    foregroundColor: Colors.white,
+                  ),
+                  icon: const Icon(Icons.check, size: 18),
+                  label: const Text('Save & Sync'),
+                  onPressed: () {
+                    final newPass = passController.text.trim();
+                    if (newPass.isEmpty) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(content: Text('Please enter your new password.')),
+                      );
+                      return;
+                    }
+                    Navigator.of(dialogContext).pop(true);
+                  },
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+
+    if (updated == true && passController.text.trim().isNotEmpty) {
+      final newPass = passController.text.trim();
+      await StorageService.saveCredentials(username, newPass);
+      if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text('🔑 If you changed your password, remember to update it in Settings (⚙️)!'),
-            duration: Duration(seconds: 6),
-            backgroundColor: Colors.blueAccent,
+            content: Text('✅ Password updated in app credentials! Syncing portal...'),
+            backgroundColor: Colors.green,
           ),
         );
+        setState(() {
+          _hasMetNetNotice = false;
+        });
+        _triggerSync();
       }
-      _triggerSync();
     }
   }
 
