@@ -22,6 +22,7 @@ class CircularTabs extends StatefulWidget {
 
 class _CircularTabsState extends State<CircularTabs> {
   Set<String> _bookmarkedUrls = {};
+  Set<String> _expandedSummaryUrls = {};
   String _selectedFilter = 'All';
 
   @override
@@ -465,6 +466,194 @@ class _CircularTabsState extends State<CircularTabs> {
     );
   }
 
+  Widget _buildCollapsedSummary(
+    BuildContext context,
+    CircularItem item,
+    AiCircularEntry aiMeta,
+  ) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      decoration: BoxDecoration(
+        color: Theme.of(context).colorScheme.primaryContainer.withOpacity(0.25),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(
+          color: Theme.of(context).colorScheme.primary.withOpacity(0.25),
+          width: 0.9,
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(Icons.auto_awesome_rounded, size: 12, color: Colors.amber.shade400),
+              const SizedBox(width: 5),
+              Text(
+                'IN BRIEF',
+                style: TextStyle(
+                  fontSize: 10,
+                  fontWeight: FontWeight.w800,
+                  letterSpacing: 0.5,
+                  color: Theme.of(context).colorScheme.primary,
+                ),
+              ),
+              const Spacer(),
+              Text(
+                'Tap to expand',
+                style: TextStyle(
+                  fontSize: 9.5,
+                  color: Theme.of(context).colorScheme.primary.withOpacity(0.85),
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+              const SizedBox(width: 2),
+              Icon(
+                Icons.keyboard_arrow_down_rounded,
+                size: 14,
+                color: Theme.of(context).colorScheme.primary,
+              ),
+            ],
+          ),
+          const SizedBox(height: 3),
+          Text(
+            aiMeta.summaryEn,
+            style: TextStyle(
+              fontSize: 11.5,
+              fontStyle: FontStyle.italic,
+              color: Theme.of(context).colorScheme.onSurface,
+              height: 1.3,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildExpandedSummary(
+    BuildContext context,
+    CircularItem item,
+    AiCircularEntry aiMeta,
+  ) {
+    final breakdown = AiCircularService.getPlainLanguageBreakdown(aiMeta, item.title);
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(10),
+      decoration: BoxDecoration(
+        color: Theme.of(context).colorScheme.surfaceVariant.withOpacity(0.45),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(
+          color: Theme.of(context).colorScheme.primary.withOpacity(0.4),
+          width: 1.2,
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Icon(Icons.psychology_outlined, size: 14, color: Colors.blueAccent),
+              const SizedBox(width: 5),
+              Text(
+                'PLAIN WORDS EXPLANATION',
+                style: TextStyle(
+                  fontSize: 10,
+                  fontWeight: FontWeight.w800,
+                  letterSpacing: 0.5,
+                  color: Theme.of(context).colorScheme.primary,
+                ),
+              ),
+              const Spacer(),
+              Text(
+                'Tap to collapse',
+                style: TextStyle(
+                  fontSize: 9.5,
+                  color: Theme.of(context).colorScheme.outline,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+              const SizedBox(width: 2),
+              Icon(
+                Icons.keyboard_arrow_up_rounded,
+                size: 14,
+                color: Theme.of(context).colorScheme.outline,
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Text(
+            breakdown['meaning'] ?? aiMeta.summaryEn,
+            style: TextStyle(
+              fontSize: 12,
+              color: Theme.of(context).colorScheme.onSurface,
+              height: 1.35,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text('👉 ', style: TextStyle(fontSize: 12)),
+              Expanded(
+                child: Text(
+                  breakdown['action'] ?? '',
+                  style: TextStyle(
+                    fontSize: 11.5,
+                    fontWeight: FontWeight.w500,
+                    color: aiMeta.actionRequired
+                        ? Colors.amberAccent
+                        : Theme.of(context).colorScheme.onSurfaceVariant,
+                    height: 1.3,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          if (breakdown['jargon'] != null && breakdown['jargon']!.isNotEmpty) ...[
+            const SizedBox(height: 6),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+              decoration: BoxDecoration(
+                color: Theme.of(context).colorScheme.surface.withOpacity(0.6),
+                borderRadius: BorderRadius.circular(6),
+              ),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text('💡 ', style: TextStyle(fontSize: 10)),
+                  Expanded(
+                    child: Text(
+                      breakdown['jargon']!,
+                      style: TextStyle(
+                        fontSize: 10.5,
+                        fontStyle: FontStyle.italic,
+                        color: Theme.of(context).colorScheme.outline,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+          const SizedBox(height: 10),
+          SizedBox(
+            height: 28,
+            child: OutlinedButton.icon(
+              icon: const Icon(Icons.picture_as_pdf_outlined, size: 14),
+              label: const Text('Open Original Document', style: TextStyle(fontSize: 11)),
+              style: OutlinedButton.styleFrom(
+                padding: const EdgeInsets.symmetric(horizontal: 10),
+                visualDensity: VisualDensity.compact,
+              ),
+              onPressed: () => _handleCircularTap(context, item),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildList(
     BuildContext context,
     List<CircularItem> items,
@@ -499,6 +688,7 @@ class _CircularTabsState extends State<CircularTabs> {
         final isUnavailable = item.isUnavailable;
         final isCached = item.cachedPath != null;
         final isBookmarked = _bookmarkedUrls.contains(item.link);
+        final isSummaryExpanded = _expandedSummaryUrls.contains(item.link);
         final aiMeta = AiCircularService.getMetadata(item.link, item.title);
 
         final cadre = aiMeta?.targetCadre ?? '';
@@ -595,48 +785,27 @@ class _CircularTabsState extends State<CircularTabs> {
                 ),
               ),
 
-              // Idea A: Executive In-Brief Highlight Card
+              // Interactive Expandable Summary Tab
               if (aiMeta != null && aiMeta.summaryEn.isNotEmpty) ...[
                 const SizedBox(height: 5),
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                  decoration: BoxDecoration(
-                    color: Theme.of(context).colorScheme.primaryContainer.withOpacity(0.25),
-                    borderRadius: BorderRadius.circular(8),
-                    border: Border.all(
-                      color: Theme.of(context).colorScheme.primary.withOpacity(0.25),
-                      width: 0.9,
-                    ),
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        children: [
-                          Icon(Icons.auto_awesome_rounded, size: 12, color: Colors.amber.shade400),
-                          const SizedBox(width: 5),
-                          Text(
-                            'IN BRIEF',
-                            style: TextStyle(
-                              fontSize: 10,
-                              fontWeight: FontWeight.w800,
-                              letterSpacing: 0.5,
-                              color: Theme.of(context).colorScheme.primary,
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 3),
-                      Text(
-                        aiMeta.summaryEn,
-                        style: TextStyle(
-                          fontSize: 11.5,
-                          fontStyle: FontStyle.italic,
-                          color: Theme.of(context).colorScheme.onSurface,
-                          height: 1.3,
-                        ),
-                      ),
-                    ],
+                InkWell(
+                  borderRadius: BorderRadius.circular(8),
+                  onTap: () {
+                    setState(() {
+                      if (isSummaryExpanded) {
+                        _expandedSummaryUrls.remove(item.link);
+                      } else {
+                        _expandedSummaryUrls.add(item.link);
+                      }
+                    });
+                  },
+                  child: AnimatedSize(
+                    duration: const Duration(milliseconds: 220),
+                    curve: Curves.easeInOut,
+                    alignment: Alignment.topCenter,
+                    child: isSummaryExpanded
+                        ? _buildExpandedSummary(context, item, aiMeta)
+                        : _buildCollapsedSummary(context, item, aiMeta),
                   ),
                 ),
               ],

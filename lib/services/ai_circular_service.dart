@@ -392,6 +392,73 @@ class AiCircularService {
     return cadres.join(' / ');
   }
 
+  /// Generates a structured plain-language breakdown for an expanded summary view
+  static Map<String, String> getPlainLanguageBreakdown(AiCircularEntry? meta, String title) {
+    final t = title.toLowerCase();
+    final cadre = (meta?.targetCadre != null && meta!.targetCadre.isNotEmpty && meta.targetCadre != 'General / All')
+        ? meta.targetCadre
+        : _detectCadre(title);
+    final cadreLabel = cadre == 'General / All' ? 'departmental personnel' : cadre;
+
+    String meaning;
+    String action;
+    String jargon = '';
+
+    if (t.contains('seniority') || t.contains('gradation') || t.contains('वरिष्ठता')) {
+      meaning = 'The department has prepared the official seniority ranking list for ' + cadreLabel + '. This list determines career progression and future promotion order.';
+      action = 'Check where your name and seniority number appear. Verify your date of birth and joining date.';
+      jargon = 'Seniority List = Official rank by batch & service length that governs promotion sequence.';
+    } else if (t.contains('transfer') || t.contains('posting') || t.contains('स्थानांतरण')) {
+      meaning = 'Official transfer or station posting orders issued for ' + cadreLabel + ' across meteorological stations/observatories.';
+      action = 'Review the station relocation list and compliance instructions for taking charge at new station.';
+    } else if (t.contains('working arrangement') || t.contains('lacd') || t.contains('charge') || t.contains('कार्य व्यवस्था')) {
+      meaning = 'Interim administrative working arrangement assigning additional supervisory duties or charge for ' + cadreLabel + '.';
+      action = 'For personnel assigned charge: ensure formal assumption of duties and submit assumption report.';
+      jargon = 'LACD = Looking After Current Duties (temporary additional responsibility without pay change).';
+    } else if (t.contains('promotion') || t.contains('पदोन्नति')) {
+      meaning = 'Official departmental order granting career promotion to the next grade for eligible ' + cadreLabel + ' officers.';
+      action = 'Verify effective date of promotion and formal assumption of higher charge for pay fixation.';
+    } else if (t.contains('macp') || t.contains('modified acp')) {
+      meaning = 'Financial pay-scale upgrade granted under the MACP scheme to ' + cadreLabel + ' personnel upon completing qualifying service years.';
+      action = 'Verify the upgraded pay matrix level and option submission for pay fixation within one month.';
+      jargon = 'MACP = Modified Assured Career Progression (financial upgrade after 10, 20, or 30 years).';
+    } else if (t.contains('wmo') || t.contains('training') || t.contains('course') || t.contains('fellowship')) {
+      meaning = 'Departmental notification calling for nominations or applications for specialized meteorological training or WMO fellowships.';
+      action = 'Check eligibility conditions and forward application through your controlling officer before deadline.';
+    } else if (t.contains('ldce') || t.contains('exam') || t.contains('examination')) {
+      meaning = 'Limited Departmental Competitive Examination (LDCE) notification, syllabus, or candidate shortlist.';
+      action = 'Review exam schedule, eligibility cutoff, and submit verification proforma through proper channel.';
+      jargon = 'LDCE = Limited Departmental Competitive Examination (accelerated quota promotion test).';
+    } else if (t.contains('vigilance') || t.contains('disciplinary') || t.contains('conduct')) {
+      meaning = 'Administrative compliance and integrity directive from the Vigilance Division for all personnel.';
+      action = 'Review compliance requirements. Ensure timely submission of annual property returns or disclosures if indicated.';
+    } else if (t.contains('holiday') || t.contains('closed')) {
+      meaning = 'Official notification regarding administrative working days, closed holidays, or restricted holidays.';
+      action = 'Note down the holiday schedule for station duty planning and shift rosters.';
+    } else {
+      final clean = _cleanTitleForSummary(title);
+      meaning = 'Official administrative circular published by IMD administration concerning ' + cadreLabel + ': ' + clean;
+      action = 'Read through document for general departmental awareness and operational guidance.';
+    }
+
+    if (meta?.actionRequired == true ||
+        t.contains('representation') ||
+        t.contains('objection') ||
+        t.contains('proforma') ||
+        t.contains('calling for')) {
+      action = 'Action Required: Check if you are affected. If you have objections or wish to represent, submit your representation through your Station Head before the cutoff date.';
+      if (jargon.isEmpty) {
+        jargon = 'Representation = Official written submission/objection routed via controlling officer.';
+      }
+    }
+
+    return {
+      'meaning': meaning,
+      'action': action,
+      'jargon': jargon,
+    };
+  }
+
   /// Clean title for summary string
   static String _cleanTitleForSummary(String text) {
     var clean = text.replaceAll('\n', ' ').replaceAll(RegExp(r'\s+'), ' ').trim();
