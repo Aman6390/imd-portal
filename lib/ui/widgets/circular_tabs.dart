@@ -6,6 +6,12 @@ import '../../services/ai_circular_service.dart';
 import '../../services/circular_service.dart';
 import '../../services/storage_service.dart';
 
+class _TopicBadge {
+  final String label;
+  final Color color;
+  const _TopicBadge(this.label, this.color);
+}
+
 class CircularTabs extends StatefulWidget {
   final List<CircularItem> vipCirculars;
   final List<CircularItem> fomoCirculars;
@@ -53,6 +59,49 @@ class _CircularTabsState extends State<CircularTabs> {
     }
   }
 
+  List<_TopicBadge> _getTopicBadges(CircularItem item, AiCircularEntry? aiMeta) {
+    final t = item.title.toLowerCase();
+    final reasons = (aiMeta?.vipReasons ?? []).map((r) => r.toLowerCase()).toList();
+    final List<_TopicBadge> badges = [];
+
+    bool hasKeyword(List<String> keywords) {
+      return keywords.any((k) => t.contains(k) || reasons.any((r) => r.contains(k)));
+    }
+
+    // 1. Transfer / Posting
+    if (hasKeyword(['transfer', 'posting', 'working arrangement', 'lacd', 'station', 'स्थानांतरण', 'पदस्थापना'])) {
+      badges.add(const _TopicBadge('🚚 Transfer', Color(0xFF38BDF8)));
+    }
+
+    // 2. Promotion / MACP
+    if (hasKeyword(['promotion', 'macp', 'modified acp', 'financial upgradation', 'पदोन्नति'])) {
+      badges.add(const _TopicBadge('📈 Promotion / MACP', Color(0xFF34D399)));
+    }
+
+    // 3. Seniority List
+    if (hasKeyword(['seniority', 'gradation', 'वरिष्ठता'])) {
+      badges.add(const _TopicBadge('📜 Seniority', Color(0xFFA78BFA)));
+    }
+
+    // 4. Training / WMO
+    if (hasKeyword(['training', 'course', 'wmo', 'fellowship', 'प्रशिक्षण'])) {
+      badges.add(const _TopicBadge('🎓 Training', Color(0xFF2DD4BF)));
+    }
+
+    // 5. Exam / LDCE
+    if (hasKeyword(['ldce', 'exam', 'examination', 'cutoff', 'परीक्षा'])) {
+      badges.add(const _TopicBadge('📝 Exam / LDCE', Color(0xFFFB923C)));
+    }
+
+    // 6. Active Deadline / Action Required
+    if (aiMeta?.actionRequired == true ||
+        hasKeyword(['deadline', 'representation', 'objection', 'calling for', 'proforma', 'last date', 'by 1700', 'अभ्यावेदन', 'आपत्ति', 'आवेदन'])) {
+      badges.add(const _TopicBadge('⏳ Active Deadline', Color(0xFFFBBF24)));
+    }
+
+    return badges;
+  }
+
   List<CircularItem> _applyFilter(List<CircularItem> list) {
     if (_selectedFilter == 'All') return list;
     if (_selectedFilter == '🔖 Bookmarked') {
@@ -62,8 +111,26 @@ class _CircularTabsState extends State<CircularTabs> {
       final aiMeta = AiCircularService.getMetadata(item.link, item.title);
       final cadre = (aiMeta?.targetCadre ?? '').toLowerCase();
       final title = item.title.toLowerCase();
+      final reasons = (aiMeta?.vipReasons ?? []).map((r) => r.toLowerCase()).toList();
+
+      bool hasKeyword(List<String> keywords) {
+        return keywords.any((k) => title.contains(k) || reasons.any((r) => r.contains(k)));
+      }
 
       switch (_selectedFilter) {
+        case '⏳ Active Deadline':
+          return aiMeta?.actionRequired == true ||
+              hasKeyword(['deadline', 'representation', 'objection', 'apply', 'proforma', 'calling for', 'last date', 'by 1700', 'अभ्यावेदन', 'आपत्ति', 'action required']);
+        case '🚚 Transfers':
+          return hasKeyword(['transfer', 'posting', 'working arrangement', 'lacd', 'station', 'स्थानांतरण', 'पदस्थापना']);
+        case '📈 Promotions':
+          return hasKeyword(['promotion', 'macp', 'modified acp', 'financial upgradation', 'पदोन्नति']);
+        case '📜 Seniority':
+          return hasKeyword(['seniority', 'gradation', 'वरिष्ठता']);
+        case '🎓 Training':
+          return hasKeyword(['training', 'course', 'wmo', 'fellowship', 'प्रशिक्षण']);
+        case '📝 Exams':
+          return hasKeyword(['ldce', 'exam', 'examination', 'cutoff', 'परीक्षा']);
         case '⛅ Met B':
           return cadre.contains('met b') || title.contains('met b') || title.contains('met-b');
         case '🌤️ Met A':
@@ -79,13 +146,35 @@ class _CircularTabsState extends State<CircularTabs> {
               title.contains('scientist') ||
               title.contains('sc-') ||
               title.contains('sc.');
-        case '⚠️ Action Required':
-          return aiMeta?.actionRequired == true ||
-              title.contains('action required') ||
-              title.contains('representation') ||
-              title.contains('deadline') ||
-              title.contains('submit') ||
-              title.contains('call letter');
+        case '📋 Clerks':
+          return cadre.contains('clerk') ||
+              cadre.contains('udc') ||
+              cadre.contains('ldc') ||
+              title.contains('clerk') ||
+              title.contains('udc') ||
+              title.contains('ldc') ||
+              title.contains('लिपिक');
+        case '🛠️ Tech':
+          return cadre.contains('engineer') ||
+              cadre.contains('tech') ||
+              title.contains('workshop') ||
+              title.contains('instrumentation') ||
+              title.contains('telecom') ||
+              title.contains('अभियंता') ||
+              title.contains('तकनीकी');
+        case '👔 SO':
+          return cadre.contains('so-') ||
+              cadre.contains('so ') ||
+              cadre.contains('scientific officer') ||
+              title.contains('so-') ||
+              title.contains('s.o.-') ||
+              title.contains('scientific officer');
+        case '🧹 MTS':
+          return cadre.contains('mts') ||
+              cadre.contains('attendant') ||
+              title.contains('mts') ||
+              title.contains('peon') ||
+              title.contains('परिचारक');
         default:
           return true;
       }
@@ -95,11 +184,20 @@ class _CircularTabsState extends State<CircularTabs> {
   Widget _buildFilterChips() {
     final filters = [
       'All',
+      '⏳ Active Deadline',
+      '🚚 Transfers',
+      '📈 Promotions',
+      '📜 Seniority',
+      '🎓 Training',
+      '📝 Exams',
       '⛅ Met B',
       '🌤️ Met A',
       '🔬 SA',
       '🧪 Scientists',
-      '⚠️ Action Required',
+      '📋 Clerks',
+      '🛠️ Tech',
+      '👔 SO',
+      '🧹 MTS',
       '🔖 Bookmarked',
     ];
     return SizedBox(
@@ -694,6 +792,7 @@ class _CircularTabsState extends State<CircularTabs> {
         final cadre = aiMeta?.targetCadre ?? '';
         final cadreColor = _getCadreColor(cadre);
         final cadreEmoji = _getCadreEmoji(cadre);
+        final topicBadges = _getTopicBadges(item, aiMeta);
 
         return ListTile(
           contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
@@ -702,11 +801,12 @@ class _CircularTabsState extends State<CircularTabs> {
             crossAxisAlignment: CrossAxisAlignment.start,
             mainAxisSize: MainAxisSize.min,
             children: [
-              // Cadre, Action, and Withdrawn Badges
+              // Cadre, Topic, Action, and Withdrawn Badges
               Wrap(
                 spacing: 6,
                 runSpacing: 4,
                 children: [
+                  // 1. Cadre Badge
                   if (cadre.isNotEmpty)
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
@@ -727,26 +827,30 @@ class _CircularTabsState extends State<CircularTabs> {
                         ),
                       ),
                     ),
-                  if (aiMeta?.actionRequired == true)
+
+                  // 2. Specific Topic & Deadline Badges
+                  for (final badge in topicBadges)
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
                       decoration: BoxDecoration(
-                        color: Colors.amberAccent.withOpacity(0.18),
+                        color: badge.color.withOpacity(0.14),
                         borderRadius: BorderRadius.circular(4),
                         border: Border.all(
-                          color: Colors.amberAccent.withOpacity(0.5),
+                          color: badge.color.withOpacity(0.4),
                           width: 0.8,
                         ),
                       ),
-                      child: const Text(
-                        '⚠️ Action Required',
+                      child: Text(
+                        badge.label,
                         style: TextStyle(
                           fontSize: 10,
                           fontWeight: FontWeight.bold,
-                          color: Colors.amberAccent,
+                          color: badge.color,
                         ),
                       ),
                     ),
+
+                  // 3. Withdrawn Badge (if unavailable)
                   if (isUnavailable)
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
