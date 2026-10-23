@@ -12,6 +12,7 @@ class StorageService {
   static const String _keyVipKeywords = 'imd_vip_keywords';
   static const String _keyJunkKeywords = 'imd_junk_keywords';
   static const String _keyOcrCache = 'imd_ocr_cache';
+  static const String _keyBookmarkedUrls = 'imd_bookmarked_urls';
 
   static const List<String> defaultVipKeywords = [
     // 1. Career & Seniority (Discovered from 9,600+ real circulars)
@@ -266,6 +267,36 @@ class StorageService {
       final prefs = await SharedPreferences.getInstance();
       await prefs.setString(_keyOcrCache, jsonEncode(cache));
     } catch (_) {}
+  }
+
+  /// Loads set of bookmarked circular URLs
+  static Future<Set<String>> loadBookmarkedUrls() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final list = prefs.getStringList(_keyBookmarkedUrls) ?? [];
+      return list.toSet();
+    } catch (_) {
+      return {};
+    }
+  }
+
+  /// Toggles bookmark state for a circular URL (returns new state: true if bookmarked)
+  static Future<bool> toggleBookmark(String url) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final list = prefs.getStringList(_keyBookmarkedUrls) ?? [];
+      final set = list.toSet();
+      final isNowBookmarked = !set.contains(url);
+      if (isNowBookmarked) {
+        set.add(url);
+      } else {
+        set.remove(url);
+      }
+      await prefs.setStringList(_keyBookmarkedUrls, set.toList());
+      return isNowBookmarked;
+    } catch (_) {
+      return false;
+    }
   }
 
   /// Saves the latest scraped DashboardData to device storage

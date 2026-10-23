@@ -4,6 +4,7 @@ import 'package:home_widget/home_widget.dart';
 import 'package:workmanager/workmanager.dart';
 
 import '../models/dashboard_data.dart';
+import 'ai_circular_service.dart';
 import 'circular_service.dart';
 import 'notification_service.dart';
 import 'scraper_engine.dart';
@@ -51,19 +52,48 @@ void callbackDispatcher() {
 
             // Check for new VIP circulars
             final prevVipTitles = previousData.vipCirculars.map((c) => c.title).toSet();
-            final hasNewVip = freshData.vipCirculars.any((c) => !prevVipTitles.contains(c.title));
-            if (hasNewVip) {
+            final newVipList = freshData.vipCirculars
+                .where((c) => !prevVipTitles.contains(c.title))
+                .toList();
+            if (newVipList.isNotEmpty) {
               hasChanges = true;
             }
           }
 
-          // Trigger local notification if changes are detected
+          // Trigger local notification with smart AI summary digest
           if (hasChanges) {
-            await NotificationService.showNotification(
-              id: 101,
-              title: 'Meteorological Portal: New Data Available',
-              body: 'New circulars or updated leave balances have been fetched.',
-            );
+            final prevVipTitles = previousData?.vipCirculars.map((c) => c.title).toSet() ?? {};
+            final newVipList = freshData.vipCirculars
+                .where((c) => !prevVipTitles.contains(c.title))
+                .toList();
+
+            if (newVipList.isNotEmpty) {
+              final firstItem = newVipList.first;
+              final aiMeta = AiCircularService.getMetadata(firstItem.link, firstItem.title);
+              final briefSummary = (aiMeta != null && aiMeta.summaryEn.isNotEmpty)
+                  ? aiMeta.summaryEn
+                  : firstItem.title;
+              final cadre = (aiMeta != null && aiMeta.targetCadre.isNotEmpty && aiMeta.targetCadre != 'General / All')
+                  ? aiMeta.targetCadre
+                  : 'For You';
+              final count = newVipList.length;
+
+              await NotificationService.showNotification(
+                id: 101,
+                title: count == 1
+                    ? '🤖 New Notice: $cadre'
+                    : '🤖 $count New Notices For You',
+                body: count == 1
+                    ? briefSummary
+                    : '$briefSummary (+${count - 1} more)',
+              );
+            } else {
+              await NotificationService.showNotification(
+                id: 101,
+                title: 'Meteorological Portal: Data Updated',
+                body: 'Leave balances and notices have been refreshed from MetNet.',
+              );
+            }
           }
 
           // Check for Start-of-the-Month Reminder (Day 1, 2, or 3 of any month)

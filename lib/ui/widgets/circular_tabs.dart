@@ -21,10 +21,23 @@ class CircularTabs extends StatefulWidget {
 }
 
 class _CircularTabsState extends State<CircularTabs> {
+  Set<String> _bookmarkedUrls = {};
+  String _selectedFilter = 'All';
+
   @override
   void initState() {
     super.initState();
     AiCircularService.onIndexUpdated.addListener(_onAiUpdated);
+    _loadBookmarks();
+  }
+
+  Future<void> _loadBookmarks() async {
+    final bookmarks = await StorageService.loadBookmarkedUrls();
+    if (mounted) {
+      setState(() {
+        _bookmarkedUrls = bookmarks;
+      });
+    }
   }
 
   @override
@@ -37,6 +50,90 @@ class _CircularTabsState extends State<CircularTabs> {
     if (mounted) {
       setState(() {});
     }
+  }
+
+  List<CircularItem> _applyFilter(List<CircularItem> list) {
+    if (_selectedFilter == 'All') return list;
+    if (_selectedFilter == '🔖 Bookmarked') {
+      return list.where((item) => _bookmarkedUrls.contains(item.link)).toList();
+    }
+    return list.where((item) {
+      final aiMeta = AiCircularService.getMetadata(item.link, item.title);
+      final cadre = (aiMeta?.targetCadre ?? '').toLowerCase();
+      final title = item.title.toLowerCase();
+
+      switch (_selectedFilter) {
+        case '⛅ Met B':
+          return cadre.contains('met b') || title.contains('met b') || title.contains('met-b');
+        case '🌤️ Met A':
+          return cadre.contains('met a') || title.contains('met a') || title.contains('met-a');
+        case '🔬 SA':
+          return cadre.contains('sa') ||
+              cadre.contains('scientific assistant') ||
+              title.contains('scientific assistant');
+        case '🧪 Scientists':
+          return cadre.contains('scientist') ||
+              cadre.contains('sc-') ||
+              cadre.contains('sc.') ||
+              title.contains('scientist') ||
+              title.contains('sc-') ||
+              title.contains('sc.');
+        case '⚠️ Action Required':
+          return aiMeta?.actionRequired == true ||
+              title.contains('action required') ||
+              title.contains('representation') ||
+              title.contains('deadline') ||
+              title.contains('submit') ||
+              title.contains('call letter');
+        default:
+          return true;
+      }
+    }).toList();
+  }
+
+  Widget _buildFilterChips() {
+    final filters = [
+      'All',
+      '⛅ Met B',
+      '🌤️ Met A',
+      '🔬 SA',
+      '🧪 Scientists',
+      '⚠️ Action Required',
+      '🔖 Bookmarked',
+    ];
+    return SizedBox(
+      height: 38,
+      child: ListView.separated(
+        scrollDirection: Axis.horizontal,
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 3),
+        itemCount: filters.length,
+        separatorBuilder: (_, __) => const SizedBox(width: 6),
+        itemBuilder: (context, index) {
+          final filter = filters[index];
+          final isSelected = _selectedFilter == filter;
+          return ChoiceChip(
+            label: Text(
+              filter,
+              style: TextStyle(
+                fontSize: 11,
+                fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
+                color: isSelected ? Colors.white : Theme.of(context).colorScheme.onSurface,
+              ),
+            ),
+            selected: isSelected,
+            selectedColor: Theme.of(context).colorScheme.primary,
+            backgroundColor: Theme.of(context).colorScheme.surfaceVariant.withOpacity(0.5),
+            padding: const EdgeInsets.symmetric(horizontal: 6),
+            visualDensity: VisualDensity.compact,
+            onSelected: (selected) {
+              setState(() {
+                _selectedFilter = selected ? filter : 'All';
+              });
+            },
+          );
+        },
+      ),
+    );
   }
 
   Future<void> _handleCircularTap(BuildContext context, CircularItem item) async {
@@ -173,6 +270,7 @@ class _CircularTabsState extends State<CircularTabs> {
 
   void _showCircularOptionsSheet(BuildContext context, CircularItem item, AiCircularEntry? aiMeta) async {
     final isUnlocked = await StorageService.isDiagnosticsUnlocked();
+    final isBookmarked = _bookmarkedUrls.contains(item.link);
     if (!context.mounted) return;
 
     showModalBottomSheet(
@@ -294,6 +392,35 @@ class _CircularTabsState extends State<CircularTabs> {
                 ),
 
               ListTile(
+                leading: Icon(
+                  isBookmarked ? Icons.bookmark_remove_rounded : Icons.bookmark_add_rounded,
+                  color: isBookmarked ? Colors.amber : Colors.tealAccent,
+                ),
+                title: Text(
+                  isBookmarked ? 'Remove from Bookmarks' : 'Save to Bookmarks',
+                  style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
+                ),
+                onTap: () async {
+                  Navigator.of(ctx).pop();
+                  final newState = await StorageService.toggleBookmark(item.link);
+                  setState(() {
+                    if (newState) {
+                      _bookmarkedUrls.add(item.link);
+                    } else {
+                      _bookmarkedUrls.remove(item.link);
+                    }
+                  });
+                  if (context.mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text(newState ? '🔖 Saved to Bookmarks!' : 'Removed from Bookmarks'),
+                        duration: const Duration(seconds: 1),
+                      ),
+                    );
+                  }
+                },
+              ),
+              ListTile(
                 leading: const Icon(Icons.open_in_new, color: Colors.blueAccent),
                 title: const Text('Open / Download Document',
                     style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
@@ -341,8 +468,6 @@ class _CircularTabsState extends State<CircularTabs> {
   Widget _buildList(
     BuildContext context,
     List<CircularItem> items,
-    IconData icon,
-    Color iconColor,
     String emptyMessage,
   ) {
     if (items.isEmpty) {
@@ -364,7 +489,6 @@ class _CircularTabsState extends State<CircularTabs> {
 
     return ListView.separated(
       physics: const BouncingScrollPhysics(),
-      shrinkWrap: true,
       itemCount: items.length,
       separatorBuilder: (_, __) => Divider(
         height: 1,
@@ -374,6 +498,7 @@ class _CircularTabsState extends State<CircularTabs> {
         final item = items[index];
         final isUnavailable = item.isUnavailable;
         final isCached = item.cachedPath != null;
+        final isBookmarked = _bookmarkedUrls.contains(item.link);
         final aiMeta = AiCircularService.getMetadata(item.link, item.title);
 
         final cadre = aiMeta?.targetCadre ?? '';
@@ -381,25 +506,18 @@ class _CircularTabsState extends State<CircularTabs> {
         final cadreEmoji = _getCadreEmoji(cadre);
 
         return ListTile(
-          contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-          leading: Icon(
-            isUnavailable
-                ? Icons.warning_amber_rounded
-                : (aiMeta?.isVip ?? false ? Icons.stars_rounded : icon),
-            color: isUnavailable
-                ? Colors.orangeAccent
-                : (aiMeta?.isVip ?? false ? Colors.amber : iconColor),
-          ),
+          contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+          // Leading star icon removed as requested to maximize horizontal reading space
           title: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             mainAxisSize: MainAxisSize.min,
             children: [
-              // Cadre & Action Badges
-              if (aiMeta != null && cadre.isNotEmpty) ...[
-                Wrap(
-                  spacing: 6,
-                  runSpacing: 4,
-                  children: [
+              // Cadre, Action, and Withdrawn Badges
+              Wrap(
+                spacing: 6,
+                runSpacing: 4,
+                children: [
+                  if (cadre.isNotEmpty)
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
                       decoration: BoxDecoration(
@@ -419,70 +537,103 @@ class _CircularTabsState extends State<CircularTabs> {
                         ),
                       ),
                     ),
-                    if (aiMeta.actionRequired)
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
-                        decoration: BoxDecoration(
-                          color: Colors.amberAccent.withOpacity(0.18),
-                          borderRadius: BorderRadius.circular(4),
-                          border: Border.all(
-                            color: Colors.amberAccent.withOpacity(0.5),
-                            width: 0.8,
-                          ),
-                        ),
-                        child: const Text(
-                          '⚠️ Action Required',
-                          style: TextStyle(
-                            fontSize: 10,
-                            fontWeight: FontWeight.bold,
-                            color: Colors.amberAccent,
-                          ),
+                  if (aiMeta?.actionRequired == true)
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                      decoration: BoxDecoration(
+                        color: Colors.amberAccent.withOpacity(0.18),
+                        borderRadius: BorderRadius.circular(4),
+                        border: Border.all(
+                          color: Colors.amberAccent.withOpacity(0.5),
+                          width: 0.8,
                         ),
                       ),
-                  ],
-                ),
-                const SizedBox(height: 3),
-              ],
+                      child: const Text(
+                        '⚠️ Action Required',
+                        style: TextStyle(
+                          fontSize: 10,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.amberAccent,
+                        ),
+                      ),
+                    ),
+                  if (isUnavailable)
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                      decoration: BoxDecoration(
+                        color: Colors.orangeAccent.withOpacity(0.18),
+                        borderRadius: BorderRadius.circular(4),
+                        border: Border.all(
+                          color: Colors.orangeAccent.withOpacity(0.5),
+                          width: 0.8,
+                        ),
+                      ),
+                      child: const Text(
+                        '⚠️ Withdrawn',
+                        style: TextStyle(
+                          fontSize: 10,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.orangeAccent,
+                        ),
+                      ),
+                    ),
+                ],
+              ),
+              const SizedBox(height: 3),
 
-              // Circular Title
+              // Notice Title (Full width without leading icon)
               Text(
                 item.title.isNotEmpty ? item.title : 'Untitled Circular',
                 maxLines: 3,
                 overflow: TextOverflow.ellipsis,
                 style: TextStyle(
-                  fontSize: 13,
-                  fontWeight: FontWeight.w500,
+                  fontSize: 13.5,
+                  fontWeight: FontWeight.w600,
+                  height: 1.25,
                   color: isUnavailable ? Theme.of(context).disabledColor : null,
                   decoration: isUnavailable ? TextDecoration.lineThrough : null,
                 ),
               ),
 
-              // AI Semantic Summary Pill
+              // Idea A: Executive In-Brief Highlight Card
               if (aiMeta != null && aiMeta.summaryEn.isNotEmpty) ...[
                 const SizedBox(height: 5),
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                   decoration: BoxDecoration(
-                    color: Theme.of(context).colorScheme.surfaceVariant.withOpacity(0.4),
-                    borderRadius: BorderRadius.circular(6),
+                    color: Theme.of(context).colorScheme.primaryContainer.withOpacity(0.25),
+                    borderRadius: BorderRadius.circular(8),
                     border: Border.all(
-                      color: Theme.of(context).colorScheme.outline.withOpacity(0.15),
-                      width: 0.8,
+                      color: Theme.of(context).colorScheme.primary.withOpacity(0.25),
+                      width: 0.9,
                     ),
                   ),
-                  child: Row(
+                  child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Text('🤖 ', style: TextStyle(fontSize: 11)),
-                      Expanded(
-                        child: Text(
-                          aiMeta.summaryEn,
-                          style: TextStyle(
-                            fontSize: 11,
-                            fontStyle: FontStyle.italic,
-                            color: Theme.of(context).colorScheme.onSurfaceVariant,
-                            height: 1.25,
+                      Row(
+                        children: [
+                          Icon(Icons.auto_awesome_rounded, size: 12, color: Colors.amber.shade400),
+                          const SizedBox(width: 5),
+                          Text(
+                            'IN BRIEF',
+                            style: TextStyle(
+                              fontSize: 10,
+                              fontWeight: FontWeight.w800,
+                              letterSpacing: 0.5,
+                              color: Theme.of(context).colorScheme.primary,
+                            ),
                           ),
+                        ],
+                      ),
+                      const SizedBox(height: 3),
+                      Text(
+                        aiMeta.summaryEn,
+                        style: TextStyle(
+                          fontSize: 11.5,
+                          fontStyle: FontStyle.italic,
+                          color: Theme.of(context).colorScheme.onSurface,
+                          height: 1.3,
                         ),
                       ),
                     ],
@@ -506,7 +657,7 @@ class _CircularTabsState extends State<CircularTabs> {
                 Expanded(
                   child: Text(
                     isUnavailable
-                        ? '• ⚠️ Withdrawn on Portal'
+                        ? '• Withdrawn on Portal'
                         : (isCached ? '• 💾 Offline Ready' : '• Tap to view / download'),
                     style: TextStyle(
                       fontSize: 11,
@@ -523,20 +674,57 @@ class _CircularTabsState extends State<CircularTabs> {
               ],
             ),
           ),
-          trailing: IconButton(
-            icon: Icon(
-              isUnavailable
-                  ? Icons.info_outline
-                  : (isCached ? Icons.check_circle_outline : Icons.download_for_offline_outlined),
-              size: 20,
-              color: isUnavailable
-                  ? Colors.orangeAccent
-                  : (isCached ? Colors.greenAccent : null),
-            ),
-            tooltip: isUnavailable
-                ? 'Notice Withdrawn'
-                : (isCached ? 'Available Offline' : 'Download / View'),
-            onPressed: () => _handleCircularTap(context, item),
+          trailing: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // Bookmark / Favorite Button
+              IconButton(
+                icon: Icon(
+                  isBookmarked ? Icons.bookmark_rounded : Icons.bookmark_border_rounded,
+                  size: 21,
+                  color: isBookmarked ? Colors.amber : Theme.of(context).colorScheme.outline,
+                ),
+                padding: const EdgeInsets.all(4),
+                constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+                tooltip: isBookmarked ? 'Bookmarked' : 'Add to bookmarks',
+                onPressed: () async {
+                  final newState = await StorageService.toggleBookmark(item.link);
+                  setState(() {
+                    if (newState) {
+                      _bookmarkedUrls.add(item.link);
+                    } else {
+                      _bookmarkedUrls.remove(item.link);
+                    }
+                  });
+                  if (context.mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text(newState ? '🔖 Notice bookmarked!' : 'Bookmark removed'),
+                        duration: const Duration(seconds: 1),
+                      ),
+                    );
+                  }
+                },
+              ),
+              // Download / View Button
+              IconButton(
+                icon: Icon(
+                  isUnavailable
+                      ? Icons.info_outline
+                      : (isCached ? Icons.check_circle_outline : Icons.download_for_offline_outlined),
+                  size: 21,
+                  color: isUnavailable
+                      ? Colors.orangeAccent
+                      : (isCached ? Colors.greenAccent : null),
+                ),
+                padding: const EdgeInsets.all(4),
+                constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+                tooltip: isUnavailable
+                    ? 'Notice Withdrawn'
+                    : (isCached ? 'Available Offline' : 'Download / View'),
+                onPressed: () => _handleCircularTap(context, item),
+              ),
+            ],
           ),
           onTap: () => _handleCircularTap(context, item),
           onLongPress: () => _showCircularOptionsSheet(context, item, aiMeta),
@@ -547,6 +735,8 @@ class _CircularTabsState extends State<CircularTabs> {
 
   @override
   Widget build(BuildContext context) {
+    final filteredVip = _applyFilter(widget.vipCirculars);
+
     return DefaultTabController(
       length: 2,
       child: Column(
@@ -556,31 +746,39 @@ class _CircularTabsState extends State<CircularTabs> {
             indicatorColor: Theme.of(context).colorScheme.primary,
             tabs: [
               Tab(
-                icon: const Icon(Icons.star, color: Colors.amber),
-                text: 'VIP Circulars (${widget.vipCirculars.length})',
+                icon: const Icon(Icons.auto_awesome_rounded, color: Colors.amber),
+                text: 'For You (${widget.vipCirculars.length})',
               ),
               Tab(
-                icon: const Icon(Icons.article, color: Colors.lightBlueAccent),
+                icon: const Icon(Icons.article_outlined, color: Colors.lightBlueAccent),
                 text: 'Other Notices (${widget.fomoCirculars.length})',
               ),
             ],
           ),
           SizedBox(
-            height: 340,
+            height: 400,
             child: TabBarView(
               children: [
-                _buildList(
-                  context,
-                  widget.vipCirculars,
-                  Icons.star,
-                  Colors.amber,
-                  'No VIP circulars found in the last 30 days.',
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const SizedBox(height: 6),
+                    _buildFilterChips(),
+                    const SizedBox(height: 4),
+                    Expanded(
+                      child: _buildList(
+                        context,
+                        filteredVip,
+                        _selectedFilter == 'All'
+                            ? 'No circulars found for you in the last 30 days.'
+                            : 'No circulars found matching "$_selectedFilter".',
+                      ),
+                    ),
+                  ],
                 ),
                 _buildList(
                   context,
                   widget.fomoCirculars,
-                  Icons.article,
-                  Colors.lightBlueAccent,
                   'No other circulars found in the last 30 days.',
                 ),
               ],
