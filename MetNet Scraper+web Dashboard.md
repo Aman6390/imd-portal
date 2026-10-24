@@ -227,6 +227,20 @@ Every circular is mapped to the exact organizational structure of the India Mete
    * ⚠️ **Expiring C-Off Urgency:** Detects Compensatory Offs nearing their 6-month statutory expiry (e.g. `C-Off Lapsing in 5 Days: 1 compensatory off earned on 12-05-2026`).
    * 📅 **Monthly Planning Reminder:** Delivers a gentle reminder during the first 3 days of every month to check remaining quotas and upcoming duty rosters.
 
+### G. Authentic MetNet App Icon & Multi-Density Adaptive Launcher Suite (v1.4.21)
+[Why: Replaces the generic Android system fallback with the authentic MetNet portal brand emblem, giving employees an immediately recognizable, premium icon that adapts cleanly to any OEM Android launcher.]
+
+1. **Brand Motif & Typography:**
+   * Features the authentic MetNet intranet emblem with deep navy typography (`#21324B`) and dynamic orange atmospheric curves (`#E47C36`) centered on a crisp, clean background.
+2. **Safe-Zone Adaptive Architecture (`mipmap-anydpi-v26`):**
+   * Configured `ic_launcher.xml` and `ic_launcher_round.xml` with `<adaptive-icon>` backing.
+   * Restricts foreground elements to the standard 66% viewport safe-zone (inner 72dp of the 108dp canvas), guaranteeing that zero letters or curves are clipped when launchers apply circular, squircle, or rounded-rect masks (Pixel, Samsung OneUI, Xiaomi HyperOS, OnePlus OxygenOS).
+3. **Full Multi-Density Asset Generation:**
+   * Generated matching high-definition bitmaps across all five Android density brackets (`mdpi`, `hdpi`, `xhdpi`, `xxhdpi`, `xxxhdpi`).
+   * Bundled 512×512 master branding graphic in `android/app/src/main/res/drawable/app_icon.png` and `assets/icon/app_icon.png`.
+4. **In-App Branding Banner:**
+   * Embedded the official logo directly in the Settings dialog **About** tab with live version indicator.
+
 ## 4. UI / UX Features & Keyword Customization
 
 1. **Interactive Live Weather Card (`weather_card.dart`):** [Why: Greets employees with instant station weather, feels-like metric, humidity, wind, and precipitation probability at the very top of the dashboard]. Includes one-tap station switcher, automatic location detection, a 24-hour horizontal hourly carousel, and a 7-day weather outlook bottom sheet.
@@ -239,6 +253,7 @@ Every circular is mapped to the exact organizational structure of the India Mete
 8. **Sync Controls:** [Why: Gives users immediate visual feedback with animated spinners and SnackBars while data is refreshing from MetNet].
 9. **Settings Panel (4 Tabs):** [Why: Organizes credentials, VIP filters, junk terms, and app updates into logical tabs for effortless navigation].
 10. **Interactive In-Place Expandable Plain-Words Summary:** [Why: Employees want quick clarity on dense government orders without leaving their list position or downloading heavy PDFs]. Dual-tap navigation allows 1 tap on the notice card to open the PDF directly, while 1 tap on the summary box right below smoothly unfolds an in-place plain-words breakdown (`AnimatedSize`) explaining the order in everyday English, detailing action items, decoding confusing jargon, and offering an in-card PDF button.
+11. **Authentic MetNet App Icon & In-App Brand Banner (`settings_dialog.dart`):** [Why: Replaces Android placeholder with the official MetNet emblem across home screens and inside Settings with real-time version status].
 
 ---
 
@@ -347,8 +362,12 @@ E:\imd portal\
 │   │       │   └── MainActivity.kt           # Native FileProvider, PdfRenderer & installer bridge [Why: Executes native Android tasks]
 │   │       └── res\
 │   │           ├── drawable\
+│   │           │   ├── app_icon.png              # 512x512 Master application brand icon [Why: In-app brand header & fallback]
 │   │           │   └── ic_stat_notification.xml # Dedicated vector notification icon [Why: Conforms to Android status bar specs]
+│   │           ├── mipmap-*/                     # Multi-density raster launcher icons (mdpi to xxxhdpi) [Why: Crisp display on all screens]
+│   │           ├── mipmap-anydpi-v26/            # Adaptive icon XMLs (ic_launcher & ic_launcher_round) [Why: Android 8.0+ custom launcher shapes]
 │   │           ├── values\
+│   │           │   ├── colors.xml                # Launcher icon background color definition [Why: Adaptive icon background styling]
 │   │           │   ├── strings.xml           # Centralized string labels [Why: Application string resources]
 │   │           │   └── styles.xml            # LaunchTheme and NormalTheme styles [Why: Native splash screen transition]
 │   │           └── xml\
@@ -356,6 +375,10 @@ E:\imd portal\
 │   ├── build.gradle                          # Root Gradle configuration [Why: Builds Android project dependencies]
 │   ├── gradle.properties                     # AndroidX & Jetifier flags [Why: AndroidX compatibility]
 │   └── settings.gradle                       # Gradle project settings [Why: Multi-module Gradle routing]
+├── assets\
+│   └── icon\
+│       ├── app_icon.png                      # Bundled Flutter 512x512 master branding icon [Why: Settings dialog brand header]
+│       └── metnet_logo_source.jpeg           # Master source MetNet emblem reference [Why: Visual identity preservation]
 ├── lib\
 │   ├── main.dart                             # App entry, Material 3 theme manager [Why: Initializes services & boots UI]
 │   ├── models\
@@ -364,9 +387,9 @@ E:\imd portal\
 │   ├── services\
 │   │   ├── ai_circular_service.dart          # Multi-tier AI semantic indexer, on-device synthesizer & plain-words engine [Why: Decodes circulars & jargon]
 │   │   ├── auth_service.dart                 # Local biometrics & PIN authentication service [Why: Manages device lock security]
-│   │   ├── background_sync_service.dart      # WorkManager 18:00 worker & AI push notification digest [Why: Manages daily background automation]
+│   │   ├── background_sync_service.dart      # WorkManager 90-min office-hours periodic sync & notification dispatcher [Why: Gentle 1.5h sync]
 │   │   ├── circular_service.dart             # Pre-flight verified PDF downloader, sibling fallback & cache [Why: Fixes 404 & loads PDFs]
-│   │   ├── notification_service.dart         # Android notification channels & dispatcher [Why: Posts system push notifications]
+│   │   ├── notification_service.dart         # Android notification channels, battery optimization bridge & dispatcher [Why: Posts push notifications]
 │   │   ├── ocr_service.dart                  # On-Device Google ML Kit Devanagari OCR service [Why: Scans ambiguous Hindi orders]
 │   │   ├── rsa_crypto.dart                   # RSA PKCS1_v1_5 dynamic password encrypter [Why: Bypasses MetNet login encryption]
 │   │   ├── scraper_engine.dart               # AI-augmented VIP & junk filtering, session scraper & retries [Why: Scrapes portal data & circulars]
@@ -380,13 +403,15 @@ E:\imd portal\
 │           ├── circular_tabs.dart            # "For You" & "Other Notices" with cadre chips, bookmarks & expandable plain-words summaries [Why: Displays circulars]
 │           ├── leave_card.dart               # Horizontal color-coded leave cards [Why: Displays CL, RH, C-Off balances]
 │           ├── notice_resolver_webview.dart  # In-App MetNet Notice Resolver WebView [Why: Dismisses portal blocking popups]
-│           ├── settings_dialog.dart          # 4-Tab settings: Account, VIP, Junk, About & Updates [Why: User configuration modal]
+│           ├── settings_dialog.dart          # 4-Tab settings with MetNet branding banner & battery whitelist button [Why: User configuration modal]
 │           └── weather_card.dart             # Expandable high-density station weather card [Why: Real-time meteorological station situational awareness]
 ├── scripts\
-│   └── ai_circular_indexer.py                # Serverless Python circular scraper & Gemini 1.5 Flash Vision indexer [Why: Automated cloud indexing]
+│   ├── ai_circular_indexer.py                # Serverless Python circular scraper & Gemini 1.5 Flash Vision indexer [Why: Automated cloud indexing]
+│   └── generate_app_icons.py                 # Automated Pillow-based multi-density Android app icon generator [Why: Generates all mipmaps]
 ├── .gitignore                                # Build & artifact ignore rules [Why: Prevents binary files in git]
 ├── analysis_options.yaml                     # Dart analyzer configuration [Why: Enforces Dart code quality standards]
-├── pubspec.yaml                              # Flutter dependencies & metadata (v1.4.19+36) [Why: Defines app version & third-party packages]
+├── pubspec.yaml                              # Flutter dependencies & metadata (v1.4.21+38) [Why: Defines app version & third-party packages]
+├── IMD_Portal_v1.4.21_Final.apk              # Final Production Standalone Android Release Package [Why: Ready for direct phone installation]
 └── MetNet Scraper+web Dashboard.md           # Master Project Blueprint & Documentation [Why: Single source of truth for the project]
 ```
 
