@@ -105,8 +105,11 @@ void callbackDispatcher() {
           // 3. Check for expiring C-Offs in freshData.alerts
           if (freshData.alerts.isNotEmpty) {
             final urgentAlert = freshData.alerts.first;
+            final String alertMsg = urgentAlert.daysLeft <= 0
+                ? 'A C-Off credited on ${urgentAlert.creditDate} has expired today!'
+                : 'C-Off credited on ${urgentAlert.creditDate} lapses in ${urgentAlert.daysLeft} day(s)!';
             await NotificationService.showLapsingAlertNotification(
-              message: urgentAlert.message,
+              message: alertMsg,
               id: 104,
             );
           }
