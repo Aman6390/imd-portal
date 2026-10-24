@@ -412,7 +412,7 @@ E:\imd portal\
 ├── analysis_options.yaml                     # Dart analyzer configuration [Why: Enforces Dart code quality standards]
 ├── pubspec.yaml                              # Flutter dependencies & metadata (v1.4.21+38) [Why: Defines app version & third-party packages]
 ├── IMD_Portal_v1.4.21_Final.apk              # Final Production Standalone Android Release Package [Why: Ready for direct phone installation]
-└── MetNet Scraper+web Dashboard.md           # Master Project Blueprint & Documentation [Why: Single source of truth for the project]
+└── Master Project Blue print.md             # Master Project Blueprint & Documentation [Why: Single source of truth for the project]
 ```
 
 ---
