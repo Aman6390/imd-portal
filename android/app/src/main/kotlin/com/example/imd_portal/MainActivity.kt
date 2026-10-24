@@ -23,6 +23,7 @@ class MainActivity: FlutterFragmentActivity() {
     private val PDF_CHANNEL = "com.imd.portal/pdf_renderer"
     private val INSTALL_CHANNEL = "com.imd.portal/installer"
     private val LOCATION_CHANNEL = "com.imd.portal/location"
+    private val BATTERY_CHANNEL = "com.imd.portal/battery"
     private val INSTALL_REQUEST_CODE = 8899
 
     private var pendingApkPath: String? = null
@@ -221,6 +222,47 @@ class MainActivity: FlutterFragmentActivity() {
                 result.success(true)
             } else {
                 result.notImplemented()
+            }
+        }
+
+        // Native Battery Optimization Channel
+        MethodChannel(flutterEngine.dartExecutor.binaryMessenger, BATTERY_CHANNEL).setMethodCallHandler { call, result ->
+            when (call.method) {
+                "isIgnoringBatteryOptimizations" -> {
+                    try {
+                        val powerManager = getSystemService(Context.POWER_SERVICE) as? android.os.PowerManager
+                        val isIgnoring = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                            powerManager?.isIgnoringBatteryOptimizations(packageName) ?: true
+                        } else {
+                            true
+                        }
+                        result.success(isIgnoring)
+                    } catch (e: Exception) {
+                        result.success(true)
+                    }
+                }
+                "requestIgnoreBatteryOptimizations" -> {
+                    try {
+                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                            val intent = Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS).apply {
+                                data = Uri.parse("package:$packageName")
+                            }
+                            startActivity(intent)
+                            result.success(true)
+                        } else {
+                            result.success(true)
+                        }
+                    } catch (e: Exception) {
+                        try {
+                            val intent = Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS)
+                            startActivity(intent)
+                            result.success(true)
+                        } catch (_: Exception) {
+                            result.success(false)
+                        }
+                    }
+                }
+                else -> result.notImplemented()
             }
         }
     }

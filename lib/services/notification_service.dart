@@ -1,3 +1,4 @@
+import 'package:flutter/services.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'update_service.dart';
 
@@ -139,5 +140,69 @@ class NotificationService {
       body: 'Download complete! Tap here to install the update now.',
       payload: 'install_apk:$filePath',
     );
+  }
+
+  /// Notification when an action required / deadline circular is published
+  static Future<void> showDeadlineNotification({
+    required String title,
+    required String body,
+    int id = 105,
+  }) async {
+    await showNotification(
+      id: id,
+      title: '⏳ $title',
+      body: body,
+    );
+  }
+
+  /// Notification when leave balance changes on MetNet
+  static Future<void> showLeaveBalanceNotification({
+    required String cl,
+    required String rh,
+    required String coff,
+    int id = 103,
+  }) async {
+    await showNotification(
+      id: id,
+      title: '🌤️ Leave Balance Updated',
+      body: 'Your balance on MetNet: CL: $cl | RH: $rh | C-Off: $coff',
+    );
+  }
+
+  /// Notification when C-Off is near lapsing
+  static Future<void> showLapsingAlertNotification({
+    required String message,
+    int id = 104,
+  }) async {
+    await showNotification(
+      id: id,
+      title: '⚠️ C-Off Expiring Soon',
+      body: message,
+    );
+  }
+}
+
+/// Manages native Android battery optimization exemptions for reliable background notifications.
+class BatteryOptimizationService {
+  static const MethodChannel _batteryChannel = MethodChannel('com.imd.portal/battery');
+
+  /// Checks if battery optimizations are already ignored (Unrestricted)
+  static Future<bool> isIgnoringBatteryOptimizations() async {
+    try {
+      final res = await _batteryChannel.invokeMethod<bool>('isIgnoringBatteryOptimizations');
+      return res ?? false;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  /// Requests 1-tap system dialog to ignore battery optimizations
+  static Future<bool> requestIgnoreBatteryOptimizations() async {
+    try {
+      final res = await _batteryChannel.invokeMethod<bool>('requestIgnoreBatteryOptimizations');
+      return res ?? false;
+    } catch (_) {
+      return false;
+    }
   }
 }

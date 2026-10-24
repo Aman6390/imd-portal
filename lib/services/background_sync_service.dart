@@ -10,6 +10,7 @@ import 'scraper_engine.dart';
 import 'storage_service.dart';
 import 'update_service.dart';
 
+const String imdPeriodicSyncTask = 'com.imd.portal.periodicSyncTask';
 const String imdDailySyncTask = 'com.imd.portal.dailySyncTask';
 
 /// Top-level callback dispatcher required by WorkManager.
@@ -19,7 +20,16 @@ void callbackDispatcher() {
     WidgetsFlutterBinding.ensureInitialized();
 
     try {
-      if (taskName == imdDailySyncTask) {
+      if (taskName == imdPeriodicSyncTask || taskName == imdDailySyncTask) {
+        final now = DateTime.now();
+
+        // Safe Working-Hours Guard (9:00 AM to 7:30 PM, Monday - Saturday):
+        // MetNet never issues circulars late at night or on Sundays.
+        // Immediately exit in 2ms to conserve 100% battery and avoid unnatural pings!
+        if (now.weekday == DateTime.sunday || now.hour < 9 || now.hour >= 20) {
+          return Future.value(true);
+        }
+
         final (username, password) = await StorageService.loadCredentials();
         if (username.isEmpty || password.isEmpty) {
           return Future.value(true);
@@ -35,67 +45,73 @@ void callbackDispatcher() {
         );
 
         if (success && freshData != null) {
-          // Check for differences in leave balances or circulars
-          bool hasChanges = false;
+          // 1. Check for new VIP circulars
+          final prevVipTitles = previousData?.vipCirculars.map((c) => c.title).toSet() ?? {};
+          final newVipList = freshData.vipCirculars
+              .where((c) => !prevVipTitles.contains(c.title))
+              .toList();
 
-          if (previousData == null) {
-            hasChanges = true;
-          } else {
-            // Check leave balance changes
-            if (previousData.clBalance != freshData.clBalance ||
-                previousData.rhBalance != freshData.rhBalance ||
-                previousData.coffBalance != freshData.coffBalance) {
-              hasChanges = true;
-            }
+          if (newVipList.isNotEmpty) {
+            final firstItem = newVipList.first;
+            final aiMeta = AiCircularService.getMetadata(firstItem.link, firstItem.title);
+            final briefSummary = (aiMeta != null && aiMeta.summaryEn.isNotEmpty)
+                ? aiMeta.summaryEn
+                : firstItem.title;
+            final cadre = (aiMeta != null && aiMeta.targetCadre.isNotEmpty && aiMeta.targetCadre != 'General / All')
+                ? aiMeta.targetCadre
+                : 'For You';
+            final count = newVipList.length;
 
-            // Check for new VIP circulars
-            final prevVipTitles = previousData.vipCirculars.map((c) => c.title).toSet();
-            final newVipList = freshData.vipCirculars
-                .where((c) => !prevVipTitles.contains(c.title))
-                .toList();
-            if (newVipList.isNotEmpty) {
-              hasChanges = true;
+            await NotificationService.showNotification(
+              id: 101,
+              title: count == 1
+                  ? '🤖 New Notice: $cadre'
+                  : '🤖 $count New Notices For You',
+              body: count == 1
+                  ? briefSummary
+                  : '$briefSummary (+${count - 1} more)',
+            );
+
+            // Check if any circular has an active deadline / action required
+            for (final item in newVipList) {
+              final itemMeta = AiCircularService.getMetadata(item.link, item.title);
+              if (itemMeta != null && itemMeta.actionRequired) {
+                await NotificationService.showDeadlineNotification(
+                  title: 'Action Required: ${item.title}',
+                  body: 'Official representation / objection window active. Tap to view notice.',
+                  id: 105,
+                );
+                break;
+              }
             }
           }
 
-          // Trigger local notification with smart AI summary digest
-          if (hasChanges) {
-            final prevVipTitles = previousData?.vipCirculars.map((c) => c.title).toSet() ?? {};
-            final newVipList = freshData.vipCirculars
-                .where((c) => !prevVipTitles.contains(c.title))
-                .toList();
+          // 2. Check for leave balance updates
+          if (previousData != null) {
+            final bool clChanged = previousData.clBalance != freshData.clBalance;
+            final bool rhChanged = previousData.rhBalance != freshData.rhBalance;
+            final bool coffChanged = previousData.coffBalance != freshData.coffBalance;
 
-            if (newVipList.isNotEmpty) {
-              final firstItem = newVipList.first;
-              final aiMeta = AiCircularService.getMetadata(firstItem.link, firstItem.title);
-              final briefSummary = (aiMeta != null && aiMeta.summaryEn.isNotEmpty)
-                  ? aiMeta.summaryEn
-                  : firstItem.title;
-              final cadre = (aiMeta != null && aiMeta.targetCadre.isNotEmpty && aiMeta.targetCadre != 'General / All')
-                  ? aiMeta.targetCadre
-                  : 'For You';
-              final count = newVipList.length;
-
-              await NotificationService.showNotification(
-                id: 101,
-                title: count == 1
-                    ? '🤖 New Notice: $cadre'
-                    : '🤖 $count New Notices For You',
-                body: count == 1
-                    ? briefSummary
-                    : '$briefSummary (+${count - 1} more)',
-              );
-            } else {
-              await NotificationService.showNotification(
-                id: 101,
-                title: 'Meteorological Portal: Data Updated',
-                body: 'Leave balances and notices have been refreshed from MetNet.',
+            if (clChanged || rhChanged || coffChanged) {
+              await NotificationService.showLeaveBalanceNotification(
+                cl: freshData.clBalance,
+                rh: freshData.rhBalance,
+                coff: freshData.coffBalance,
+                id: 103,
               );
             }
           }
 
-          // Check for Start-of-the-Month Reminder (Day 1, 2, or 3 of any month)
-          final now = DateTime.now();
+          // 3. Check for expiring C-Offs in freshData.alerts
+          if (freshData.alerts.isNotEmpty) {
+            final urgentAlert = freshData.alerts.first;
+            await NotificationService.showLapsingAlertNotification(
+              message: urgentAlert.message,
+              id: 104,
+            );
+          }
+
+          // 4. Start-of-the-Month Reminder (Day 1, 2, or 3 of any month)
           if (now.day <= 3) {
             final rhCount = int.tryParse(freshData.rhBalance) ?? 0;
             final coffCount = int.tryParse(freshData.coffBalance) ?? 0;
@@ -108,7 +124,7 @@ void callbackDispatcher() {
             }
           }
 
-          // Save new data to storage
+          // Save fresh data to local storage
           await StorageService.saveDashboardData(freshData);
         }
 
@@ -130,37 +146,27 @@ void callbackDispatcher() {
 }
 
 class BackgroundSyncService {
-  /// Initializes Workmanager and registers the daily 18:00 sync task
+  /// Initializes Workmanager and registers the periodic background sync
   static Future<void> initialize() async {
     await Workmanager().initialize(
       callbackDispatcher,
       isInDebugMode: false,
     );
 
-    await scheduleDailySyncAt18();
+    await schedulePeriodicSync();
   }
 
-  /// Calculates initial delay to 18:00 (6:00 PM) and schedules a 24-hour periodic work
-  static Future<void> scheduleDailySyncAt18() async {
-    final now = DateTime.now();
-    DateTime target = DateTime(now.year, now.month, now.day, 18, 0, 0);
-
-    // If 18:00 has already passed today, target 18:00 tomorrow
-    if (now.isAfter(target)) {
-      target = target.add(const Duration(days: 1));
-    }
-
-    final initialDelay = target.difference(now);
-
+  /// Schedules gentle periodic background sync every 90 minutes (1.5 hours) with ExistingWorkPolicy.keep
+  /// so opening the app never delays or pushes back the background notification timer!
+  static Future<void> schedulePeriodicSync() async {
     await Workmanager().registerPeriodicTask(
-      imdDailySyncTask,
-      imdDailySyncTask,
-      frequency: const Duration(hours: 24),
-      initialDelay: initialDelay,
+      imdPeriodicSyncTask,
+      imdPeriodicSyncTask,
+      frequency: const Duration(minutes: 90),
       constraints: Constraints(
         networkType: NetworkType.connected,
       ),
-      existingWorkPolicy: ExistingWorkPolicy.replace,
+      existingWorkPolicy: ExistingWorkPolicy.keep,
     );
   }
 }

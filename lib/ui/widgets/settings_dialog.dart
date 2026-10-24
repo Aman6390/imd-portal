@@ -7,6 +7,7 @@ import '../../services/ai_circular_service.dart';
 import '../../services/circular_service.dart';
 import '../../services/storage_service.dart';
 import '../../services/update_service.dart';
+import '../../services/notification_service.dart';
 
 class SettingsDialog extends StatefulWidget {
   final VoidCallback onSaved;
@@ -38,6 +39,7 @@ class _SettingsDialogState extends State<SettingsDialog> {
   bool _isCheckingUpdate = false;
   bool _isDiagnosticsUnlocked = false;
   bool _enableAiSummaries = true;
+  bool _isBatteryUnrestricted = false;
 
   @override
   void initState() {
@@ -60,6 +62,7 @@ class _SettingsDialogState extends State<SettingsDialog> {
     final junk = await StorageService.loadJunkKeywords();
     final diagUnlocked = await StorageService.isDiagnosticsUnlocked();
     final aiEnabled = await AiCircularService.isAiEnabled();
+    final isUnrestricted = await BatteryOptimizationService.isIgnoringBatteryOptimizations();
 
     if (mounted) {
       setState(() {
@@ -69,6 +72,7 @@ class _SettingsDialogState extends State<SettingsDialog> {
         _junkKeywords = List<String>.from(junk);
         _isDiagnosticsUnlocked = diagUnlocked;
         _enableAiSummaries = aiEnabled;
+        _isBatteryUnrestricted = isUnrestricted;
         _isLoading = false;
       });
     }
@@ -633,6 +637,82 @@ class _SettingsDialogState extends State<SettingsDialog> {
                     const Text(
                       'Shows instant 1-sentence AI summaries and cadre tags on circulars.',
                       style: TextStyle(fontSize: 11, color: Colors.grey),
+                    ),
+                    const Divider(height: 24),
+
+                    // Closed-App Background Notifications & Battery Card
+                    Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: Theme.of(context).colorScheme.surfaceVariant.withOpacity(0.35),
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(
+                          color: Theme.of(context).colorScheme.outline.withOpacity(0.2),
+                        ),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Row(
+                                children: [
+                                  Icon(
+                                    _isBatteryUnrestricted ? Icons.bolt_rounded : Icons.battery_saver_rounded,
+                                    size: 20,
+                                    color: _isBatteryUnrestricted ? Colors.green : Colors.orangeAccent,
+                                  ),
+                                  const SizedBox(width: 8),
+                                  const Text(
+                                    'Closed-App Notifications',
+                                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                                  ),
+                                ],
+                              ),
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                                decoration: BoxDecoration(
+                                  color: (_isBatteryUnrestricted ? Colors.green : Colors.orange).withOpacity(0.12),
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
+                                child: Text(
+                                  _isBatteryUnrestricted ? 'Active' : 'Optimized',
+                                  style: TextStyle(
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.bold,
+                                    color: _isBatteryUnrestricted ? Colors.green : Colors.orange.shade800,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 6),
+                          Text(
+                            _isBatteryUnrestricted
+                                ? 'Background sync is unrestricted. Your phone will check every 1.5 hrs during office hours and alert you when closed.'
+                                : 'Android may delay notifications when closed. Tap below to allow 1-tap background execution.',
+                            style: const TextStyle(fontSize: 11, color: Colors.grey, height: 1.3),
+                          ),
+                          if (!_isBatteryUnrestricted) ...[
+                            const SizedBox(height: 10),
+                            SizedBox(
+                              width: double.infinity,
+                              child: FilledButton.tonalIcon(
+                                icon: const Icon(Icons.flash_on_rounded, size: 16),
+                                label: const Text('Enable Closed-App Alerts (1-Tap)', style: TextStyle(fontSize: 12)),
+                                onPressed: () async {
+                                  await BatteryOptimizationService.requestIgnoreBatteryOptimizations();
+                                  final isUnrestricted = await BatteryOptimizationService.isIgnoringBatteryOptimizations();
+                                  if (mounted) {
+                                    setState(() => _isBatteryUnrestricted = isUnrestricted);
+                                  }
+                                },
+                              ),
+                            ),
+                          ],
+                        ],
+                      ),
                     ),
                     const Divider(height: 24),
 
