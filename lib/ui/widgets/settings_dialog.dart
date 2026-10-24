@@ -823,6 +823,31 @@ class _SettingsDialogState extends State<SettingsDialog> {
                     ),
 
                     const Divider(height: 24),
+                    // App Brand Header with Logo
+                    Row(
+                      children: [
+                        ClipRRect(
+                          borderRadius: BorderRadius.circular(10),
+                          child: Image.asset(
+                            'assets/icon/app_icon.png',
+                            width: 44,
+                            height: 44,
+                            fit: BoxFit.cover,
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const Text('Meteorological Portal', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
+                              Text('Version ${UpdateService.currentVersion}', style: const TextStyle(fontSize: 12, color: Colors.grey)),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 14),
                     // App Info
                     const Text('About Meteorological Portal', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
                     const SizedBox(height: 6),
