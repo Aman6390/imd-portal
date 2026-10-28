@@ -27,7 +27,7 @@ jobs:
       - name: Install Python Dependencies
         run: |
           pip install --upgrade pip
-          pip install requests beautifulsoup4 pycryptodome
+          pip install -r requirements.txt
 
       - name: Run MetNet AI Semantic Indexer
         env:

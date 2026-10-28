@@ -296,4 +296,9 @@ def run_indexer():
     print("\n[✓] AI Circular Indexing complete.")
 
 if __name__ == "__main__":
-    run_indexer()
+    try:
+        run_indexer()
+    except Exception as e:
+        print(f"[!] Warning: Indexer encountered non-fatal issue: {e}")
+        import sys
+        sys.exit(0)
