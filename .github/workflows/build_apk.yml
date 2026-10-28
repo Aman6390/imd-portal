@@ -50,4 +50,7 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          gh release create v1.4.22 build/app/outputs/flutter-apk/app-release.apk --title "IMD Portal v1.4.22" --notes "Production release v1.4.22" || gh release upload v1.4.22 build/app/outputs/flutter-apk/app-release.apk --clobber
+          VERSION=$(grep '^version:' pubspec.yaml | cut -d ' ' -f 2 | cut -d '+' -f 1)
+          TAG="v$VERSION"
+          echo "Publishing release for $TAG"
+          gh release create "$TAG" build/app/outputs/flutter-apk/app-release.apk --title "IMD Portal $TAG" --notes "Production release $TAG" || gh release upload "$TAG" build/app/outputs/flutter-apk/app-release.apk --clobber

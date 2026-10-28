@@ -8,6 +8,7 @@ import '../../services/circular_service.dart';
 import '../../services/storage_service.dart';
 import '../../services/update_service.dart';
 import '../../services/notification_service.dart';
+import '../system_health_screen.dart';
 
 class SettingsDialog extends StatefulWidget {
   final VoidCallback onSaved;
@@ -866,6 +867,62 @@ class _SettingsDialogState extends State<SettingsDialog> {
                       style: const TextStyle(fontSize: 12, color: Colors.grey, height: 1.4),
                     ),
 
+                    const SizedBox(height: 16),
+                    // System Health & Diagnostics Monitor Card
+                    InkWell(
+                      onTap: () {
+                        Navigator.of(context).push(
+                          MaterialPageRoute(builder: (_) => const SystemHealthScreen()),
+                        );
+                      },
+                      borderRadius: BorderRadius.circular(12),
+                      child: Container(
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          gradient: LinearGradient(
+                            colors: [
+                              Colors.blueAccent.withOpacity(0.12),
+                              Colors.green.withOpacity(0.08),
+                            ],
+                            begin: Alignment.topLeft,
+                            end: Alignment.bottomRight,
+                          ),
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(color: Colors.blueAccent.withOpacity(0.3)),
+                        ),
+                        child: Row(
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.all(8),
+                              decoration: BoxDecoration(
+                                color: Colors.blueAccent.withOpacity(0.2),
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              child: const Icon(Icons.monitor_heart_rounded, color: Colors.blueAccent, size: 24),
+                            ),
+                            const SizedBox(width: 12),
+                            const Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    'System Health & Subsystems',
+                                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                                  ),
+                                  SizedBox(height: 2),
+                                  Text(
+                                    'Live Green/Red status of all 10 app modules',
+                                    style: TextStyle(fontSize: 11, color: Colors.grey),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            const Icon(Icons.arrow_forward_ios_rounded, size: 14, color: Colors.grey),
+                          ],
+                        ),
+                      ),
+                    ),
+
                     // Diagnostic Tools Section (Protected by Key 6390)
                     if (_isDiagnosticsUnlocked) ...[
                       const Divider(height: 24),
@@ -913,6 +970,20 @@ class _SettingsDialogState extends State<SettingsDialog> {
                               ],
                             ),
                             const SizedBox(height: 4),
+                            ListTile(
+                              dense: true,
+                              contentPadding: EdgeInsets.zero,
+                              leading: const Icon(Icons.monitor_heart_rounded, color: Color(0xFF10B981)),
+                              title: const Text('Live Subsystem Health Monitor', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
+                              subtitle: const Text('Real-time Green/Red diagnostic pulse across all 10 modules', style: TextStyle(fontSize: 11)),
+                              trailing: const Icon(Icons.chevron_right, size: 18),
+                              onTap: () {
+                                Navigator.of(context).push(
+                                  MaterialPageRoute(builder: (_) => const SystemHealthScreen()),
+                                );
+                              },
+                            ),
+                            const Divider(height: 1),
                             ListTile(
                               dense: true,
                               contentPadding: EdgeInsets.zero,

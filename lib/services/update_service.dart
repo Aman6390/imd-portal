@@ -44,7 +44,7 @@ class UpdateDownloadProgress {
 /// and manage background APK downloading without interrupting user experience.
 class UpdateService {
   /// Current app version
-  static const String currentVersion = '1.4.22';
+  static const String currentVersion = '1.4.23';
 
   /// GitHub public releases endpoint
   static const List<String> releaseApiEndpoints = [
