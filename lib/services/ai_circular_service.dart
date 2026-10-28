@@ -9,8 +9,9 @@ import '../models/ai_circular_entry.dart';
 /// semantic summaries and cadre tags from central cloud repositories and on-device smart engine.
 class AiCircularService {
   static const List<String> _rawIndexUrls = [
+    'https://raw.githubusercontent.com/Aman6390/metnet-circulars-index/main/circulars_ai_index.json',
+    'https://raw.githubusercontent.com/Aman6390/metnet-circulars-index/main/data/circulars_ai_index.json',
     'https://raw.githubusercontent.com/Aman6390/imd-portal/main/data/circulars_ai_index.json',
-    'https://raw.githubusercontent.com/Aman6390/imd-portal/feature/ai-circular-indexer/data/circulars_ai_index.json',
   ];
   static const String _cacheKey = 'cached_circulars_ai_index';
   static const String _prefUserEnabledKey = 'pref_enable_ai_summaries';
@@ -25,6 +26,15 @@ class AiCircularService {
   static final ValueNotifier<int> onIndexUpdated = ValueNotifier<int>(0);
 
   /// Synchronous check if AI features are enabled (UI fast-path)
+  /// Checks if a circular has already been indexed in the central cloud index
+  static bool hasCloudIndexFor(String? url, String? title) {
+    final cleanUrl = url?.trim().toLowerCase() ?? '';
+    final normTitle = _normalizeTitle(title ?? '');
+    if (cleanUrl.isNotEmpty && _entriesByUrl.containsKey(cleanUrl)) return true;
+    if (normTitle.isNotEmpty && _entriesByNormalizedTitle.containsKey(normTitle)) return true;
+    return false;
+  }
+
   static bool isAiEnabledSync() {
     return _userEnabled && !_isKillSwitchActive;
   }

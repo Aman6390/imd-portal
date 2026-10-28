@@ -11,6 +11,7 @@ import 'ai_circular_service.dart';
 import 'ocr_service.dart';
 import 'rsa_crypto.dart';
 import 'storage_service.dart';
+import 'circular_report_service.dart';
 
 /// HTTP Client that automatically maintains session cookies and headers,
 /// exactly mimicking Python's `requests.Session()`.
@@ -339,6 +340,12 @@ class ScraperEngine {
 
       if (matchesVipKeyword) {
         vipCirculars.add(item);
+        CircularReportService.reportIfUnindexed(
+          title: title,
+          url: link,
+          date: uploadDate,
+          section: 'VIP',
+        );
         continue;
       }
 
@@ -367,6 +374,13 @@ class ScraperEngine {
           } catch (_) {}
 
           await StorageService.saveOcrCacheEntry(link, isVip);
+          CircularReportService.reportIfUnindexed(
+            title: title,
+            url: link,
+            date: uploadDate,
+            section: isVip ? 'VIP' : 'General',
+            extractedText: extractedText,
+          );
           ocrCache[link] = isVip;
 
           if (isVip) {

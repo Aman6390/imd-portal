@@ -44,11 +44,15 @@ class UpdateDownloadProgress {
 /// and manage background APK downloading without interrupting user experience.
 class UpdateService {
   /// Current app version
-  static const String currentVersion = '1.4.21';
+  static const String currentVersion = '1.4.22';
 
   /// GitHub public releases endpoint
+  static const List<String> releaseApiEndpoints = [
+    'https://api.github.com/repos/Aman6390/metnet-circulars-index/releases/latest',
+    'https://api.github.com/repos/Aman6390/imd-portal/releases/latest',
+  ];
   static const String latestReleaseApi =
-      'https://api.github.com/repos/Aman6390/imd-portal/releases/latest';
+      'https://api.github.com/repos/Aman6390/metnet-circulars-index/releases/latest';
 
   // Broadcast stream for background download progress
   static final StreamController<UpdateDownloadProgress> _progressController =
@@ -99,53 +103,56 @@ class UpdateService {
 
   /// Queries GitHub Releases API to see if a newer version is available
   static Future<UpdateInfo?> checkForUpdate() async {
-    try {
-      final response = await http.get(
-        Uri.parse(latestReleaseApi),
-        headers: {
-          'Accept': 'application/vnd.github.v3+json',
-          'User-Agent': 'Meteorological-Portal-App/$currentVersion',
-        },
-      ).timeout(const Duration(seconds: 8));
+    for (final endpoint in releaseApiEndpoints) {
+      try {
+        final response = await http.get(
+          Uri.parse(endpoint),
+          headers: {
+            'Accept': 'application/vnd.github.v3+json',
+            'User-Agent': 'Meteorological-Portal-App/$currentVersion',
+          },
+        ).timeout(const Duration(seconds: 8));
 
-      if (response.statusCode == 200) {
-        final data = json.decode(response.body);
-        final tagName = (data['tag_name'] as String? ?? '').trim();
-        final rawVersion = tagName.replaceAll(RegExp(r'[^0-9.]'), '');
-        final body = (data['body'] as String? ?? '').trim();
-        final htmlUrl =
-            (data['html_url'] as String? ?? 'https://github.com/Aman6390/imd-portal/releases')
-                .trim();
+        if (response.statusCode == 200) {
+          final data = json.decode(response.body);
+          final tagName = (data['tag_name'] as String? ?? '').trim();
+          final rawVersion = tagName.replaceAll(RegExp(r'[^0-9.]'), '');
+          final body = (data['body'] as String? ?? '').trim();
+          final htmlUrl = (data['html_url'] as String? ??
+                  'https://github.com/Aman6390/metnet-circulars-index/releases')
+              .trim();
 
-        // Search for direct APK asset download URL
-        String apkDownloadUrl = htmlUrl;
-        if (data['assets'] is List) {
-          for (final asset in data['assets']) {
-            final name = (asset['name'] as String? ?? '').toLowerCase();
-            if (name.endsWith('.apk')) {
-              apkDownloadUrl =
-                  (asset['browser_download_url'] as String? ?? apkDownloadUrl).trim();
-              break;
+          // Search for direct APK asset download URL
+          String apkDownloadUrl = htmlUrl;
+          if (data['assets'] is List) {
+            for (final asset in data['assets']) {
+              final name = (asset['name'] as String? ?? '').toLowerCase();
+              if (name.endsWith('.apk')) {
+                apkDownloadUrl =
+                    (asset['browser_download_url'] as String? ?? apkDownloadUrl)
+                        .trim();
+                break;
+              }
             }
           }
-        }
 
-        final isNewer = _isVersionGreater(rawVersion, currentVersion);
-        if (isNewer) {
-          NotificationService.showUpdateAvailableNotification(
-            version: rawVersion,
+          final isNewer = _isVersionGreater(rawVersion, currentVersion);
+          if (isNewer) {
+            NotificationService.showUpdateAvailableNotification(
+              version: rawVersion,
+              downloadUrl: apkDownloadUrl,
+            );
+          }
+          return UpdateInfo(
+            hasUpdate: isNewer,
+            latestVersion: tagName.isNotEmpty ? tagName : 'v$rawVersion',
             downloadUrl: apkDownloadUrl,
+            releaseNotes: body,
           );
         }
-        return UpdateInfo(
-          hasUpdate: isNewer,
-          latestVersion: tagName.isNotEmpty ? tagName : 'v$rawVersion',
-          downloadUrl: apkDownloadUrl,
-          releaseNotes: body,
-        );
+      } catch (_) {
+        // Fall back to next endpoint if network fails
       }
-    } catch (_) {
-      // Fail silently on network error
     }
     return null;
   }
