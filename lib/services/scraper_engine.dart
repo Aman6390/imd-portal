@@ -361,8 +361,9 @@ class ScraperEngine {
         } else if (uncachedOcrCount < maxUncachedOcr) {
           uncachedOcrCount++;
           bool isVip = false;
+          String extractedText = '';
           try {
-            final extractedText = await OcrService.processPdfFromUrl(link, session);
+            extractedText = await OcrService.processPdfFromUrl(link, session);
             if (extractedText.isNotEmpty) {
               for (final vip in dynamicVipKeywords) {
                 if (StorageService.matchesOcrKeyword(extractedText, vip)) {
