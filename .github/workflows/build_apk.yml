@@ -9,6 +9,8 @@ jobs:
   build:
     name: Build Flutter APK
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
 
     steps:
       - name: Checkout Repository
@@ -37,7 +39,15 @@ jobs:
 
       - name: Upload APK Artifact
         uses: actions/upload-artifact@v4
+        continue-on-error: true
         with:
           name: IMD-Portal-Release-APK
           path: build/app/outputs/flutter-apk/app-release.apk
-          retention-days: 14
+          retention-days: 7
+
+      - name: Publish GitHub Release Asset
+        if: github.ref == 'refs/heads/main'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release create v1.4.22 build/app/outputs/flutter-apk/app-release.apk --title "IMD Portal v1.4.22" --notes "Production release v1.4.22" || gh release upload v1.4.22 build/app/outputs/flutter-apk/app-release.apk --clobber
