@@ -9,6 +9,7 @@ class StorageService {
   static const String _keyDashboardData = 'imd_dashboard_data';
   static const String _keyThemeMode = 'imd_theme_mode';
   static const String _keyDiagnosticsUnlocked = 'imd_diagnostics_unlocked';
+  static const String _keyDiagnosticsExpiry = 'imd_diagnostics_expiry_ms';
   static const String _keyVipKeywords = 'imd_vip_keywords';
   static const String _keyJunkKeywords = 'imd_junk_keywords';
   static const String _keyOcrCache = 'imd_ocr_cache';
@@ -334,21 +335,66 @@ class StorageService {
     return mode != 'light'; // Default is dark theme
   }
 
-  /// Checks if developer and diagnostic troubleshooting tools are unlocked (Key 6390)
+  /// Checks if developer and diagnostic troubleshooting tools are unlocked (Key 6390).
+  /// Enforces a strict 24-hour time limit. Once 24 hours expire, master control is automatically revoked.
   static Future<bool> isDiagnosticsUnlocked() async {
     try {
       final prefs = await SharedPreferences.getInstance();
-      return prefs.getBool(_keyDiagnosticsUnlocked) ?? false;
+      final isUnlocked = prefs.getBool(_keyDiagnosticsUnlocked) ?? false;
+      if (!isUnlocked) return false;
+
+      final expiryMs = prefs.getInt(_keyDiagnosticsExpiry) ?? 0;
+      final nowMs = DateTime.now().millisecondsSinceEpoch;
+
+      if (expiryMs <= 0 || nowMs >= expiryMs) {
+        // 24 hours elapsed! Automatically revoke master status
+        await prefs.setBool(_keyDiagnosticsUnlocked, false);
+        await prefs.remove(_keyDiagnosticsExpiry);
+        return false;
+      }
+
+      return true;
     } catch (_) {
       return false;
     }
   }
 
-  /// Sets whether developer and diagnostic tools are active
+  /// Sets whether developer and diagnostic tools are active.
+  /// When [unlocked] is true, records an expiration timestamp strictly 24 hours from now.
+  /// When false, purges the expiration timestamp and revokes access immediately.
   static Future<void> setDiagnosticsUnlocked(bool unlocked) async {
     try {
       final prefs = await SharedPreferences.getInstance();
       await prefs.setBool(_keyDiagnosticsUnlocked, unlocked);
+      if (unlocked) {
+        final expiryMs = DateTime.now().millisecondsSinceEpoch +
+            const Duration(hours: 24).inMilliseconds;
+        await prefs.setInt(_keyDiagnosticsExpiry, expiryMs);
+      } else {
+        await prefs.remove(_keyDiagnosticsExpiry);
+      }
     } catch (_) {}
+  }
+
+  /// Returns the remaining Duration before the 24-hour master status expires,
+  /// or null if diagnostics are locked or expired.
+  static Future<Duration?> getDiagnosticsRemainingTime() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final isUnlocked = prefs.getBool(_keyDiagnosticsUnlocked) ?? false;
+      if (!isUnlocked) return null;
+
+      final expiryMs = prefs.getInt(_keyDiagnosticsExpiry) ?? 0;
+      final nowMs = DateTime.now().millisecondsSinceEpoch;
+      final diff = expiryMs - nowMs;
+
+      if (diff <= 0) {
+        await setDiagnosticsUnlocked(false);
+        return null;
+      }
+      return Duration(milliseconds: diff);
+    } catch (_) {
+      return null;
+    }
   }
 }

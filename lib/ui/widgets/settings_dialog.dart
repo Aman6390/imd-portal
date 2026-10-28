@@ -39,6 +39,7 @@ class _SettingsDialogState extends State<SettingsDialog> {
   bool _isLoading = true;
   bool _isCheckingUpdate = false;
   bool _isDiagnosticsUnlocked = false;
+  String _diagnosticsTimeRemainingText = '';
   bool _enableAiSummaries = true;
   bool _isBatteryUnrestricted = false;
 
@@ -62,6 +63,13 @@ class _SettingsDialogState extends State<SettingsDialog> {
     final vip = await StorageService.loadVipKeywords();
     final junk = await StorageService.loadJunkKeywords();
     final diagUnlocked = await StorageService.isDiagnosticsUnlocked();
+    String remainingText = '';
+    if (diagUnlocked) {
+      final rem = await StorageService.getDiagnosticsRemainingTime();
+      if (rem != null) {
+        remainingText = '${rem.inHours}h ${rem.inMinutes % 60}m left';
+      }
+    }
     final aiEnabled = await AiCircularService.isAiEnabled();
     final isUnrestricted = await BatteryOptimizationService.isIgnoringBatteryOptimizations();
 
@@ -72,6 +80,7 @@ class _SettingsDialogState extends State<SettingsDialog> {
         _vipKeywords = List<String>.from(vip);
         _junkKeywords = List<String>.from(junk);
         _isDiagnosticsUnlocked = diagUnlocked;
+        _diagnosticsTimeRemainingText = remainingText;
         _enableAiSummaries = aiEnabled;
         _isBatteryUnrestricted = isUnrestricted;
         _isLoading = false;
@@ -124,15 +133,18 @@ class _SettingsDialogState extends State<SettingsDialog> {
               final key = keyController.text.trim();
               if (key == '6390') {
                 await StorageService.setDiagnosticsUnlocked(true);
+                final rem = await StorageService.getDiagnosticsRemainingTime();
+                final remainingText = rem != null ? '${rem.inHours}h ${rem.inMinutes % 60}m left' : '24h left';
                 if (mounted) {
                   setState(() {
                     _isDiagnosticsUnlocked = true;
+                    _diagnosticsTimeRemainingText = remainingText;
                   });
                 }
                 Navigator.of(ctx).pop();
                 ScaffoldMessenger.of(context).showSnackBar(
                   const SnackBar(
-                    content: Text('🎉 Developer & Troubleshooting Tools Unlocked!'),
+                    content: Text('🎉 Master Access Active for 24 Hours! (Auto-revokes after 24h)'),
                     backgroundColor: Colors.green,
                   ),
                 );
@@ -939,13 +951,23 @@ class _SettingsDialogState extends State<SettingsDialog> {
                             Row(
                               mainAxisAlignment: MainAxisAlignment.spaceBetween,
                               children: [
-                                const Row(
+                                Row(
                                   children: [
-                                    Icon(Icons.build_circle_outlined, color: Colors.purpleAccent, size: 20),
-                                    SizedBox(width: 8),
-                                    Text(
-                                      'Troubleshooting Tools',
-                                      style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: Colors.purpleAccent),
+                                    const Icon(Icons.build_circle_outlined, color: Colors.purpleAccent, size: 20),
+                                    const SizedBox(width: 8),
+                                    Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        const Text(
+                                          'Troubleshooting Tools',
+                                          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: Colors.purpleAccent),
+                                        ),
+                                        if (_diagnosticsTimeRemainingText.isNotEmpty)
+                                          Text(
+                                            '⏳ Active: $_diagnosticsTimeRemainingText (Auto-revokes at 24h)',
+                                            style: const TextStyle(fontSize: 10, color: Colors.amber, fontWeight: FontWeight.bold),
+                                          ),
+                                      ],
                                     ),
                                   ],
                                 ),
@@ -956,6 +978,7 @@ class _SettingsDialogState extends State<SettingsDialog> {
                                     await StorageService.setDiagnosticsUnlocked(false);
                                     setState(() {
                                       _isDiagnosticsUnlocked = false;
+                                      _diagnosticsTimeRemainingText = '';
                                     });
                                     if (context.mounted) {
                                       ScaffoldMessenger.of(context).showSnackBar(
