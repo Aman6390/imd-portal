@@ -562,17 +562,16 @@ class _SystemHealthScreenState extends State<SystemHealthScreen> {
         break;
     }
 
-    return Container(
+    return GlassContainer(
       margin: const EdgeInsets.only(bottom: 10),
-      child: GlassContainer(
-        borderRadius: 16,
-        blur: 14,
-        padding: const EdgeInsets.all(14),
-        borderOpacity: item.status == HealthStatus.failed ? 0.5 : 0.12,
-        surfaceOpacity: item.status == HealthStatus.failed ? 0.08 : 0.05,
-        tintColor: item.status == HealthStatus.failed ? const Color(0xFFFF3B30) : null,
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+      borderRadius: 16,
+      blur: 14,
+      padding: const EdgeInsets.all(14),
+      borderOpacity: item.status == HealthStatus.failed ? 0.5 : 0.12,
+      surfaceOpacity: item.status == HealthStatus.failed ? 0.08 : 0.05,
+      tintColor: item.status == HealthStatus.failed ? const Color(0xFFFF3B30) : null,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
           children: [
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
