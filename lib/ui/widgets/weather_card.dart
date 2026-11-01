@@ -648,17 +648,17 @@ class _WeatherCardState extends State<WeatherCard> {
     Color? iconColor,
   }) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
       decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.12),
+        color: Colors.white.withOpacity(0.08),
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.white.withOpacity(0.18)),
+        border: Border.all(color: Colors.white.withOpacity(0.12)),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(icon, size: 14, color: iconColor ?? Colors.white70),
-          const SizedBox(width: 5),
+          Icon(icon, size: 15, color: iconColor ?? Colors.white70),
+          const SizedBox(width: 6),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -668,13 +668,13 @@ class _WeatherCardState extends State<WeatherCard> {
                   label,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(fontSize: 9, color: Colors.white70),
+                  style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w500, color: Colors.white70),
                 ),
                 Text(
                   value,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold, color: Colors.white),
+                  style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: Colors.white),
                 ),
               ],
             ),
@@ -686,7 +686,7 @@ class _WeatherCardState extends State<WeatherCard> {
 
   Widget _buildInlineHourlyStrip(List<HourlyForecast> hourly) {
     return SizedBox(
-      height: 84,
+      height: 88,
       child: ListView.builder(
         scrollDirection: Axis.horizontal,
         physics: const BouncingScrollPhysics(),
@@ -697,17 +697,17 @@ class _WeatherCardState extends State<WeatherCard> {
           final hourStr = isNow ? 'Now' : DateFormat('ha').format(h.time);
 
           return Container(
-            width: 56,
+            width: 60,
             margin: const EdgeInsets.only(right: 6),
             padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 4),
             decoration: BoxDecoration(
               color: isNow
-                  ? Colors.white.withOpacity(0.25)
-                  : Colors.black.withOpacity(0.16),
-              borderRadius: BorderRadius.circular(10),
+                  ? Colors.white.withOpacity(0.20)
+                  : Colors.black.withOpacity(0.20),
+              borderRadius: BorderRadius.circular(12),
               border: Border.all(
-                color: isNow ? Colors.white.withOpacity(0.5) : Colors.transparent,
-                width: 1,
+                color: isNow ? Colors.white.withOpacity(0.4) : Colors.white.withOpacity(0.06),
+                width: 0.8,
               ),
             ),
             child: Column(
@@ -716,8 +716,8 @@ class _WeatherCardState extends State<WeatherCard> {
                 Text(
                   hourStr,
                   style: const TextStyle(
-                    fontSize: 9.5,
-                    fontWeight: FontWeight.bold,
+                    fontSize: 11,
+                    fontWeight: FontWeight.w600,
                     color: Colors.white,
                   ),
                 ),
@@ -727,15 +727,15 @@ class _WeatherCardState extends State<WeatherCard> {
                 ),
                 Text(
                   '${h.temperature.round()}°',
-                  style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.white),
+                  style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w700, color: Colors.white),
                 ),
                 if (h.precipitationProbability > 0)
                   Text(
                     '${h.precipitationProbability}%',
-                    style: const TextStyle(fontSize: 8.5, color: Colors.amberAccent, fontWeight: FontWeight.bold),
+                    style: const TextStyle(fontSize: 11, color: Color(0xFF38BDF8), fontWeight: FontWeight.w600),
                   )
                 else
-                  const SizedBox(height: 9),
+                  const SizedBox(height: 10),
               ],
             ),
           );
@@ -780,33 +780,37 @@ class _WeatherCardState extends State<WeatherCard> {
     return Container(
       margin: const EdgeInsets.only(bottom: 14),
       decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(20),
         gradient: const LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
           colors: [
-            Color(0xFF1E3A8A), // Rich Deep Blue
-            Color(0xFF0F766E), // Deep Teal
+            Color(0xFF131D38), // Apple Midnight Indigo
+            Color(0xFF0F172A), // Deep Obsidian Slate
           ],
+        ),
+        border: Border.all(
+          color: Colors.white.withOpacity(0.10),
+          width: 0.8,
         ),
         boxShadow: [
           BoxShadow(
-            color: const Color(0xFF1E3A8A).withOpacity(0.25),
-            blurRadius: 10,
-            offset: const Offset(0, 3),
+            color: Colors.black.withOpacity(0.3),
+            blurRadius: 16,
+            offset: const Offset(0, 4),
           ),
         ],
       ),
       child: Material(
         color: Colors.transparent,
         child: InkWell(
-          borderRadius: BorderRadius.circular(16),
+          borderRadius: BorderRadius.circular(20),
           onTap: _toggleExpanded,
           child: AnimatedSize(
-            duration: const Duration(milliseconds: 280),
-            curve: Curves.easeInOut,
+            duration: const Duration(milliseconds: 320),
+            curve: Curves.easeOutCubic,
             child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [

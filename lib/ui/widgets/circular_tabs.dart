@@ -70,33 +70,33 @@ class _CircularTabsState extends State<CircularTabs> {
 
     // 1. Transfer / Posting
     if (hasKeyword(['transfer', 'posting', 'working arrangement', 'lacd', 'station', 'स्थानांतरण', 'पदस्थापना'])) {
-      badges.add(const _TopicBadge('🚚 Transfer', Color(0xFF38BDF8)));
+      badges.add(const _TopicBadge('Transfer', Color(0xFF007AFF)));
     }
 
     // 2. Promotion / MACP
     if (hasKeyword(['promotion', 'macp', 'modified acp', 'financial upgradation', 'पदोन्नति'])) {
-      badges.add(const _TopicBadge('📈 Promotion / MACP', Color(0xFF34D399)));
+      badges.add(const _TopicBadge('Promotion', Color(0xFF34C759)));
     }
 
     // 3. Seniority List
     if (hasKeyword(['seniority', 'gradation', 'वरिष्ठता'])) {
-      badges.add(const _TopicBadge('📜 Seniority', Color(0xFFA78BFA)));
+      badges.add(const _TopicBadge('Seniority', Color(0xFF5856D6)));
     }
 
     // 4. Training / WMO
     if (hasKeyword(['training', 'course', 'wmo', 'fellowship', 'प्रशिक्षण'])) {
-      badges.add(const _TopicBadge('🎓 Training', Color(0xFF2DD4BF)));
+      badges.add(const _TopicBadge('Training', Color(0xFF30B0C7)));
     }
 
     // 5. Exam / LDCE
     if (hasKeyword(['ldce', 'exam', 'examination', 'cutoff', 'परीक्षा'])) {
-      badges.add(const _TopicBadge('📝 Exam / LDCE', Color(0xFFFB923C)));
+      badges.add(const _TopicBadge('Exam / LDCE', Color(0xFFFF9500)));
     }
 
     // 6. Active Deadline / Action Required
     if (aiMeta?.actionRequired == true ||
         hasKeyword(['deadline', 'representation', 'objection', 'calling for', 'proforma', 'last date', 'by 1700', 'अभ्यावेदन', 'आपत्ति', 'आवेदन'])) {
-      badges.add(const _TopicBadge('⏳ Active Deadline', Color(0xFFFBBF24)));
+      badges.add(const _TopicBadge('Action Required', Color(0xFFFF3B30)));
     }
 
     return badges;
@@ -104,7 +104,7 @@ class _CircularTabsState extends State<CircularTabs> {
 
   List<CircularItem> _applyFilter(List<CircularItem> list) {
     if (_selectedFilter == 'All') return list;
-    if (_selectedFilter == '🔖 Bookmarked') {
+    if (_selectedFilter == 'Bookmarked') {
       return list.where((item) => _bookmarkedUrls.contains(item.link)).toList();
     }
     return list.where((item) {
@@ -118,35 +118,35 @@ class _CircularTabsState extends State<CircularTabs> {
       }
 
       switch (_selectedFilter) {
-        case '⏳ Active Deadline':
+        case 'Deadlines':
           return aiMeta?.actionRequired == true ||
               hasKeyword(['deadline', 'representation', 'objection', 'apply', 'proforma', 'calling for', 'last date', 'by 1700', 'अभ्यावेदन', 'आपत्ति', 'action required']);
-        case '🚚 Transfers':
+        case 'Transfers':
           return hasKeyword(['transfer', 'posting', 'working arrangement', 'lacd', 'station', 'स्थानांतरण', 'पदस्थापना']);
-        case '📈 Promotions':
+        case 'Promotions':
           return hasKeyword(['promotion', 'macp', 'modified acp', 'financial upgradation', 'पदोन्नति']);
-        case '📜 Seniority':
+        case 'Seniority':
           return hasKeyword(['seniority', 'gradation', 'वरिष्ठता']);
-        case '🎓 Training':
+        case 'Training':
           return hasKeyword(['training', 'course', 'wmo', 'fellowship', 'प्रशिक्षण']);
-        case '📝 Exams':
+        case 'Exams':
           return hasKeyword(['ldce', 'exam', 'examination', 'cutoff', 'परीक्षा']);
-        case '⛅ Met B':
+        case 'Met B':
           return cadre.contains('met b') || title.contains('met b') || title.contains('met-b');
-        case '🌤️ Met A':
+        case 'Met A':
           return cadre.contains('met a') || title.contains('met a') || title.contains('met-a');
-        case '🔬 SA':
+        case 'Scientific Assistant':
           return cadre.contains('sa') ||
               cadre.contains('scientific assistant') ||
               title.contains('scientific assistant');
-        case '🧪 Scientists':
+        case 'Scientists':
           return cadre.contains('scientist') ||
               cadre.contains('sc-') ||
               cadre.contains('sc.') ||
               title.contains('scientist') ||
               title.contains('sc-') ||
               title.contains('sc.');
-        case '📋 Clerks':
+        case 'Clerks & Admin':
           return cadre.contains('clerk') ||
               cadre.contains('udc') ||
               cadre.contains('ldc') ||
@@ -154,7 +154,7 @@ class _CircularTabsState extends State<CircularTabs> {
               title.contains('udc') ||
               title.contains('ldc') ||
               title.contains('लिपिक');
-        case '🛠️ Tech':
+        case 'Technical':
           return cadre.contains('engineer') ||
               cadre.contains('tech') ||
               title.contains('workshop') ||
@@ -162,14 +162,14 @@ class _CircularTabsState extends State<CircularTabs> {
               title.contains('telecom') ||
               title.contains('अभियंता') ||
               title.contains('तकनीकी');
-        case '👔 SO':
+        case 'Scientific Officer':
           return cadre.contains('so-') ||
               cadre.contains('so ') ||
               cadre.contains('scientific officer') ||
               title.contains('so-') ||
               title.contains('s.o.-') ||
               title.contains('scientific officer');
-        case '🧹 MTS':
+        case 'MTS':
           return cadre.contains('mts') ||
               cadre.contains('attendant') ||
               title.contains('mts') ||
@@ -184,51 +184,74 @@ class _CircularTabsState extends State<CircularTabs> {
   Widget _buildFilterChips() {
     final filters = [
       'All',
-      '⏳ Active Deadline',
-      '🚚 Transfers',
-      '📈 Promotions',
-      '📜 Seniority',
-      '🎓 Training',
-      '📝 Exams',
-      '⛅ Met B',
-      '🌤️ Met A',
-      '🔬 SA',
-      '🧪 Scientists',
-      '📋 Clerks',
-      '🛠️ Tech',
-      '👔 SO',
-      '🧹 MTS',
-      '🔖 Bookmarked',
+      'Deadlines',
+      'Transfers',
+      'Promotions',
+      'Seniority',
+      'Training',
+      'Exams',
+      'Met B',
+      'Met A',
+      'Scientific Assistant',
+      'Scientists',
+      'Clerks & Admin',
+      'Technical',
+      'Scientific Officer',
+      'MTS',
+      'Bookmarked',
     ];
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
     return SizedBox(
       height: 38,
       child: ListView.separated(
         scrollDirection: Axis.horizontal,
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 3),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 2),
         itemCount: filters.length,
-        separatorBuilder: (_, __) => const SizedBox(width: 6),
+        separatorBuilder: (_, __) => const SizedBox(width: 8),
         itemBuilder: (context, index) {
           final filter = filters[index];
           final isSelected = _selectedFilter == filter;
-          return ChoiceChip(
-            label: Text(
-              filter,
-              style: TextStyle(
-                fontSize: 11,
-                fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
-                color: isSelected ? Colors.white : Theme.of(context).colorScheme.onSurface,
-              ),
-            ),
-            selected: isSelected,
-            selectedColor: Theme.of(context).colorScheme.primary,
-            backgroundColor: Theme.of(context).colorScheme.surfaceVariant.withOpacity(0.5),
-            padding: const EdgeInsets.symmetric(horizontal: 6),
-            visualDensity: VisualDensity.compact,
-            onSelected: (selected) {
+          return GestureDetector(
+            onTap: () {
+              HapticFeedback.lightImpact();
               setState(() {
-                _selectedFilter = selected ? filter : 'All';
+                _selectedFilter = isSelected ? 'All' : filter;
               });
             },
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 200),
+              curve: Curves.easeOutCubic,
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+              decoration: BoxDecoration(
+                color: isSelected
+                    ? const Color(0xFF007AFF)
+                    : (isDark ? const Color(0xFF2C2C2E) : const Color(0xFFE5E5EA)),
+                borderRadius: BorderRadius.circular(18),
+                boxShadow: isSelected
+                    ? [
+                        BoxShadow(
+                          color: const Color(0xFF007AFF).withOpacity(0.3),
+                          blurRadius: 8,
+                          offset: const Offset(0, 2),
+                        ),
+                      ]
+                    : null,
+              ),
+              child: Center(
+                child: Text(
+                  filter,
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
+                    color: isSelected
+                        ? Colors.white
+                        : (isDark ? const Color(0xFFE5E5EA) : const Color(0xFF1C1C1E)),
+                    letterSpacing: -0.2,
+                  ),
+                ),
+              ),
+            ),
           );
         },
       ),
@@ -318,53 +341,29 @@ class _CircularTabsState extends State<CircularTabs> {
   Color _getCadreColor(String cadre) {
     final c = cadre.toLowerCase();
     if (c.contains('scientist') || c.contains('sc-') || c.contains('sc.')) {
-      return Colors.purple;
+      return const Color(0xFF5856D6); // System Purple
     } else if (c.contains('scientific officer') || c.contains('so-') || c.contains('so ')) {
-      return Colors.deepPurpleAccent;
+      return const Color(0xFF007AFF); // System Blue
     } else if (c.contains('met a') || c.contains('meteorologist a')) {
-      return Colors.cyan;
+      return const Color(0xFF30B0C7); // System Cyan
     } else if (c.contains('met b') || c.contains('meteorologist b')) {
-      return Colors.teal;
+      return const Color(0xFF34C759); // System Green
     } else if (c.contains('scientific assistant') || c.contains('sa')) {
-      return Colors.blue;
+      return const Color(0xFF0A84FF); // System Electric Blue
     } else if (c.contains('clerk') || c.contains('udc') || c.contains('ldc')) {
-      return Colors.deepOrangeAccent;
+      return const Color(0xFFFF9500); // System Orange
     } else if (c.contains('mts') || c.contains('attendant')) {
-      return Colors.orange;
+      return const Color(0xFFFF9F0A); // System Amber
     } else if (c.contains('engineering') || c.contains('tech')) {
-      return Colors.indigo;
+      return const Color(0xFF64D2FF); // System Light Blue
     } else if (c.contains('finance') || c.contains('account')) {
-      return Colors.green;
-    } else if (c.contains('administrative')) {
-      return Colors.teal;
+      return const Color(0xFF32ADE6);
     }
-    return Colors.blueGrey;
+    return const Color(0xFF8E8E93); // System Gray
   }
 
   String _getCadreEmoji(String cadre) {
-    final c = cadre.toLowerCase();
-    if (c.contains('scientist') || c.contains('sc-')) {
-      return '🧪 ';
-    } else if (c.contains('scientific officer') || c.contains('so-') || c.contains('so ')) {
-      return '🧭 ';
-    } else if (c.contains('met a')) {
-      return '🌤️ ';
-    } else if (c.contains('met b')) {
-      return '⛅ ';
-    } else if (c.contains('scientific assistant') || c.contains('sa')) {
-      return '🔬 ';
-    } else if (c.contains('clerk') || c.contains('udc') || c.contains('ldc')) {
-      return '📑 ';
-    } else if (c.contains('mts') || c.contains('attendant')) {
-      return '👥 ';
-    } else if (c.contains('engineering') || c.contains('tech')) {
-      return '⚙️ ';
-    } else if (c.contains('finance') || c.contains('account')) {
-      return '💼 ';
-    } else if (c.contains('administrative')) {
-      return '📝 ';
-    }
-    return '🏛️ ';
+    return ''; // Clean Apple typographic styling without emojis
   }
 
   void _showCircularOptionsSheet(BuildContext context, CircularItem item, AiCircularEntry? aiMeta) async {
@@ -569,15 +568,16 @@ class _CircularTabsState extends State<CircularTabs> {
     CircularItem item,
     AiCircularEntry aiMeta,
   ) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
       decoration: BoxDecoration(
-        color: Theme.of(context).colorScheme.primaryContainer.withOpacity(0.25),
-        borderRadius: BorderRadius.circular(8),
+        color: isDark ? const Color(0xFF1E2538) : const Color(0xFFF2F5FB),
+        borderRadius: BorderRadius.circular(10),
         border: Border.all(
-          color: Theme.of(context).colorScheme.primary.withOpacity(0.25),
-          width: 0.9,
+          color: const Color(0xFF007AFF).withOpacity(0.25),
+          width: 1.0,
         ),
       ),
       child: Column(
@@ -585,42 +585,41 @@ class _CircularTabsState extends State<CircularTabs> {
         children: [
           Row(
             children: [
-              Icon(Icons.auto_awesome_rounded, size: 12, color: Colors.amber.shade400),
-              const SizedBox(width: 5),
-              Text(
-                'IN BRIEF',
+              const Icon(Icons.auto_awesome_rounded, size: 14, color: Color(0xFF007AFF)),
+              const SizedBox(width: 6),
+              const Text(
+                'AI SUMMARY',
                 style: TextStyle(
-                  fontSize: 10,
-                  fontWeight: FontWeight.w800,
-                  letterSpacing: 0.5,
-                  color: Theme.of(context).colorScheme.primary,
+                  fontSize: 11,
+                  fontWeight: FontWeight.w700,
+                  letterSpacing: 0.6,
+                  color: Color(0xFF007AFF),
                 ),
               ),
               const Spacer(),
               Text(
-                'Tap to expand',
+                'View details',
                 style: TextStyle(
-                  fontSize: 9.5,
-                  color: Theme.of(context).colorScheme.primary.withOpacity(0.85),
-                  fontWeight: FontWeight.w600,
+                  fontSize: 12,
+                  color: Theme.of(context).colorScheme.outline,
+                  fontWeight: FontWeight.w500,
                 ),
               ),
-              const SizedBox(width: 2),
+              const SizedBox(width: 4),
               Icon(
                 Icons.keyboard_arrow_down_rounded,
-                size: 14,
-                color: Theme.of(context).colorScheme.primary,
+                size: 16,
+                color: Theme.of(context).colorScheme.outline,
               ),
             ],
           ),
-          const SizedBox(height: 3),
+          const SizedBox(height: 6),
           Text(
             aiMeta.summaryEn,
             style: TextStyle(
-              fontSize: 11.5,
-              fontStyle: FontStyle.italic,
-              color: Theme.of(context).colorScheme.onSurface,
-              height: 1.3,
+              fontSize: 12.5,
+              color: isDark ? const Color(0xFFE5E5EA) : const Color(0xFF2C2C2E),
+              height: 1.35,
             ),
           ),
         ],
@@ -634,15 +633,16 @@ class _CircularTabsState extends State<CircularTabs> {
     AiCircularEntry aiMeta,
   ) {
     final breakdown = AiCircularService.getPlainLanguageBreakdown(aiMeta, item.title);
+    final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.all(10),
+      padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: Theme.of(context).colorScheme.surfaceVariant.withOpacity(0.45),
-        borderRadius: BorderRadius.circular(10),
+        color: isDark ? const Color(0xFF1A2234) : const Color(0xFFF5F7FA),
+        borderRadius: BorderRadius.circular(12),
         border: Border.all(
-          color: Theme.of(context).colorScheme.primary.withOpacity(0.4),
+          color: const Color(0xFF007AFF).withOpacity(0.35),
           width: 1.2,
         ),
       ),
@@ -651,82 +651,106 @@ class _CircularTabsState extends State<CircularTabs> {
         children: [
           Row(
             children: [
-              const Icon(Icons.psychology_outlined, size: 14, color: Colors.blueAccent),
-              const SizedBox(width: 5),
-              Text(
-                'PLAIN WORDS EXPLANATION',
+              const Icon(Icons.analytics_rounded, size: 15, color: Color(0xFF007AFF)),
+              const SizedBox(width: 6),
+              const Text(
+                'EXECUTIVE ANALYSIS',
                 style: TextStyle(
-                  fontSize: 10,
-                  fontWeight: FontWeight.w800,
-                  letterSpacing: 0.5,
-                  color: Theme.of(context).colorScheme.primary,
+                  fontSize: 11,
+                  fontWeight: FontWeight.w700,
+                  letterSpacing: 0.6,
+                  color: Color(0xFF007AFF),
                 ),
               ),
               const Spacer(),
               Text(
-                'Tap to collapse',
+                'Collapse',
                 style: TextStyle(
-                  fontSize: 9.5,
+                  fontSize: 12,
                   color: Theme.of(context).colorScheme.outline,
                   fontWeight: FontWeight.w500,
                 ),
               ),
-              const SizedBox(width: 2),
+              const SizedBox(width: 4),
               Icon(
                 Icons.keyboard_arrow_up_rounded,
-                size: 14,
+                size: 16,
                 color: Theme.of(context).colorScheme.outline,
               ),
             ],
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: 10),
           Text(
             breakdown['meaning'] ?? aiMeta.summaryEn,
             style: TextStyle(
-              fontSize: 12,
-              color: Theme.of(context).colorScheme.onSurface,
-              height: 1.35,
+              fontSize: 13,
+              color: isDark ? const Color(0xFFF2F2F7) : const Color(0xFF1C1C1E),
+              height: 1.4,
             ),
           ),
-          const SizedBox(height: 8),
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const Text('👉 ', style: TextStyle(fontSize: 12)),
-              Expanded(
-                child: Text(
-                  breakdown['action'] ?? '',
-                  style: TextStyle(
-                    fontSize: 11.5,
-                    fontWeight: FontWeight.w500,
-                    color: aiMeta.actionRequired
-                        ? Colors.amberAccent
-                        : Theme.of(context).colorScheme.onSurfaceVariant,
-                    height: 1.3,
+          const SizedBox(height: 10),
+          Container(
+            padding: const EdgeInsets.all(10),
+            decoration: BoxDecoration(
+              color: aiMeta.actionRequired
+                  ? const Color(0xFFFF3B30).withOpacity(0.08)
+                  : const Color(0xFF007AFF).withOpacity(0.08),
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(
+                color: aiMeta.actionRequired
+                    ? const Color(0xFFFF3B30).withOpacity(0.25)
+                    : const Color(0xFF007AFF).withOpacity(0.2),
+              ),
+            ),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Icon(
+                  aiMeta.actionRequired ? Icons.priority_high_rounded : Icons.info_outline_rounded,
+                  size: 16,
+                  color: aiMeta.actionRequired ? const Color(0xFFFF3B30) : const Color(0xFF007AFF),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    breakdown['action'] ?? '',
+                    style: TextStyle(
+                      fontSize: 12.5,
+                      fontWeight: FontWeight.w600,
+                      color: aiMeta.actionRequired
+                          ? (isDark ? const Color(0xFFFF6961) : const Color(0xFFD70015))
+                          : Theme.of(context).colorScheme.onSurface,
+                      height: 1.35,
+                    ),
                   ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
           if (breakdown['jargon'] != null && breakdown['jargon']!.isNotEmpty) ...[
-            const SizedBox(height: 6),
+            const SizedBox(height: 8),
             Container(
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
               decoration: BoxDecoration(
-                color: Theme.of(context).colorScheme.surface.withOpacity(0.6),
-                borderRadius: BorderRadius.circular(6),
+                color: isDark ? const Color(0xFF2C2C2E) : const Color(0xFFE5E5EA).withOpacity(0.6),
+                borderRadius: BorderRadius.circular(8),
               ),
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text('💡 ', style: TextStyle(fontSize: 10)),
+                  Icon(
+                    Icons.lightbulb_outline_rounded,
+                    size: 15,
+                    color: isDark ? const Color(0xFFFFD60A) : const Color(0xFFB25000),
+                  ),
+                  const SizedBox(width: 8),
                   Expanded(
                     child: Text(
                       breakdown['jargon']!,
                       style: TextStyle(
-                        fontSize: 10.5,
-                        fontStyle: FontStyle.italic,
-                        color: Theme.of(context).colorScheme.outline,
+                        fontSize: 12,
+                        color: Theme.of(context).colorScheme.onSurface.withOpacity(0.85),
+                        height: 1.35,
                       ),
                     ),
                   ),
@@ -734,15 +758,16 @@ class _CircularTabsState extends State<CircularTabs> {
               ),
             ),
           ],
-          const SizedBox(height: 10),
+          const SizedBox(height: 12),
           SizedBox(
-            height: 28,
-            child: OutlinedButton.icon(
-              icon: const Icon(Icons.picture_as_pdf_outlined, size: 14),
-              label: const Text('Open Original Document', style: TextStyle(fontSize: 11)),
-              style: OutlinedButton.styleFrom(
-                padding: const EdgeInsets.symmetric(horizontal: 10),
-                visualDensity: VisualDensity.compact,
+            height: 32,
+            child: TextButton.icon(
+              icon: const Icon(Icons.picture_as_pdf_outlined, size: 16),
+              label: const Text('Open Original Document', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
+              style: TextButton.styleFrom(
+                foregroundColor: const Color(0xFF007AFF),
+                padding: const EdgeInsets.symmetric(horizontal: 12),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
               ),
               onPressed: () => _handleCircularTap(context, item),
             ),
@@ -809,21 +834,22 @@ class _CircularTabsState extends State<CircularTabs> {
                   // 1. Cadre Badge
                   if (cadre.isNotEmpty)
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                       decoration: BoxDecoration(
                         color: cadreColor.withOpacity(0.12),
-                        borderRadius: BorderRadius.circular(4),
+                        borderRadius: BorderRadius.circular(6),
                         border: Border.all(
-                          color: cadreColor.withOpacity(0.35),
+                          color: cadreColor.withOpacity(0.3),
                           width: 0.8,
                         ),
                       ),
                       child: Text(
-                        '$cadreEmoji$cadre',
+                        cadre,
                         style: TextStyle(
-                          fontSize: 10,
-                          fontWeight: FontWeight.bold,
+                          fontSize: 11,
+                          fontWeight: FontWeight.w700,
                           color: cadreColor,
+                          letterSpacing: 0.2,
                         ),
                       ),
                     ),
@@ -831,21 +857,22 @@ class _CircularTabsState extends State<CircularTabs> {
                   // 2. Specific Topic & Deadline Badges
                   for (final badge in topicBadges)
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                       decoration: BoxDecoration(
-                        color: badge.color.withOpacity(0.14),
-                        borderRadius: BorderRadius.circular(4),
+                        color: badge.color.withOpacity(0.12),
+                        borderRadius: BorderRadius.circular(6),
                         border: Border.all(
-                          color: badge.color.withOpacity(0.4),
+                          color: badge.color.withOpacity(0.3),
                           width: 0.8,
                         ),
                       ),
                       child: Text(
                         badge.label,
                         style: TextStyle(
-                          fontSize: 10,
-                          fontWeight: FontWeight.bold,
+                          fontSize: 11,
+                          fontWeight: FontWeight.w700,
                           color: badge.color,
+                          letterSpacing: 0.2,
                         ),
                       ),
                     ),
@@ -853,37 +880,39 @@ class _CircularTabsState extends State<CircularTabs> {
                   // 3. Withdrawn Badge (if unavailable)
                   if (isUnavailable)
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                       decoration: BoxDecoration(
-                        color: Colors.orangeAccent.withOpacity(0.18),
-                        borderRadius: BorderRadius.circular(4),
+                        color: const Color(0xFFFF9500).withOpacity(0.15),
+                        borderRadius: BorderRadius.circular(6),
                         border: Border.all(
-                          color: Colors.orangeAccent.withOpacity(0.5),
+                          color: const Color(0xFFFF9500).withOpacity(0.4),
                           width: 0.8,
                         ),
                       ),
                       child: const Text(
-                        '⚠️ Withdrawn',
+                        'WITHDRAWN',
                         style: TextStyle(
-                          fontSize: 10,
-                          fontWeight: FontWeight.bold,
-                          color: Colors.orangeAccent,
+                          fontSize: 11,
+                          fontWeight: FontWeight.w700,
+                          color: Color(0xFFFF9500),
+                          letterSpacing: 0.3,
                         ),
                       ),
                     ),
                 ],
               ),
-              const SizedBox(height: 3),
+              const SizedBox(height: 6),
 
-              // Notice Title (Full width without leading icon)
+              // Notice Title
               Text(
                 item.title.isNotEmpty ? item.title : 'Untitled Circular',
                 maxLines: 3,
                 overflow: TextOverflow.ellipsis,
                 style: TextStyle(
-                  fontSize: 13.5,
+                  fontSize: 14,
                   fontWeight: FontWeight.w600,
-                  height: 1.25,
+                  height: 1.3,
+                  letterSpacing: -0.2,
                   color: isUnavailable ? Theme.of(context).disabledColor : null,
                   decoration: isUnavailable ? TextDecoration.lineThrough : null,
                 ),
@@ -891,10 +920,11 @@ class _CircularTabsState extends State<CircularTabs> {
 
               // Interactive Expandable Summary Tab
               if (aiMeta != null && aiMeta.summaryEn.isNotEmpty) ...[
-                const SizedBox(height: 5),
+                const SizedBox(height: 6),
                 InkWell(
-                  borderRadius: BorderRadius.circular(8),
+                  borderRadius: BorderRadius.circular(10),
                   onTap: () {
+                    HapticFeedback.selectionClick();
                     setState(() {
                       if (isSummaryExpanded) {
                         _expandedSummaryUrls.remove(item.link);
@@ -904,8 +934,8 @@ class _CircularTabsState extends State<CircularTabs> {
                     });
                   },
                   child: AnimatedSize(
-                    duration: const Duration(milliseconds: 220),
-                    curve: Curves.easeInOut,
+                    duration: const Duration(milliseconds: 280),
+                    curve: Curves.easeOutCubic,
                     alignment: Alignment.topCenter,
                     child: isSummaryExpanded
                         ? _buildExpandedSummary(context, item, aiMeta)
@@ -916,13 +946,13 @@ class _CircularTabsState extends State<CircularTabs> {
             ],
           ),
           subtitle: Padding(
-            padding: const EdgeInsets.only(top: 4.0),
+            padding: const EdgeInsets.only(top: 6.0),
             child: Row(
               children: [
                 Text(
-                  'Uploaded: ${item.date.isNotEmpty ? item.date : "Recent"}',
+                  'Uploaded ${item.date.isNotEmpty ? item.date : "Recent"}',
                   style: TextStyle(
-                    fontSize: 11,
+                    fontSize: 12,
                     color: Theme.of(context).colorScheme.outline,
                   ),
                 ),
@@ -930,16 +960,16 @@ class _CircularTabsState extends State<CircularTabs> {
                 Expanded(
                   child: Text(
                     isUnavailable
-                        ? '• Withdrawn on Portal'
-                        : (isCached ? '• 💾 Offline Ready' : '• Tap to view / download'),
+                        ? '• Withdrawn'
+                        : (isCached ? '• Offline Ready' : '• Tap to view / download'),
                     style: TextStyle(
-                      fontSize: 11,
+                      fontSize: 12,
                       fontWeight: isUnavailable || isCached ? FontWeight.w600 : FontWeight.normal,
                       color: isUnavailable
-                          ? Colors.orangeAccent
+                          ? const Color(0xFFFF9500)
                           : (isCached
-                              ? Colors.greenAccent
-                              : Theme.of(context).colorScheme.primary.withOpacity(0.8)),
+                              ? const Color(0xFF34C759)
+                              : Theme.of(context).colorScheme.primary.withOpacity(0.85)),
                     ),
                     overflow: TextOverflow.ellipsis,
                   ),
@@ -954,13 +984,14 @@ class _CircularTabsState extends State<CircularTabs> {
               IconButton(
                 icon: Icon(
                   isBookmarked ? Icons.bookmark_rounded : Icons.bookmark_border_rounded,
-                  size: 21,
-                  color: isBookmarked ? Colors.amber : Theme.of(context).colorScheme.outline,
+                  size: 22,
+                  color: isBookmarked ? const Color(0xFFFF9500) : Theme.of(context).colorScheme.outline,
                 ),
                 padding: const EdgeInsets.all(4),
                 constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
                 tooltip: isBookmarked ? 'Bookmarked' : 'Add to bookmarks',
                 onPressed: () async {
+                  HapticFeedback.lightImpact();
                   final newState = await StorageService.toggleBookmark(item.link);
                   setState(() {
                     if (newState) {
@@ -972,7 +1003,7 @@ class _CircularTabsState extends State<CircularTabs> {
                   if (context.mounted) {
                     ScaffoldMessenger.of(context).showSnackBar(
                       SnackBar(
-                        content: Text(newState ? '🔖 Notice bookmarked!' : 'Bookmark removed'),
+                        content: Text(newState ? 'Notice bookmarked' : 'Bookmark removed'),
                         duration: const Duration(seconds: 1),
                       ),
                     );
@@ -983,12 +1014,12 @@ class _CircularTabsState extends State<CircularTabs> {
               IconButton(
                 icon: Icon(
                   isUnavailable
-                      ? Icons.info_outline
-                      : (isCached ? Icons.check_circle_outline : Icons.download_for_offline_outlined),
+                      ? Icons.info_outline_rounded
+                      : (isCached ? Icons.check_circle_rounded : Icons.arrow_downward_rounded),
                   size: 21,
                   color: isUnavailable
-                      ? Colors.orangeAccent
-                      : (isCached ? Colors.greenAccent : null),
+                      ? const Color(0xFFFF9500)
+                      : (isCached ? const Color(0xFF34C759) : const Color(0xFF007AFF)),
                 ),
                 padding: const EdgeInsets.all(4),
                 constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
@@ -1009,42 +1040,68 @@ class _CircularTabsState extends State<CircularTabs> {
   @override
   Widget build(BuildContext context) {
     final filteredVip = _applyFilter(widget.vipCirculars);
+    final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return DefaultTabController(
       length: 2,
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          TabBar(
-            indicatorColor: Theme.of(context).colorScheme.primary,
-            tabs: [
-              Tab(
-                icon: const Icon(Icons.auto_awesome_rounded, color: Colors.amber),
-                text: 'For You (${widget.vipCirculars.length})',
+          // Apple Segmented Control Tab Header
+          Container(
+            margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            padding: const EdgeInsets.all(3),
+            decoration: BoxDecoration(
+              color: isDark ? const Color(0xFF2C2C2E) : const Color(0xFFE5E5EA),
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: TabBar(
+              indicator: BoxDecoration(
+                color: isDark ? const Color(0xFF1C1C1E) : Colors.white,
+                borderRadius: BorderRadius.circular(8),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.06),
+                    blurRadius: 4,
+                    offset: const Offset(0, 1),
+                  ),
+                ],
               ),
-              Tab(
-                icon: const Icon(Icons.article_outlined, color: Colors.lightBlueAccent),
-                text: 'Other Notices (${widget.fomoCirculars.length})',
-              ),
-            ],
+              indicatorSize: TabBarIndicatorSize.tab,
+              dividerColor: Colors.transparent,
+              labelColor: isDark ? Colors.white : Colors.black,
+              unselectedLabelColor: isDark ? const Color(0xFF8E8E93) : const Color(0xFF636366),
+              labelStyle: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600, letterSpacing: -0.2),
+              unselectedLabelStyle: const TextStyle(fontSize: 13, fontWeight: FontWeight.normal),
+              tabs: [
+                Tab(
+                  height: 34,
+                  text: 'Curated For You (${widget.vipCirculars.length})',
+                ),
+                Tab(
+                  height: 34,
+                  text: 'All Notices (${widget.fomoCirculars.length})',
+                ),
+              ],
+            ),
           ),
           SizedBox(
-            height: 400,
+            height: 420,
             child: TabBarView(
               children: [
                 Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const SizedBox(height: 6),
-                    _buildFilterChips(),
                     const SizedBox(height: 4),
+                    _buildFilterChips(),
+                    const SizedBox(height: 6),
                     Expanded(
                       child: _buildList(
                         context,
                         filteredVip,
                         _selectedFilter == 'All'
-                            ? 'No circulars found for you in the last 30 days.'
-                            : 'No circulars found matching "$_selectedFilter".',
+                            ? 'No circulars found for your cadre in the last 30 days.'
+                            : 'No circulars matching "$_selectedFilter".',
                       ),
                     ),
                   ],
@@ -1061,4 +1118,5 @@ class _CircularTabsState extends State<CircularTabs> {
       ),
     );
   }
+}
 }

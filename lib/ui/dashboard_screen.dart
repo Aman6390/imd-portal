@@ -577,31 +577,41 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
             // Live Weather Forecast Card (100% Free & Open-Meteo Powered)
             WeatherCard(key: _weatherKey),
 
-            // Sync status badge
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-              decoration: BoxDecoration(
-                color: Theme.of(context).colorScheme.surfaceVariant.withOpacity(0.5),
-                borderRadius: BorderRadius.circular(20),
-              ),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(
-                    Icons.update,
-                    size: 15,
-                    color: Theme.of(context).colorScheme.outline,
+            // Sync status badge (Apple live status capsule)
+            Builder(
+              builder: (ctx) {
+                final isDark = Theme.of(ctx).brightness == Brightness.dark;
+                return Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+                  decoration: BoxDecoration(
+                    color: isDark ? const Color(0xFF1C1C1E) : const Color(0xFFE5E5EA).withOpacity(0.8),
+                    borderRadius: BorderRadius.circular(20),
                   ),
-                  const SizedBox(width: 6),
-                  Text(
-                    'Last synced: ${data.lastUpdated}',
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: Theme.of(context).colorScheme.outline,
-                    ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Container(
+                        width: 7,
+                        height: 7,
+                        decoration: const BoxDecoration(
+                          shape: BoxShape.circle,
+                          color: Color(0xFF34C759),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Text(
+                        'Updated ${data.lastUpdated}',
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w500,
+                          color: Theme.of(ctx).colorScheme.outline,
+                          letterSpacing: -0.1,
+                        ),
+                      ),
+                    ],
                   ),
-                ],
-              ),
+                );
+              },
             ),
             const SizedBox(height: 20),
 
@@ -609,8 +619,12 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
             const Row(
               children: [
                 Text(
-                  '📅 Leave Balances',
-                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                  'Leave Balances',
+                  style: TextStyle(
+                    fontSize: 20,
+                    fontWeight: FontWeight.w700,
+                    letterSpacing: -0.5,
+                  ),
                 ),
               ],
             ),
@@ -622,8 +636,12 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
             const Row(
               children: [
                 Text(
-                  '⚠️ C-Off Expiry Alerts',
-                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                  'C-Off Expiry Schedule',
+                  style: TextStyle(
+                    fontSize: 20,
+                    fontWeight: FontWeight.w700,
+                    letterSpacing: -0.5,
+                  ),
                 ),
               ],
             ),
@@ -635,8 +653,12 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
             const Row(
               children: [
                 Text(
-                  '📄 Departmental Circulars',
-                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                  'Departmental Circulars',
+                  style: TextStyle(
+                    fontSize: 20,
+                    fontWeight: FontWeight.w700,
+                    letterSpacing: -0.5,
+                  ),
                 ),
               ],
             ),
@@ -662,41 +684,41 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
                 Container(
-                  width: 96,
-                  height: 96,
+                  width: 88,
+                  height: 88,
                   decoration: BoxDecoration(
                     shape: BoxShape.circle,
-                    gradient: LinearGradient(
-                      colors: [Colors.blueAccent.shade400, Colors.tealAccent.shade400],
+                    gradient: const LinearGradient(
+                      colors: [Color(0xFF007AFF), Color(0xFF5856D6)],
                       begin: Alignment.topLeft,
                       end: Alignment.bottomRight,
                     ),
                     boxShadow: [
                       BoxShadow(
-                        color: Colors.blueAccent.withOpacity(0.35),
+                        color: const Color(0xFF007AFF).withOpacity(0.35),
                         blurRadius: 24,
-                        spreadRadius: 2,
+                        offset: const Offset(0, 8),
                       ),
                     ],
                   ),
                   child: const Icon(
                     Icons.fingerprint_rounded,
-                    size: 56,
-                    color: Colors.black87,
+                    size: 52,
+                    color: Colors.white,
                   ),
                 ),
                 const SizedBox(height: 28),
                 const Text(
-                  '🌤️ Meteorological Portal',
+                  'Meteorological Portal',
                   style: TextStyle(
                     fontSize: 26,
-                    fontWeight: FontWeight.bold,
-                    letterSpacing: -0.5,
+                    fontWeight: FontWeight.w700,
+                    letterSpacing: -0.6,
                   ),
                 ),
                 const SizedBox(height: 8),
                 Text(
-                  'App is locked for your security',
+                  'Authenticated session required',
                   style: TextStyle(
                     fontSize: 14,
                     color: Theme.of(context).colorScheme.outline,
@@ -705,9 +727,11 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
                 const SizedBox(height: 36),
                 FilledButton.icon(
                   onPressed: _authenticateAppLaunch,
-                  icon: const Icon(Icons.lock_open_rounded),
+                  icon: const Icon(Icons.lock_open_rounded, size: 18),
                   label: const Text('Unlock with Biometrics / PIN'),
                   style: FilledButton.styleFrom(
+                    backgroundColor: const Color(0xFF007AFF),
+                    foregroundColor: Colors.white,
                     padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(16),
@@ -731,13 +755,16 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
     return Scaffold(
       appBar: AppBar(
         title: const Text(
-          '🌤️ Meteorological Portal',
-          style: TextStyle(fontWeight: FontWeight.bold),
+          'Meteorological Portal',
+          style: TextStyle(
+            fontWeight: FontWeight.w700,
+            letterSpacing: -0.4,
+          ),
         ),
         actions: [
           IconButton(
             tooltip: 'Settings',
-            icon: const Icon(Icons.settings),
+            icon: const Icon(Icons.settings_outlined),
             onPressed: _openSettings,
           ),
         ],

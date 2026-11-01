@@ -311,17 +311,20 @@ class _SystemHealthScreenState extends State<SystemHealthScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('System Health & Subsystems'),
+        title: const Text(
+          'System Diagnostics',
+          style: TextStyle(fontWeight: FontWeight.w700, letterSpacing: -0.4),
+        ),
         actions: [
           IconButton(
             icon: _isRunningDiagnostics
                 ? const SizedBox(
                     width: 18,
                     height: 18,
-                    child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                    child: CircularProgressIndicator(strokeWidth: 2, color: Color(0xFF007AFF)),
                   )
                 : const Icon(Icons.refresh_rounded),
-            tooltip: 'Run Diagnostic Pulse',
+            tooltip: 'Run Diagnostics',
             onPressed: _isRunningDiagnostics ? null : _runFullDiagnostics,
           ),
         ],
@@ -329,26 +332,22 @@ class _SystemHealthScreenState extends State<SystemHealthScreen> {
       body: RefreshIndicator(
         onRefresh: _runFullDiagnostics,
         child: ListView(
-          padding: const EdgeInsets.all(16),
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
           children: [
             // Top Summary Card
             Container(
-              padding: const EdgeInsets.all(16),
+              padding: const EdgeInsets.all(18),
               decoration: BoxDecoration(
-                color: isDark ? const Color(0xFF1E2330) : Colors.white,
+                color: isDark ? const Color(0xFF1C1C1E) : Colors.white,
                 borderRadius: BorderRadius.circular(16),
                 border: Border.all(
-                  color: failedCount > 0
-                      ? Colors.redAccent.withOpacity(0.5)
-                      : (standbyCount > 0
-                          ? Colors.amber.withOpacity(0.4)
-                          : const Color(0xFF10B981).withOpacity(0.4)),
-                  width: 1.5,
+                  color: isDark ? Colors.white.withOpacity(0.08) : Colors.black.withOpacity(0.06),
+                  width: 1.0,
                 ),
                 boxShadow: [
                   BoxShadow(
-                    color: Colors.black.withOpacity(isDark ? 0.3 : 0.05),
-                    blurRadius: 10,
+                    color: Colors.black.withOpacity(isDark ? 0.3 : 0.04),
+                    blurRadius: 12,
                     offset: const Offset(0, 4),
                   ),
                 ],
@@ -361,14 +360,15 @@ class _SystemHealthScreenState extends State<SystemHealthScreen> {
                     children: [
                       Row(
                         children: [
-                          Icon(
-                            failedCount > 0
-                                ? Icons.warning_amber_rounded
-                                : (standbyCount > 0 ? Icons.info_outline_rounded : Icons.check_circle_rounded),
-                            color: failedCount > 0
-                                ? Colors.redAccent
-                                : (standbyCount > 0 ? Colors.amber : Colors.green),
-                            size: 26,
+                          Container(
+                            width: 10,
+                            height: 10,
+                            decoration: BoxDecoration(
+                              shape: BoxShape.circle,
+                              color: failedCount > 0
+                                  ? const Color(0xFFFF3B30)
+                                  : (standbyCount > 0 ? const Color(0xFFFF9500) : const Color(0xFF34C759)),
+                            ),
                           ),
                           const SizedBox(width: 10),
                           Column(
@@ -379,28 +379,30 @@ class _SystemHealthScreenState extends State<SystemHealthScreen> {
                                     ? 'ATTENTION REQUIRED'
                                     : (standbyCount > 0 ? 'SYSTEM OPERATIONAL' : 'ALL SYSTEMS OPERATIONAL'),
                                 style: TextStyle(
-                                  fontWeight: FontWeight.bold,
-                                  fontSize: 15,
+                                  fontWeight: FontWeight.w700,
+                                  fontSize: 14,
+                                  letterSpacing: 0.3,
                                   color: failedCount > 0
-                                      ? Colors.redAccent
-                                      : (standbyCount > 0 ? Colors.amber : Colors.green),
+                                      ? const Color(0xFFFF3B30)
+                                      : (standbyCount > 0 ? const Color(0xFFFF9500) : const Color(0xFF34C759)),
                                 ),
                               ),
+                              const SizedBox(height: 2),
                               Text(
-                                'IMD Portal v${UpdateService.currentVersion} • 10 Core Subsystems',
+                                'IMD Portal v${UpdateService.currentVersion} • 10 Subsystems',
                                 style: TextStyle(
                                   fontSize: 12,
-                                  color: isDark ? Colors.grey[400] : Colors.grey[600],
+                                  color: isDark ? const Color(0xFF8E8E93) : const Color(0xFF636366),
                                 ),
                               ),
                             ],
                           ),
                         ],
                       ),
-                      ElevatedButton.icon(
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: Colors.blueAccent,
-                          foregroundColor: Colors.white,
+                      TextButton.icon(
+                        style: TextButton.styleFrom(
+                          backgroundColor: const Color(0xFF007AFF).withOpacity(0.12),
+                          foregroundColor: const Color(0xFF007AFF),
                           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                         ),
@@ -408,28 +410,28 @@ class _SystemHealthScreenState extends State<SystemHealthScreen> {
                             ? const SizedBox(
                                 width: 14,
                                 height: 14,
-                                child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                                child: CircularProgressIndicator(strokeWidth: 2, color: Color(0xFF007AFF)),
                               )
                             : const Icon(Icons.bolt_rounded, size: 16),
                         label: Text(
-                          _isRunningDiagnostics ? 'Pinging...' : 'Pulse Check',
-                          style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
+                          _isRunningDiagnostics ? 'Testing...' : 'Pulse Check',
+                          style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700),
                         ),
                         onPressed: _isRunningDiagnostics ? null : _runFullDiagnostics,
                       ),
                     ],
                   ),
+                  const SizedBox(height: 16),
+                  Divider(height: 1, color: isDark ? Colors.white10 : Colors.black12),
                   const SizedBox(height: 14),
-                  const Divider(height: 1),
-                  const SizedBox(height: 12),
                   // KPI Counters Row
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceAround,
                     children: [
-                      _buildKpiChip('Working', '$operationalCount', Colors.green, Icons.check_circle),
-                      _buildKpiChip('Standby', '$standbyCount', Colors.amber, Icons.pause_circle_outline),
-                      _buildKpiChip('Down', '$failedCount', Colors.redAccent, Icons.cancel_outlined),
-                      _buildKpiChip('Total', '${_items.length}', Colors.blueAccent, Icons.grid_view_rounded),
+                      _buildKpiChip('Working', '$operationalCount', const Color(0xFF34C759), Icons.check_circle_rounded),
+                      _buildKpiChip('Standby', '$standbyCount', const Color(0xFFFF9500), Icons.pause_circle_rounded),
+                      _buildKpiChip('Down', '$failedCount', const Color(0xFFFF3B30), Icons.cancel_rounded),
+                      _buildKpiChip('Total', '${_items.length}', const Color(0xFF007AFF), Icons.grid_view_rounded),
                     ],
                   ),
                 ],
@@ -438,10 +440,12 @@ class _SystemHealthScreenState extends State<SystemHealthScreen> {
 
             const SizedBox(height: 16),
 
-            // Category Filter Pills
-            SingleChildScrollView(
-              scrollDirection: Axis.horizontal,
-              child: Row(
+            // Category Filter Pills (Apple Segmented Bar)
+            SizedBox(
+              height: 38,
+              child: ListView(
+                scrollDirection: Axis.horizontal,
+                padding: const EdgeInsets.symmetric(vertical: 2),
                 children: [
                   _buildFilterChip('all', 'All Modules'),
                   _buildFilterChip('network', 'Network & Portal'),
@@ -456,7 +460,7 @@ class _SystemHealthScreenState extends State<SystemHealthScreen> {
               ),
             ),
 
-            const SizedBox(height: 12),
+            const SizedBox(height: 14),
 
             // Subsystems List
             ...filteredItems.map((item) => _buildSubsystemCard(item, isDark)),
@@ -474,18 +478,18 @@ class _SystemHealthScreenState extends State<SystemHealthScreen> {
         Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(icon, size: 14, color: color),
-            const SizedBox(width: 4),
+            Icon(icon, size: 15, color: color),
+            const SizedBox(width: 5),
             Text(
               value,
-              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: color),
+              style: TextStyle(fontWeight: FontWeight.w700, fontSize: 17, color: color),
             ),
           ],
         ),
-        const SizedBox(height: 2),
+        const SizedBox(height: 3),
         Text(
           label,
-          style: const TextStyle(fontSize: 11, color: Colors.grey),
+          style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500, color: Color(0xFF8E8E93)),
         ),
       ],
     );
@@ -493,18 +497,49 @@ class _SystemHealthScreenState extends State<SystemHealthScreen> {
 
   Widget _buildFilterChip(String cat, String label) {
     final isSelected = _selectedCategory == cat;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
     return Padding(
-      padding: const EdgeInsets.only(right: 6),
-      child: FilterChip(
-        selected: isSelected,
-        label: Text(label, style: TextStyle(fontSize: 11, fontWeight: isSelected ? FontWeight.bold : FontWeight.normal)),
-        selectedColor: Colors.blueAccent.withOpacity(0.2),
-        checkmarkColor: Colors.blueAccent,
-        onSelected: (val) {
+      padding: const EdgeInsets.only(right: 8),
+      child: GestureDetector(
+        onTap: () {
           setState(() {
             _selectedCategory = cat;
           });
         },
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 200),
+          curve: Curves.easeOutCubic,
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
+          decoration: BoxDecoration(
+            color: isSelected
+                ? const Color(0xFF007AFF)
+                : (isDark ? const Color(0xFF2C2C2E) : const Color(0xFFE5E5EA)),
+            borderRadius: BorderRadius.circular(18),
+            boxShadow: isSelected
+                ? [
+                    BoxShadow(
+                      color: const Color(0xFF007AFF).withOpacity(0.3),
+                      blurRadius: 6,
+                      offset: const Offset(0, 2),
+                    ),
+                  ]
+                : null,
+          ),
+          child: Center(
+            child: Text(
+              label,
+              style: TextStyle(
+                fontSize: 12,
+                fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
+                color: isSelected
+                    ? Colors.white
+                    : (isDark ? const Color(0xFFE5E5EA) : const Color(0xFF1C1C1E)),
+                letterSpacing: -0.2,
+              ),
+            ),
+          ),
+        ),
       ),
     );
   }
@@ -516,22 +551,22 @@ class _SystemHealthScreenState extends State<SystemHealthScreen> {
 
     switch (item.status) {
       case HealthStatus.operational:
-        statusColor = Colors.green;
+        statusColor = const Color(0xFF34C759);
         statusLabel = 'OPERATIONAL';
         statusIcon = Icons.check_circle_rounded;
         break;
       case HealthStatus.standby:
-        statusColor = Colors.amber;
+        statusColor = const Color(0xFFFF9500);
         statusLabel = 'STANDBY';
         statusIcon = Icons.pause_circle_filled_rounded;
         break;
       case HealthStatus.failed:
-        statusColor = Colors.redAccent;
+        statusColor = const Color(0xFFFF3B30);
         statusLabel = 'OFFLINE';
         statusIcon = Icons.error_rounded;
         break;
       case HealthStatus.checking:
-        statusColor = Colors.blueAccent;
+        statusColor = const Color(0xFF007AFF);
         statusLabel = 'CHECKING...';
         statusIcon = Icons.sync_rounded;
         break;
@@ -541,13 +576,20 @@ class _SystemHealthScreenState extends State<SystemHealthScreen> {
       margin: const EdgeInsets.only(bottom: 10),
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: isDark ? const Color(0xFF1B202B) : Colors.white,
+        color: isDark ? const Color(0xFF1C1C1E) : Colors.white,
         borderRadius: BorderRadius.circular(14),
         border: Border.all(
           color: item.status == HealthStatus.failed
-              ? Colors.redAccent.withOpacity(0.6)
-              : (isDark ? Colors.white10 : Colors.black12),
+              ? const Color(0xFFFF3B30).withOpacity(0.5)
+              : (isDark ? Colors.white.withOpacity(0.08) : Colors.black.withOpacity(0.06)),
         ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(isDark ? 0.2 : 0.03),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -560,10 +602,10 @@ class _SystemHealthScreenState extends State<SystemHealthScreen> {
                   Container(
                     padding: const EdgeInsets.all(8),
                     decoration: BoxDecoration(
-                      color: Colors.blueAccent.withOpacity(0.12),
+                      color: const Color(0xFF007AFF).withOpacity(0.12),
                       borderRadius: BorderRadius.circular(10),
                     ),
-                    child: Icon(item.icon, size: 20, color: Colors.blueAccent),
+                    child: Icon(item.icon, size: 20, color: const Color(0xFF007AFF)),
                   ),
                   const SizedBox(width: 10),
                   Column(
@@ -571,11 +613,15 @@ class _SystemHealthScreenState extends State<SystemHealthScreen> {
                     children: [
                       Text(
                         item.name,
-                        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                        style: const TextStyle(
+                          fontWeight: FontWeight.w700,
+                          fontSize: 14,
+                          letterSpacing: -0.2,
+                        ),
                       ),
                       Text(
                         item.category,
-                        style: const TextStyle(fontSize: 11, color: Colors.grey),
+                        style: const TextStyle(fontSize: 12, color: Color(0xFF8E8E93)),
                       ),
                     ],
                   ),
@@ -583,11 +629,11 @@ class _SystemHealthScreenState extends State<SystemHealthScreen> {
               ),
               // Status Badge
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
                 decoration: BoxDecoration(
                   color: statusColor.withOpacity(0.12),
                   borderRadius: BorderRadius.circular(20),
-                  border: Border.all(color: statusColor.withOpacity(0.3)),
+                  border: Border.all(color: statusColor.withOpacity(0.3), width: 0.8),
                 ),
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
@@ -600,10 +646,15 @@ class _SystemHealthScreenState extends State<SystemHealthScreen> {
                       )
                     else
                       Icon(statusIcon, size: 12, color: statusColor),
-                    const SizedBox(width: 4),
+                    const SizedBox(width: 5),
                     Text(
                       statusLabel,
-                      style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: statusColor),
+                      style: TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w700,
+                        letterSpacing: 0.2,
+                        color: statusColor,
+                      ),
                     ),
                   ],
                 ),
@@ -613,13 +664,17 @@ class _SystemHealthScreenState extends State<SystemHealthScreen> {
           const SizedBox(height: 8),
           Text(
             item.description,
-            style: TextStyle(fontSize: 12, color: isDark ? Colors.grey[400] : Colors.grey[600]),
+            style: TextStyle(
+              fontSize: 12.5,
+              color: isDark ? const Color(0xFFD1D1D6) : const Color(0xFF48484A),
+              height: 1.3,
+            ),
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: 10),
           Container(
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
             decoration: BoxDecoration(
-              color: isDark ? const Color(0xFF131720) : const Color(0xFFF3F4F6),
+              color: isDark ? const Color(0xFF14171E) : const Color(0xFFF2F4F7),
               borderRadius: BorderRadius.circular(8),
             ),
             child: Row(
@@ -629,11 +684,11 @@ class _SystemHealthScreenState extends State<SystemHealthScreen> {
                   child: Text(
                     item.details,
                     style: TextStyle(
-                      fontSize: 11,
+                      fontSize: 11.5,
                       fontFamily: 'monospace',
                       color: item.status == HealthStatus.failed
-                          ? Colors.redAccent
-                          : (isDark ? Colors.grey[300] : Colors.grey[800]),
+                          ? const Color(0xFFFF3B30)
+                          : (isDark ? const Color(0xFFE5E5EA) : const Color(0xFF2C2C2E)),
                     ),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
@@ -650,16 +705,17 @@ class _SystemHealthScreenState extends State<SystemHealthScreen> {
                           await _testSingleSubsystem(item);
                           if (mounted) setState(() {});
                         },
-                  borderRadius: BorderRadius.circular(4),
+                  borderRadius: BorderRadius.circular(6),
                   child: Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                     child: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: const [
-                        Icon(Icons.play_arrow_rounded, size: 14, color: Colors.blueAccent),
+                        Icon(Icons.play_arrow_rounded, size: 15, color: Color(0xFF007AFF)),
+                        SizedBox(width: 2),
                         Text(
                           'Test',
-                          style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.blueAccent),
+                          style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: Color(0xFF007AFF)),
                         ),
                       ],
                     ),
