@@ -1119,4 +1119,3 @@ class _CircularTabsState extends State<CircularTabs> {
     );
   }
 }
-}
