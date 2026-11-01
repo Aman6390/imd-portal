@@ -701,12 +701,24 @@ class _WeatherCardState extends State<WeatherCard> {
             margin: const EdgeInsets.only(right: 6),
             padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 4),
             decoration: BoxDecoration(
-              color: isNow
-                  ? Colors.white.withOpacity(0.20)
-                  : Colors.black.withOpacity(0.20),
+              gradient: LinearGradient(
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+                colors: isNow
+                    ? [
+                        const Color(0xFF38BDF8).withOpacity(0.28),
+                        const Color(0xFF0284C7).withOpacity(0.14),
+                      ]
+                    : [
+                        Colors.white.withOpacity(0.08),
+                        Colors.white.withOpacity(0.02),
+                      ],
+              ),
               borderRadius: BorderRadius.circular(12),
               border: Border.all(
-                color: isNow ? Colors.white.withOpacity(0.4) : Colors.white.withOpacity(0.06),
+                color: isNow
+                    ? const Color(0xFF38BDF8).withOpacity(0.55)
+                    : Colors.white.withOpacity(0.08),
                 width: 0.8,
               ),
             ),
@@ -780,22 +792,27 @@ class _WeatherCardState extends State<WeatherCard> {
     return Container(
       margin: const EdgeInsets.only(bottom: 14),
       decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(20),
-        gradient: const LinearGradient(
+        borderRadius: BorderRadius.circular(24),
+        gradient: LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
           colors: [
-            Color(0xFF131D38), // Apple Midnight Indigo
-            Color(0xFF0F172A), // Deep Obsidian Slate
+            const Color(0xFF131D38).withOpacity(0.88), // Spatial Midnight Sapphire
+            const Color(0xFF0F172A).withOpacity(0.82), // Deep Obsidian Slate
           ],
         ),
         border: Border.all(
-          color: Colors.white.withOpacity(0.10),
-          width: 0.8,
+          color: const Color(0xFF38BDF8).withOpacity(0.28), // Iridescent cyan specular rim
+          width: 1.0,
         ),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.3),
+            color: const Color(0xFF0284C7).withOpacity(0.18),
+            blurRadius: 28,
+            offset: const Offset(0, 8),
+          ),
+          BoxShadow(
+            color: Colors.black.withOpacity(0.35),
             blurRadius: 16,
             offset: const Offset(0, 4),
           ),

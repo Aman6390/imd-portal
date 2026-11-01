@@ -5,6 +5,7 @@ import '../../models/dashboard_data.dart';
 import '../../services/ai_circular_service.dart';
 import '../../services/circular_service.dart';
 import '../../services/storage_service.dart';
+import 'glass_container.dart';
 
 class _TopicBadge {
   final String label;
@@ -226,13 +227,19 @@ class _CircularTabsState extends State<CircularTabs> {
               decoration: BoxDecoration(
                 color: isSelected
                     ? const Color(0xFF007AFF)
-                    : (isDark ? const Color(0xFF2C2C2E) : const Color(0xFFE5E5EA)),
+                    : (isDark ? Colors.white.withOpacity(0.08) : const Color(0xFFE5E5EA)),
                 borderRadius: BorderRadius.circular(18),
+                border: Border.all(
+                  color: isSelected
+                      ? const Color(0xFF38BDF8).withOpacity(0.6)
+                      : Colors.white.withOpacity(isDark ? 0.08 : 0.25),
+                  width: 0.8,
+                ),
                 boxShadow: isSelected
                     ? [
                         BoxShadow(
-                          color: const Color(0xFF007AFF).withOpacity(0.3),
-                          blurRadius: 8,
+                          color: const Color(0xFF007AFF).withOpacity(0.4),
+                          blurRadius: 10,
                           offset: const Offset(0, 2),
                         ),
                       ]
@@ -1047,23 +1054,27 @@ class _CircularTabsState extends State<CircularTabs> {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          // Apple Segmented Control Tab Header
-          Container(
-            margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+          // Apple iOS 27 Frosted Glass Segmented Control
+          GlassContainer(
+            borderRadius: 14,
+            blur: 16,
             padding: const EdgeInsets.all(3),
-            decoration: BoxDecoration(
-              color: isDark ? const Color(0xFF2C2C2E) : const Color(0xFFE5E5EA),
-              borderRadius: BorderRadius.circular(10),
-            ),
+            margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            borderOpacity: 0.16,
+            surfaceOpacity: 0.08,
             child: TabBar(
               indicator: BoxDecoration(
-                color: isDark ? const Color(0xFF1C1C1E) : Colors.white,
-                borderRadius: BorderRadius.circular(8),
+                color: isDark ? Colors.white.withOpacity(0.18) : Colors.white,
+                borderRadius: BorderRadius.circular(11),
+                border: Border.all(
+                  color: Colors.white.withOpacity(isDark ? 0.25 : 0.6),
+                  width: 0.8,
+                ),
                 boxShadow: [
                   BoxShadow(
-                    color: Colors.black.withOpacity(0.06),
-                    blurRadius: 4,
-                    offset: const Offset(0, 1),
+                    color: Colors.black.withOpacity(0.15),
+                    blurRadius: 8,
+                    offset: const Offset(0, 2),
                   ),
                 ],
               ),
@@ -1071,7 +1082,7 @@ class _CircularTabsState extends State<CircularTabs> {
               dividerColor: Colors.transparent,
               labelColor: isDark ? Colors.white : Colors.black,
               unselectedLabelColor: isDark ? const Color(0xFF8E8E93) : const Color(0xFF636366),
-              labelStyle: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600, letterSpacing: -0.2),
+              labelStyle: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700, letterSpacing: -0.2),
               unselectedLabelStyle: const TextStyle(fontSize: 13, fontWeight: FontWeight.normal),
               tabs: [
                 Tab(

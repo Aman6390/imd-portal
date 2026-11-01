@@ -44,12 +44,12 @@ class UpdateDownloadProgress {
 /// and manage background APK downloading without interrupting user experience.
 class UpdateService {
   /// Current app version
-  static const String currentVersion = '1.4.25';
+  static const String currentVersion = '1.4.26';
 
   /// GitHub public releases endpoint
   static const List<String> releaseApiEndpoints = [
-    'https://api.github.com/repos/Aman6390/metnet-circulars-index/releases/latest',
     'https://api.github.com/repos/Aman6390/imd-portal/releases/latest',
+    'https://api.github.com/repos/Aman6390/metnet-circulars-index/releases/latest',
   ];
   static const String latestReleaseApi =
       'https://api.github.com/repos/Aman6390/metnet-circulars-index/releases/latest';

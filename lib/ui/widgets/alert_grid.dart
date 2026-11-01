@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../../models/dashboard_data.dart';
 import '../month_calendar_screen.dart';
+import 'glass_container.dart';
 
 /// Apple Design System C-Off Expiry Alert Grid & Carousel.
 /// Replaces generic neon rotating borders with refined Cupertino vibrancy,
@@ -163,13 +164,6 @@ class _AppleMonthCardState extends State<_AppleMonthCard> {
   Widget build(BuildContext context) {
     // Apple Semantic Color Palette
     final activeBorder = const Color(0xFFFF9500); // Apple SystemOrange
-    final activeBg = widget.isDark
-        ? const Color(0xFF231C14) // Deep warm amber-black
-        : const Color(0xFFFFF7ED); // Soft warm linen
-    final defaultBg = widget.isDark
-        ? const Color(0xFF161B26)
-        : Colors.white;
-
     final titleColor = widget.hasAlert
         ? (widget.isDark ? const Color(0xFFFFB020) : const Color(0xFFD97706))
         : (widget.isDark ? Colors.grey[300] : const Color(0xFF334155));
@@ -183,90 +177,73 @@ class _AppleMonthCardState extends State<_AppleMonthCard> {
       duration: const Duration(milliseconds: 140),
       curve: Curves.easeOutCubic,
       child: Container(
-        width: 104,
-        height: 104,
+        width: 108,
+        height: 108,
         margin: const EdgeInsets.only(right: 10),
-        child: Material(
-          color: Colors.transparent,
-          child: InkWell(
-            borderRadius: BorderRadius.circular(18),
-            onHighlightChanged: (val) {
-              setState(() {
-                _isPressed = val;
-              });
-            },
-            onTap: widget.onTap,
-            child: Container(
-              decoration: BoxDecoration(
-                color: widget.hasAlert ? activeBg : defaultBg,
-                borderRadius: BorderRadius.circular(18),
-                border: Border.all(
-                  color: widget.hasAlert
-                      ? activeBorder.withOpacity(0.4)
-                      : (widget.isDark
-                          ? Colors.white.withOpacity(0.08)
-                          : Colors.black.withOpacity(0.06)),
-                  width: widget.hasAlert ? 1.2 : 0.8,
+        child: GlassContainer(
+          borderRadius: 18,
+          blur: 16,
+          tintColor: widget.hasAlert ? const Color(0xFFFF9500) : null,
+          borderOpacity: widget.hasAlert ? 0.45 : 0.12,
+          surfaceOpacity: widget.hasAlert ? 0.12 : 0.05,
+          onTap: () {
+            widget.onTap();
+          },
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 10),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              // Top month title
+              Text(
+                widget.monthLabel,
+                style: TextStyle(
+                  fontSize: 12.5,
+                  fontWeight: FontWeight.w700,
+                  color: titleColor,
+                  letterSpacing: -0.2,
                 ),
-                boxShadow: [
-                  BoxShadow(
+              ),
+              // Center balance display with glowing numerals
+              Text(
+                widget.hasAlert ? '${widget.count}' : '0',
+                style: TextStyle(
+                  fontSize: 26,
+                  fontWeight: FontWeight.w800,
+                  color: widget.hasAlert
+                      ? (widget.isDark ? const Color(0xFFFF9500) : const Color(0xFFD97706))
+                      : countColor,
+                  letterSpacing: -0.6,
+                  shadows: widget.hasAlert && widget.isDark
+                      ? [
+                          BoxShadow(
+                            color: activeBorder.withOpacity(0.5),
+                            blurRadius: 10,
+                          ),
+                        ]
+                      : null,
+                ),
+              ),
+              // Bottom badge or status label
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                decoration: BoxDecoration(
+                  color: widget.hasAlert
+                      ? const Color(0xFFFF9500).withOpacity(0.22)
+                      : Colors.transparent,
+                  borderRadius: BorderRadius.circular(6),
+                ),
+                child: Text(
+                  widget.hasAlert ? 'Expiring' : 'Clear',
+                  style: TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w700,
                     color: widget.hasAlert
-                        ? activeBorder.withOpacity(widget.isDark ? 0.15 : 0.08)
-                        : Colors.black.withOpacity(widget.isDark ? 0.2 : 0.03),
-                    blurRadius: 10,
-                    offset: const Offset(0, 3),
+                        ? const Color(0xFFFF9500)
+                        : (widget.isDark ? Colors.grey[500] : Colors.grey[400]),
                   ),
-                ],
+                ),
               ),
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 10),
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  // Top month title
-                  Text(
-                    widget.monthLabel,
-                    style: TextStyle(
-                      fontSize: 12.5,
-                      fontWeight: FontWeight.w600,
-                      color: titleColor,
-                      letterSpacing: -0.2,
-                    ),
-                  ),
-                  // Center balance display
-                  Text(
-                    widget.hasAlert ? '${widget.count}' : '0',
-                    style: TextStyle(
-                      fontSize: 26,
-                      fontWeight: FontWeight.w700,
-                      color: widget.hasAlert
-                          ? (widget.isDark ? const Color(0xFFFF9500) : const Color(0xFFD97706))
-                          : countColor,
-                      letterSpacing: -0.6,
-                    ),
-                  ),
-                  // Bottom badge or status label (floor >= 11-12pt)
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1.5),
-                    decoration: BoxDecoration(
-                      color: widget.hasAlert
-                          ? const Color(0xFFFF9500).withOpacity(0.18)
-                          : Colors.transparent,
-                      borderRadius: BorderRadius.circular(6),
-                    ),
-                    child: Text(
-                      widget.hasAlert ? 'Expiring' : 'Clear',
-                      style: TextStyle(
-                        fontSize: 11,
-                        fontWeight: FontWeight.w600,
-                        color: widget.hasAlert
-                            ? const Color(0xFFFF9500)
-                            : (widget.isDark ? Colors.grey[500] : Colors.grey[400]),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
+            ],
           ),
         ),
       ),

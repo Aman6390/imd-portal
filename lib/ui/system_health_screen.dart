@@ -6,6 +6,7 @@ import '../services/ai_circular_service.dart';
 import '../services/notification_service.dart';
 import '../services/storage_service.dart';
 import '../services/update_service.dart';
+import 'widgets/glass_container.dart';
 
 enum HealthStatus { checking, operational, standby, failed }
 
@@ -335,23 +336,12 @@ class _SystemHealthScreenState extends State<SystemHealthScreen> {
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
           children: [
             // Top Summary Card
-            Container(
+            GlassContainer(
+              borderRadius: 20,
+              blur: 18,
               padding: const EdgeInsets.all(18),
-              decoration: BoxDecoration(
-                color: isDark ? const Color(0xFF1C1C1E) : Colors.white,
-                borderRadius: BorderRadius.circular(16),
-                border: Border.all(
-                  color: isDark ? Colors.white.withOpacity(0.08) : Colors.black.withOpacity(0.06),
-                  width: 1.0,
-                ),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withOpacity(isDark ? 0.3 : 0.04),
-                    blurRadius: 12,
-                    offset: const Offset(0, 4),
-                  ),
-                ],
-              ),
+              borderOpacity: 0.16,
+              surfaceOpacity: 0.08,
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -574,26 +564,16 @@ class _SystemHealthScreenState extends State<SystemHealthScreen> {
 
     return Container(
       margin: const EdgeInsets.only(bottom: 10),
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: isDark ? const Color(0xFF1C1C1E) : Colors.white,
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(
-          color: item.status == HealthStatus.failed
-              ? const Color(0xFFFF3B30).withOpacity(0.5)
-              : (isDark ? Colors.white.withOpacity(0.08) : Colors.black.withOpacity(0.06)),
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(isDark ? 0.2 : 0.03),
-            blurRadius: 8,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
+      child: GlassContainer(
+        borderRadius: 16,
+        blur: 14,
+        padding: const EdgeInsets.all(14),
+        borderOpacity: item.status == HealthStatus.failed ? 0.5 : 0.12,
+        surfaceOpacity: item.status == HealthStatus.failed ? 0.08 : 0.05,
+        tintColor: item.status == HealthStatus.failed ? const Color(0xFFFF3B30) : null,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [

@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:ui';
 import 'package:flutter/material.dart';
 import '../models/dashboard_data.dart';
 import '../services/auth_service.dart';
@@ -10,6 +11,7 @@ import '../services/storage_service.dart';
 import '../services/update_service.dart';
 import 'widgets/alert_grid.dart';
 import 'widgets/circular_tabs.dart';
+import 'widgets/glass_container.dart';
 import 'widgets/leave_card.dart';
 import 'widgets/notice_resolver_webview.dart';
 import 'widgets/settings_dialog.dart';
@@ -577,25 +579,30 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
             // Live Weather Forecast Card (100% Free & Open-Meteo Powered)
             WeatherCard(key: _weatherKey),
 
-            // Sync status badge (Apple live status capsule)
+            // Sync status badge (Apple iOS 27 live status capsule)
             Builder(
               builder: (ctx) {
-                final isDark = Theme.of(ctx).brightness == Brightness.dark;
-                return Container(
+                return GlassContainer(
+                  borderRadius: 20,
+                  blur: 14,
                   padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
-                  decoration: BoxDecoration(
-                    color: isDark ? const Color(0xFF1C1C1E) : const Color(0xFFE5E5EA).withOpacity(0.8),
-                    borderRadius: BorderRadius.circular(20),
-                  ),
+                  borderOpacity: 0.18,
+                  surfaceOpacity: 0.08,
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       Container(
                         width: 7,
                         height: 7,
-                        decoration: const BoxDecoration(
+                        decoration: BoxDecoration(
                           shape: BoxShape.circle,
-                          color: Color(0xFF34C759),
+                          color: const Color(0xFF34C759),
+                          boxShadow: [
+                            BoxShadow(
+                              color: const Color(0xFF34C759).withOpacity(0.6),
+                              blurRadius: 6,
+                            ),
+                          ],
                         ),
                       ),
                       const SizedBox(width: 8),
@@ -746,46 +753,179 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
     );
   }
 
+  Widget _buildAtmosphericMeshBackground(bool isDark) {
+    if (!isDark) {
+      return Container(color: const Color(0xFFF2F5FB));
+    }
+    return Stack(
+      children: [
+        Container(color: const Color(0xFF080C14)), // Deep Spatial Midnight
+        // Top-right glowing liquid sapphire blob
+        Positioned(
+          top: -60,
+          right: -40,
+          child: Container(
+            width: 320,
+            height: 320,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              gradient: RadialGradient(
+                colors: [
+                  const Color(0xFF0284C7).withOpacity(0.35),
+                  const Color(0xFF0284C7).withOpacity(0.0),
+                ],
+              ),
+            ),
+          ),
+        ),
+        // Middle-left glowing liquid violet blob
+        Positioned(
+          top: 280,
+          left: -80,
+          child: Container(
+            width: 340,
+            height: 340,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              gradient: RadialGradient(
+                colors: [
+                  const Color(0xFF7C3AED).withOpacity(0.28),
+                  const Color(0xFF7C3AED).withOpacity(0.0),
+                ],
+              ),
+            ),
+          ),
+        ),
+        // Bottom-right glowing liquid cyan blob
+        Positioned(
+          bottom: 60,
+          right: -60,
+          child: Container(
+            width: 300,
+            height: 300,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              gradient: RadialGradient(
+                colors: [
+                  const Color(0xFF06B6D4).withOpacity(0.25),
+                  const Color(0xFF06B6D4).withOpacity(0.0),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     if (!_isAppUnlocked) {
       return _buildLockScreen();
     }
+    final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return Scaffold(
-      appBar: AppBar(
-        title: const Text(
-          'Meteorological Portal',
-          style: TextStyle(
-            fontWeight: FontWeight.w700,
-            letterSpacing: -0.4,
+      extendBodyBehindAppBar: true,
+      appBar: PreferredSize(
+        preferredSize: const Size.fromHeight(kToolbarHeight),
+        child: ClipRRect(
+          child: BackdropFilter(
+            filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
+            child: AppBar(
+              backgroundColor: isDark
+                  ? const Color(0xFF080C14).withOpacity(0.65)
+                  : Colors.white.withOpacity(0.70),
+              elevation: 0,
+              title: Row(
+                children: [
+                  const Text(
+                    'Meteorological Portal',
+                    style: TextStyle(
+                      fontWeight: FontWeight.w700,
+                      letterSpacing: -0.4,
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF34C759).withOpacity(0.18),
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(
+                        color: const Color(0xFF34C759).withOpacity(0.4),
+                        width: 0.8,
+                      ),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Container(
+                          width: 5,
+                          height: 5,
+                          decoration: const BoxDecoration(
+                            shape: BoxShape.circle,
+                            color: Color(0xFF34C759),
+                          ),
+                        ),
+                        const SizedBox(width: 4),
+                        const Text(
+                          'Live',
+                          style: TextStyle(
+                            fontSize: 10,
+                            fontWeight: FontWeight.w700,
+                            color: Color(0xFF34C759),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+              actions: [
+                IconButton(
+                  tooltip: 'Settings',
+                  icon: const Icon(Icons.settings_outlined),
+                  onPressed: _openSettings,
+                ),
+              ],
+            ),
           ),
         ),
-        actions: [
-          IconButton(
-            tooltip: 'Settings',
-            icon: const Icon(Icons.settings_outlined),
-            onPressed: _openSettings,
+      ),
+      body: Stack(
+        children: [
+          _buildAtmosphericMeshBackground(isDark),
+          SafeArea(
+            child: _isLoading
+                ? const Center(child: CircularProgressIndicator())
+                : (_data == null ? _buildEmptyState() : _buildDashboard()),
           ),
         ],
       ),
-      body: _isLoading
-          ? const Center(child: CircularProgressIndicator())
-          : (_data == null ? _buildEmptyState() : _buildDashboard()),
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: _isSyncing ? null : _triggerSync,
-        tooltip: 'Sync Data',
-        icon: _isSyncing
-            ? const SizedBox(
-                width: 20,
-                height: 20,
-                child: CircularProgressIndicator(
-                  strokeWidth: 2.5,
-                  valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
-                ),
-              )
-            : const Icon(Icons.sync),
-        label: Text(_isSyncing ? 'Syncing...' : 'Sync Portal'),
+      floatingActionButton: ClipRRect(
+        borderRadius: BorderRadius.circular(24),
+        child: BackdropFilter(
+          filter: ImageFilter.blur(sigmaX: 16, sigmaY: 16),
+          child: FloatingActionButton.extended(
+            backgroundColor: const Color(0xFF007AFF).withOpacity(0.85),
+            foregroundColor: Colors.white,
+            elevation: 4,
+            onPressed: _isSyncing ? null : _triggerSync,
+            tooltip: 'Sync Data',
+            icon: _isSyncing
+                ? const SizedBox(
+                    width: 20,
+                    height: 20,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2.5,
+                      valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                    ),
+                  )
+                : const Icon(Icons.sync),
+            label: Text(_isSyncing ? 'Syncing...' : 'Sync Portal'),
+          ),
+        ),
       ),
       bottomNavigationBar: (_isDownloadingUpdate || _downloadCompleted)
           ? _buildDownloadBanner()
