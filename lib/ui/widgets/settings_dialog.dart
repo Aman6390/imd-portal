@@ -11,6 +11,7 @@ import '../../services/update_service.dart';
 import '../../services/notification_service.dart';
 import '../system_health_screen.dart';
 import 'glass_container.dart';
+import 'telemetry_dashboard_modal.dart';
 
 /// Clean, simplified Apple iOS 27 Liquid Glass Settings Screen.
 /// Features grouped frosted glass cards, persistent Weather Forecast Banner toggle,
@@ -936,6 +937,13 @@ class _SettingsDialogState extends State<SettingsDialog> {
                                   title: 'Clear Downloaded Documents',
                                   subtitle: 'Delete locally cached circular PDFs',
                                   onTap: _clearOfflineDocuments,
+                                ),
+                                _buildDiagnosticActionTile(
+                                  icon: Icons.insights_rounded,
+                                  iconColor: const Color(0xFF00C7FF),
+                                  title: 'Staff Pulse & App Popularity',
+                                  subtitle: 'Live installs, active users, version & feature stats',
+                                  onTap: () => TelemetryDashboardModal.show(context),
                                 ),
                                 _buildDiagnosticActionTile(
                                   icon: Icons.document_scanner_rounded,
