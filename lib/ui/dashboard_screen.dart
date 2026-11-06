@@ -655,11 +655,11 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
             LeaveCardsRow(leavesData: data.leaves),
             const SizedBox(height: 24),
 
-            // C-Off Expiry Alerts section
+            // Leave Expiry Schedule (CL, RH, C-Off)
             const Row(
               children: [
                 Text(
-                  'C-Off Expiry Schedule',
+                  'Leave Expiry Schedule',
                   style: TextStyle(
                     fontSize: 20,
                     fontWeight: FontWeight.w700,
@@ -669,7 +669,7 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
               ],
             ),
             const SizedBox(height: 12),
-            AlertGrid(alerts: data.alerts),
+            AlertGrid(alerts: data.alerts, leavesData: data.leaves),
             const SizedBox(height: 24),
 
             // Departmental Circulars section

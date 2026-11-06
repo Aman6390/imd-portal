@@ -827,7 +827,7 @@ class _CircularTabsState extends State<CircularTabs> {
         final topicBadges = _getTopicBadges(item, aiMeta);
 
         return ListTile(
-          contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+          contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
           // Leading star icon removed as requested to maximize horizontal reading space
           title: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -984,56 +984,101 @@ class _CircularTabsState extends State<CircularTabs> {
               ],
             ),
           ),
-          trailing: Row(
+          trailing: Column(
             mainAxisSize: MainAxisSize.min,
+            mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              // Bookmark / Favorite Button
-              IconButton(
-                icon: Icon(
-                  isBookmarked ? Icons.bookmark_rounded : Icons.bookmark_border_rounded,
-                  size: 22,
-                  color: isBookmarked ? const Color(0xFFFF9500) : Theme.of(context).colorScheme.outline,
-                ),
-                padding: const EdgeInsets.all(4),
-                constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
-                tooltip: isBookmarked ? 'Bookmarked' : 'Add to bookmarks',
-                onPressed: () async {
-                  HapticFeedback.lightImpact();
-                  final newState = await StorageService.toggleBookmark(item.link);
-                  setState(() {
-                    if (newState) {
-                      _bookmarkedUrls.add(item.link);
-                    } else {
-                      _bookmarkedUrls.remove(item.link);
+              // 1. Bookmark / Favorite Micro-Button (Top)
+              Material(
+                color: Colors.transparent,
+                child: InkWell(
+                  borderRadius: BorderRadius.circular(10),
+                  onTap: () async {
+                    HapticFeedback.lightImpact();
+                    final newState = await StorageService.toggleBookmark(item.link);
+                    setState(() {
+                      if (newState) {
+                        _bookmarkedUrls.add(item.link);
+                      } else {
+                        _bookmarkedUrls.remove(item.link);
+                      }
+                    });
+                    if (context.mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Text(newState ? 'Notice bookmarked' : 'Bookmark removed'),
+                          duration: const Duration(seconds: 1),
+                        ),
+                      );
                     }
-                  });
-                  if (context.mounted) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(
-                        content: Text(newState ? 'Notice bookmarked' : 'Bookmark removed'),
-                        duration: const Duration(seconds: 1),
+                  },
+                  child: Container(
+                    width: 34,
+                    height: 34,
+                    decoration: BoxDecoration(
+                      color: isBookmarked
+                          ? const Color(0xFFFF9500).withOpacity(0.18)
+                          : (isDark ? Colors.white.withOpacity(0.06) : Colors.black.withOpacity(0.04)),
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(
+                        color: isBookmarked
+                            ? const Color(0xFFFF9500).withOpacity(0.4)
+                            : (isDark ? Colors.white.withOpacity(0.1) : Colors.black.withOpacity(0.08)),
+                        width: 1,
                       ),
-                    );
-                  }
-                },
-              ),
-              // Download / View Button
-              IconButton(
-                icon: Icon(
-                  isUnavailable
-                      ? Icons.info_outline_rounded
-                      : (isCached ? Icons.check_circle_rounded : Icons.arrow_downward_rounded),
-                  size: 21,
-                  color: isUnavailable
-                      ? const Color(0xFFFF9500)
-                      : (isCached ? const Color(0xFF34C759) : const Color(0xFF007AFF)),
+                    ),
+                    child: Center(
+                      child: Icon(
+                        isBookmarked ? Icons.bookmark_rounded : Icons.bookmark_border_rounded,
+                        size: 19,
+                        color: isBookmarked
+                            ? const Color(0xFFFF9500)
+                            : (isDark ? const Color(0xFF8E8E93) : const Color(0xFF6E6E73)),
+                      ),
+                    ),
+                  ),
                 ),
-                padding: const EdgeInsets.all(4),
-                constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
-                tooltip: isUnavailable
-                    ? 'Notice Withdrawn'
-                    : (isCached ? 'Available Offline' : 'Download / View'),
-                onPressed: () => _handleCircularTap(context, item),
+              ),
+              const SizedBox(height: 6),
+
+              // 2. Download / View Micro-Button (Bottom)
+              Material(
+                color: Colors.transparent,
+                child: InkWell(
+                  borderRadius: BorderRadius.circular(10),
+                  onTap: () => _handleCircularTap(context, item),
+                  child: Container(
+                    width: 34,
+                    height: 34,
+                    decoration: BoxDecoration(
+                      color: isUnavailable
+                          ? const Color(0xFFFF9500).withOpacity(0.14)
+                          : (isCached
+                              ? const Color(0xFF10B981).withOpacity(0.18)
+                              : const Color(0xFF0284C7).withOpacity(0.14)),
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(
+                        color: isUnavailable
+                            ? const Color(0xFFFF9500).withOpacity(0.35)
+                            : (isCached
+                                ? const Color(0xFF10B981).withOpacity(0.4)
+                                : const Color(0xFF0284C7).withOpacity(0.3)),
+                        width: 1,
+                      ),
+                    ),
+                    child: Center(
+                      child: Icon(
+                        isUnavailable
+                            ? Icons.info_outline_rounded
+                            : (isCached ? Icons.check_circle_rounded : Icons.arrow_downward_rounded),
+                        size: 19,
+                        color: isUnavailable
+                            ? const Color(0xFFFF9500)
+                            : (isCached ? const Color(0xFF10B981) : const Color(0xFF0284C7)),
+                      ),
+                    ),
+                  ),
+                ),
               ),
             ],
           ),
