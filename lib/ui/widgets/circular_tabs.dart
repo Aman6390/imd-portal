@@ -820,6 +820,7 @@ class _CircularTabsState extends State<CircularTabs> {
         final isBookmarked = _bookmarkedUrls.contains(item.link);
         final isSummaryExpanded = _expandedSummaryUrls.contains(item.link);
         final aiMeta = AiCircularService.getMetadata(item.link, item.title);
+        final isDark = Theme.of(context).brightness == Brightness.dark;
 
         final cadre = aiMeta?.targetCadre ?? '';
         final cadreColor = _getCadreColor(cadre);
