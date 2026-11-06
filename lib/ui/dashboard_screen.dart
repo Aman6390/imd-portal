@@ -42,8 +42,9 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
   bool _hasMetNetNotice = false;
   String _noticeType = "notice"; // "password", "email", "notice"
 
-  // Weather state key
+  // Weather state
   Key _weatherKey = UniqueKey();
+  bool _showWeatherBanner = true;
 
   // Background update download state
   StreamSubscription<UpdateDownloadProgress>? _updateSub;
@@ -158,9 +159,11 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
 
   Future<void> _loadCachedData() async {
     final cached = await StorageService.loadDashboardData();
+    final showWeather = await StorageService.loadShowWeatherBanner();
     if (mounted) {
       setState(() {
         _data = cached;
+        _showWeatherBanner = showWeather;
         _isLoading = false;
       });
     }
@@ -399,16 +402,29 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
     }
 
     if (!mounted) return;
-    showDialog(
-      context: context,
-      builder: (context) => SettingsDialog(
-        onSaved: () {
-          if (_data == null) {
-            _triggerSync();
-          }
-        },
-        onToggleTheme: widget.onToggleTheme,
-        isDarkMode: widget.isDarkMode,
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        fullscreenDialog: true,
+        builder: (context) => SettingsDialog(
+          onSaved: () async {
+            final showWeather = await StorageService.loadShowWeatherBanner();
+            if (mounted) {
+              setState(() {
+                _showWeatherBanner = showWeather;
+              });
+            }
+            if (_data == null) {
+              _triggerSync();
+            }
+          },
+          onToggleTheme: widget.onToggleTheme,
+          isDarkMode: widget.isDarkMode,
+          onWeatherBannerToggled: (enabled) {
+            setState(() {
+              _showWeatherBanner = enabled;
+            });
+          },
+        ),
       ),
     );
   }
@@ -510,7 +526,7 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
         child: Column(
           children: [
             if (_hasMetNetNotice) _buildNoticeCard(),
-            WeatherCard(key: _weatherKey),
+            if (_showWeatherBanner) WeatherCard(key: _weatherKey),
             Card(
               elevation: 2,
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
@@ -576,8 +592,8 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
           children: [
             if (_hasMetNetNotice) _buildNoticeCard(),
 
-            // Live Weather Forecast Card (100% Free & Open-Meteo Powered)
-            WeatherCard(key: _weatherKey),
+            // Live Weather Forecast Card (100% Free & Open-Meteo Powered, toggleable in Settings)
+            if (_showWeatherBanner) WeatherCard(key: _weatherKey),
 
             // Sync status badge (Apple iOS 27 live status capsule)
             Builder(

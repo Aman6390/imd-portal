@@ -14,6 +14,7 @@ class StorageService {
   static const String _keyJunkKeywords = 'imd_junk_keywords';
   static const String _keyOcrCache = 'imd_ocr_cache';
   static const String _keyBookmarkedUrls = 'imd_bookmarked_urls';
+  static const String _keyShowWeatherBanner = 'imd_show_weather_banner';
 
   static const List<String> defaultVipKeywords = [
     // 1. Career & Seniority (Discovered from 9,600+ real circulars)
@@ -333,6 +334,22 @@ class StorageService {
     final prefs = await SharedPreferences.getInstance();
     final mode = prefs.getString(_keyThemeMode);
     return mode != 'light'; // Default is dark theme
+  }
+
+  /// Saves the user's preference to show or hide the weather forecast banner on the dashboard
+  static Future<void> saveShowWeatherBanner(bool show) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool(_keyShowWeatherBanner, show);
+  }
+
+  /// Loads whether the weather forecast banner should be displayed (defaults to true)
+  static Future<bool> loadShowWeatherBanner() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      return prefs.getBool(_keyShowWeatherBanner) ?? true;
+    } catch (_) {
+      return true;
+    }
   }
 
   /// Checks if developer and diagnostic troubleshooting tools are unlocked (Key 6390).

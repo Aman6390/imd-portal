@@ -1,3 +1,4 @@
+import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -9,17 +10,23 @@ import '../../services/storage_service.dart';
 import '../../services/update_service.dart';
 import '../../services/notification_service.dart';
 import '../system_health_screen.dart';
+import 'glass_container.dart';
 
+/// Clean, simplified Apple iOS 27 Liquid Glass Settings Screen.
+/// Features grouped frosted glass cards, persistent Weather Forecast Banner toggle,
+/// AES-256 MetNet credentials manager, keyword filters modal sheet, and 24-hour ephemeral diagnostic tools.
 class SettingsDialog extends StatefulWidget {
   final VoidCallback onSaved;
   final VoidCallback? onToggleTheme;
   final bool? isDarkMode;
+  final ValueChanged<bool>? onWeatherBannerToggled;
 
   const SettingsDialog({
     Key? key,
     required this.onSaved,
     this.onToggleTheme,
     this.isDarkMode,
+    this.onWeatherBannerToggled,
   }) : super(key: key);
 
   @override
@@ -29,8 +36,6 @@ class SettingsDialog extends StatefulWidget {
 class _SettingsDialogState extends State<SettingsDialog> {
   final _usernameController = TextEditingController();
   final _passwordController = TextEditingController();
-  final _newVipController = TextEditingController();
-  final _newJunkController = TextEditingController();
 
   List<String> _vipKeywords = [];
   List<String> _junkKeywords = [];
@@ -42,6 +47,7 @@ class _SettingsDialogState extends State<SettingsDialog> {
   String _diagnosticsTimeRemainingText = '';
   bool _enableAiSummaries = true;
   bool _isBatteryUnrestricted = false;
+  bool _showWeatherBanner = true;
 
   @override
   void initState() {
@@ -53,8 +59,6 @@ class _SettingsDialogState extends State<SettingsDialog> {
   void dispose() {
     _usernameController.dispose();
     _passwordController.dispose();
-    _newVipController.dispose();
-    _newJunkController.dispose();
     super.dispose();
   }
 
@@ -72,6 +76,7 @@ class _SettingsDialogState extends State<SettingsDialog> {
     }
     final aiEnabled = await AiCircularService.isAiEnabled();
     final isUnrestricted = await BatteryOptimizationService.isIgnoringBatteryOptimizations();
+    final showWeather = await StorageService.loadShowWeatherBanner();
 
     if (mounted) {
       setState(() {
@@ -83,9 +88,198 @@ class _SettingsDialogState extends State<SettingsDialog> {
         _diagnosticsTimeRemainingText = remainingText;
         _enableAiSummaries = aiEnabled;
         _isBatteryUnrestricted = isUnrestricted;
+        _showWeatherBanner = showWeather;
         _isLoading = false;
       });
     }
+  }
+
+  Future<void> _handleSave() async {
+    final user = _usernameController.text.trim();
+    final pass = _passwordController.text.trim();
+
+    if (user.isNotEmpty || pass.isNotEmpty) {
+      await StorageService.saveCredentials(user, pass);
+    }
+    await StorageService.saveVipKeywords(_vipKeywords);
+    await StorageService.saveJunkKeywords(_junkKeywords);
+    await StorageService.saveShowWeatherBanner(_showWeatherBanner);
+    await AiCircularService.setUserEnabled(_enableAiSummaries);
+
+    if (!mounted) return;
+
+    widget.onWeatherBannerToggled?.call(_showWeatherBanner);
+    widget.onSaved();
+
+    Navigator.of(context).pop();
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('✅ Settings saved successfully!'),
+        backgroundColor: Color(0xFF10B981),
+        duration: Duration(seconds: 2),
+      ),
+    );
+  }
+
+  void _openKeywordsDrawer(bool isVip) {
+    final title = isVip ? 'Priority Alert Keywords' : 'Excluded Junk Keywords';
+    final subtitle = isVip
+        ? 'Circulars containing these words in the title or body trigger prominent notifications'
+        : 'Circulars matching these words in the title are automatically discarded';
+    final textController = TextEditingController();
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (bCtx) {
+        return StatefulBuilder(
+          builder: (ctx, setDrawerState) {
+            final keywords = isVip ? _vipKeywords : _junkKeywords;
+            final isDark = Theme.of(ctx).brightness == Brightness.dark;
+
+            return Padding(
+              padding: EdgeInsets.only(
+                bottom: MediaQuery.of(ctx).viewInsets.bottom,
+              ),
+              child: Container(
+                constraints: BoxConstraints(
+                  maxHeight: MediaQuery.of(ctx).size.height * 0.75,
+                ),
+                decoration: BoxDecoration(
+                  color: isDark ? const Color(0xFF161922) : Colors.white,
+                  borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.4),
+                      blurRadius: 24,
+                      offset: const Offset(0, -6),
+                    ),
+                  ],
+                ),
+                padding: const EdgeInsets.fromLTRB(20, 12, 20, 24),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Center(
+                      child: Container(
+                        width: 36,
+                        height: 4,
+                        decoration: BoxDecoration(
+                          color: Colors.grey.withOpacity(0.4),
+                          borderRadius: BorderRadius.circular(2),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 14),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text(
+                          title,
+                          style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                        ),
+                        TextButton(
+                          onPressed: () => Navigator.of(bCtx).pop(),
+                          child: const Text('Done', style: TextStyle(fontWeight: FontWeight.bold)),
+                        ),
+                      ],
+                    ),
+                    Text(
+                      subtitle,
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: isDark ? const Color(0xFF8E8E93) : const Color(0xFF6E6E73),
+                      ),
+                    ),
+                    const SizedBox(height: 14),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: TextField(
+                            controller: textController,
+                            decoration: InputDecoration(
+                              hintText: isVip ? 'e.g. transfer, पदोन्नति' : 'e.g. driver, canteen',
+                              isDense: true,
+                              contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                              border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                            ),
+                            onSubmitted: (val) {
+                              final w = val.trim().toLowerCase();
+                              if (w.isNotEmpty && !keywords.contains(w)) {
+                                setState(() => keywords.add(w));
+                                setDrawerState(() {});
+                                textController.clear();
+                              }
+                            },
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        IconButton.filled(
+                          icon: const Icon(Icons.add, size: 20),
+                          onPressed: () {
+                            final w = textController.text.trim().toLowerCase();
+                            if (w.isNotEmpty && !keywords.contains(w)) {
+                              setState(() => keywords.add(w));
+                              setDrawerState(() {});
+                              textController.clear();
+                            }
+                          },
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 14),
+                    Expanded(
+                      child: SingleChildScrollView(
+                        child: Wrap(
+                          spacing: 8,
+                          runSpacing: 8,
+                          children: keywords.map((kw) {
+                            return Chip(
+                              label: Text(kw, style: const TextStyle(fontSize: 12)),
+                              deleteIcon: const Icon(Icons.close, size: 14),
+                              onDeleted: () {
+                                setState(() => keywords.remove(kw));
+                                setDrawerState(() {});
+                              },
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(10),
+                                side: BorderSide(
+                                  color: Theme.of(ctx).colorScheme.outline.withOpacity(0.2),
+                                ),
+                              ),
+                            );
+                          }).toList(),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 10),
+                    Align(
+                      alignment: Alignment.centerRight,
+                      child: TextButton.icon(
+                        icon: const Icon(Icons.restore, size: 16),
+                        label: const Text('Reset Defaults', style: TextStyle(fontSize: 12)),
+                        onPressed: () {
+                          setState(() {
+                            if (isVip) {
+                              _vipKeywords = List<String>.from(StorageService.defaultVipKeywords);
+                            } else {
+                              _junkKeywords = List<String>.from(StorageService.defaultJunkKeywords);
+                            }
+                          });
+                          setDrawerState(() {});
+                        },
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            );
+          },
+        );
+      },
+    );
   }
 
   void _showUnlockKeyPrompt() {
@@ -93,7 +287,7 @@ class _SettingsDialogState extends State<SettingsDialog> {
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
         title: const Row(
           children: [
             Icon(Icons.vpn_key_rounded, color: Colors.amber, size: 24),
@@ -106,7 +300,7 @@ class _SettingsDialogState extends State<SettingsDialog> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             const Text(
-              'Enter the 4-digit key to unlock troubleshooting and diagnostic tools.',
+              'Enter the 4-digit key to unlock troubleshooting and diagnostic tools (24-Hour ephemeral lease).',
               style: TextStyle(fontSize: 13, height: 1.4),
             ),
             const SizedBox(height: 16),
@@ -117,7 +311,7 @@ class _SettingsDialogState extends State<SettingsDialog> {
               autofocus: true,
               decoration: InputDecoration(
                 hintText: 'Enter 4-digit Key',
-                border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
                 prefixIcon: const Icon(Icons.lock_outline),
               ),
             ),
@@ -145,7 +339,7 @@ class _SettingsDialogState extends State<SettingsDialog> {
                 ScaffoldMessenger.of(context).showSnackBar(
                   const SnackBar(
                     content: Text('🎉 Master Access Active for 24 Hours! (Auto-revokes after 24h)'),
-                    backgroundColor: Colors.green,
+                    backgroundColor: Color(0xFF10B981),
                   ),
                 );
               } else {
@@ -213,11 +407,11 @@ class _SettingsDialogState extends State<SettingsDialog> {
     }
 
     if (context.mounted) {
-      Navigator.of(context, rootNavigator: true).pop(); // dismiss loading
+      Navigator.of(context, rootNavigator: true).pop();
       showDialog(
         context: context,
         builder: (ctx) => AlertDialog(
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
           title: Row(
             children: [
               Icon(isSuccess ? Icons.check_circle_outline : Icons.error_outline,
@@ -270,7 +464,7 @@ class _SettingsDialogState extends State<SettingsDialog> {
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
         title: const Row(
           children: [
             Icon(Icons.document_scanner_rounded, color: Colors.purpleAccent, size: 22),
@@ -309,767 +503,667 @@ class _SettingsDialogState extends State<SettingsDialog> {
     );
   }
 
-  void _addVipKeyword() {
-    final word = _newVipController.text.trim().toLowerCase();
-    if (word.isNotEmpty && !_vipKeywords.contains(word)) {
-      setState(() {
-        _vipKeywords.add(word);
-        _newVipController.clear();
-      });
-    }
-  }
+  @override
+  Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
 
-  void _addJunkKeyword() {
-    final word = _newJunkController.text.trim().toLowerCase();
-    if (word.isNotEmpty && !_junkKeywords.contains(word)) {
-      setState(() {
-        _junkKeywords.add(word);
-        _newJunkController.clear();
-      });
+    if (_isLoading) {
+      return Scaffold(
+        backgroundColor: isDark ? const Color(0xFF0B0F19) : const Color(0xFFF2F4F7),
+        body: const Center(child: CircularProgressIndicator()),
+      );
     }
-  }
 
-  void _resetKeywords() {
-    setState(() {
-      _vipKeywords = List<String>.from(StorageService.defaultVipKeywords);
-      _junkKeywords = List<String>.from(StorageService.defaultJunkKeywords);
-    });
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Keywords reset to factory defaults.'),
-        duration: Duration(seconds: 2),
+    return Scaffold(
+      backgroundColor: isDark ? const Color(0xFF0B0F19) : const Color(0xFFF2F4F7),
+      body: Stack(
+        children: [
+          // Spatial atmospheric mesh background with radial aurora glows
+          Positioned(
+            top: -60,
+            right: -60,
+            child: Container(
+              width: 260,
+              height: 260,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                gradient: RadialGradient(
+                  colors: [
+                    const Color(0xFF06B6D4).withOpacity(isDark ? 0.18 : 0.08),
+                    Colors.transparent,
+                  ],
+                ),
+              ),
+            ),
+          ),
+          Positioned(
+            top: 300,
+            left: -80,
+            child: Container(
+              width: 300,
+              height: 300,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                gradient: RadialGradient(
+                  colors: [
+                    const Color(0xFF7C3AED).withOpacity(isDark ? 0.16 : 0.06),
+                    Colors.transparent,
+                  ],
+                ),
+              ),
+            ),
+          ),
+
+          SafeArea(
+            child: Column(
+              children: [
+                // Clean Top Navigation Header
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(20, 16, 20, 12),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      const Text(
+                        'Settings',
+                        style: TextStyle(
+                          fontSize: 28,
+                          fontWeight: FontWeight.w800,
+                          letterSpacing: -0.6,
+                        ),
+                      ),
+                      GlassContainer(
+                        borderRadius: 16,
+                        blur: 14,
+                        padding: EdgeInsets.zero,
+                        borderOpacity: 0.2,
+                        surfaceOpacity: 0.12,
+                        onTap: _handleSave,
+                        child: const Padding(
+                          padding: EdgeInsets.symmetric(horizontal: 18, vertical: 8),
+                          child: Text(
+                            'Done',
+                            style: TextStyle(
+                              fontSize: 14,
+                              fontWeight: FontWeight.w700,
+                              color: Color(0xFF0284C7),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+
+                // Main Grouped Settings Scrollable Content
+                Expanded(
+                  child: SingleChildScrollView(
+                    physics: const AlwaysScrollableScrollPhysics(parent: BouncingScrollPhysics()),
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        // SECTION 1: MetNet Credentials
+                        _buildSectionHeader('METNET CREDENTIALS'),
+                        GlassContainer(
+                          borderRadius: 20,
+                          blur: 18,
+                          padding: const EdgeInsets.all(16),
+                          borderOpacity: 0.14,
+                          surfaceOpacity: 0.08,
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              TextField(
+                                controller: _usernameController,
+                                decoration: InputDecoration(
+                                  labelText: 'MetNet User ID',
+                                  hintText: 'Enter your MetNet ID',
+                                  prefixIcon: const Icon(Icons.person_outline_rounded, size: 20),
+                                  filled: true,
+                                  fillColor: isDark ? Colors.white.withOpacity(0.04) : Colors.black.withOpacity(0.03),
+                                  border: OutlineInputBorder(
+                                    borderRadius: BorderRadius.circular(12),
+                                    borderSide: BorderSide.none,
+                                  ),
+                                  contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                                ),
+                              ),
+                              const SizedBox(height: 12),
+                              TextField(
+                                controller: _passwordController,
+                                obscureText: _obscurePassword,
+                                decoration: InputDecoration(
+                                  labelText: 'Password',
+                                  hintText: 'Enter your MetNet password',
+                                  prefixIcon: const Icon(Icons.lock_outline_rounded, size: 20),
+                                  suffixIcon: IconButton(
+                                    icon: Icon(_obscurePassword ? Icons.visibility_off_outlined : Icons.visibility_outlined, size: 20),
+                                    onPressed: () => setState(() => _obscurePassword = !_obscurePassword),
+                                  ),
+                                  filled: true,
+                                  fillColor: isDark ? Colors.white.withOpacity(0.04) : Colors.black.withOpacity(0.03),
+                                  border: OutlineInputBorder(
+                                    borderRadius: BorderRadius.circular(12),
+                                    borderSide: BorderSide.none,
+                                  ),
+                                  contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                                ),
+                              ),
+                              const SizedBox(height: 12),
+                              Row(
+                                children: [
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                    decoration: BoxDecoration(
+                                      color: const Color(0xFF10B981).withOpacity(0.12),
+                                      borderRadius: BorderRadius.circular(8),
+                                      border: Border.all(color: const Color(0xFF10B981).withOpacity(0.3)),
+                                    ),
+                                    child: const Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        Icon(Icons.shield_outlined, size: 13, color: Color(0xFF10B981)),
+                                        SizedBox(width: 4),
+                                        Text(
+                                          'AES-256 Encrypted on Device',
+                                          style: TextStyle(
+                                            fontSize: 10.5,
+                                            fontWeight: FontWeight.w600,
+                                            color: Color(0xFF10B981),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(height: 20),
+
+                        // SECTION 2: Display & Preferences
+                        _buildSectionHeader('DISPLAY & PREFERENCES'),
+                        GlassContainer(
+                          borderRadius: 20,
+                          blur: 18,
+                          padding: const EdgeInsets.symmetric(vertical: 4),
+                          borderOpacity: 0.14,
+                          surfaceOpacity: 0.08,
+                          child: Column(
+                            children: [
+                              // 1. Weather Forecast Banner Toggle (Requested)
+                              _buildSettingRow(
+                                icon: Icons.cloud_outlined,
+                                iconColor: const Color(0xFF06B6D4),
+                                title: 'Weather Forecast Banner',
+                                subtitle: 'Display live weather card on dashboard',
+                                trailing: Switch.adaptive(
+                                  value: _showWeatherBanner,
+                                  activeColor: const Color(0xFF0284C7),
+                                  onChanged: (val) {
+                                    setState(() => _showWeatherBanner = val);
+                                    StorageService.saveShowWeatherBanner(val);
+                                    widget.onWeatherBannerToggled?.call(val);
+                                  },
+                                ),
+                              ),
+                              _buildDivider(),
+
+                              // 2. AI Circular Summaries Toggle
+                              _buildSettingRow(
+                                icon: Icons.auto_awesome_rounded,
+                                iconColor: const Color(0xFF7C3AED),
+                                title: 'AI Circular Summaries',
+                                subtitle: 'Instant Hindi/English summaries & cadre tags',
+                                trailing: Switch.adaptive(
+                                  value: _enableAiSummaries,
+                                  activeColor: const Color(0xFF7C3AED),
+                                  onChanged: (val) {
+                                    setState(() => _enableAiSummaries = val);
+                                    AiCircularService.setUserEnabled(val);
+                                  },
+                                ),
+                              ),
+                              _buildDivider(),
+
+                              // 3. Dark Mode Toggle
+                              _buildSettingRow(
+                                icon: Icons.dark_mode_outlined,
+                                iconColor: const Color(0xFF0284C7),
+                                title: 'Dark Mode',
+                                subtitle: 'Spatial obsidian frosted glass theme',
+                                trailing: Switch.adaptive(
+                                  value: widget.isDarkMode ?? isDark,
+                                  activeColor: const Color(0xFF0284C7),
+                                  onChanged: (_) => widget.onToggleTheme?.call(),
+                                ),
+                              ),
+                              _buildDivider(),
+
+                              // 4. Closed-App Background Notifications
+                              _buildSettingRow(
+                                icon: _isBatteryUnrestricted ? Icons.bolt_rounded : Icons.battery_saver_rounded,
+                                iconColor: _isBatteryUnrestricted ? const Color(0xFF10B981) : Colors.orangeAccent,
+                                title: 'Closed-App Notifications',
+                                subtitle: _isBatteryUnrestricted
+                                    ? 'Unrestricted background sync (every 1.5 hrs)'
+                                    : 'Tap below to enable background execution',
+                                trailing: _isBatteryUnrestricted
+                                    ? Container(
+                                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                                        decoration: BoxDecoration(
+                                          color: const Color(0xFF10B981).withOpacity(0.14),
+                                          borderRadius: BorderRadius.circular(8),
+                                        ),
+                                        child: const Text(
+                                          'Active',
+                                          style: TextStyle(
+                                            fontSize: 11,
+                                            fontWeight: FontWeight.bold,
+                                            color: Color(0xFF10B981),
+                                          ),
+                                        ),
+                                      )
+                                    : TextButton(
+                                        onPressed: () async {
+                                          await BatteryOptimizationService.requestIgnoreBatteryOptimizations();
+                                          final isUn = await BatteryOptimizationService.isIgnoringBatteryOptimizations();
+                                          if (mounted) setState(() => _isBatteryUnrestricted = isUn);
+                                        },
+                                        child: const Text('Enable', style: TextStyle(fontWeight: FontWeight.bold)),
+                                      ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(height: 20),
+
+                        // SECTION 3: Circular Filters
+                        _buildSectionHeader('CIRCULAR FILTERS'),
+                        GlassContainer(
+                          borderRadius: 20,
+                          blur: 18,
+                          padding: const EdgeInsets.symmetric(vertical: 4),
+                          borderOpacity: 0.14,
+                          surfaceOpacity: 0.08,
+                          child: Column(
+                            children: [
+                              _buildNavRow(
+                                icon: Icons.star_rounded,
+                                iconColor: Colors.amber,
+                                title: 'Priority Alerts (VIP)',
+                                subtitle: 'Keywords triggering prominent notifications',
+                                badgeText: '${_vipKeywords.length} Active',
+                                onTap: () => _openKeywordsDrawer(true),
+                              ),
+                              _buildDivider(),
+                              _buildNavRow(
+                                icon: Icons.block_rounded,
+                                iconColor: Colors.redAccent,
+                                title: 'Excluded Circulars (Junk)',
+                                subtitle: 'Auto-discard canteen, driver, clerk notices',
+                                badgeText: '${_junkKeywords.length} Excluded',
+                                onTap: () => _openKeywordsDrawer(false),
+                              ),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(height: 20),
+
+                        // SECTION 4: Maintenance & System Health
+                        _buildSectionHeader('MAINTENANCE & SYSTEM HEALTH'),
+                        GlassContainer(
+                          borderRadius: 20,
+                          blur: 18,
+                          padding: const EdgeInsets.symmetric(vertical: 4),
+                          borderOpacity: 0.14,
+                          surfaceOpacity: 0.08,
+                          child: Column(
+                            children: [
+                              _buildNavRow(
+                                icon: Icons.monitor_heart_rounded,
+                                iconColor: const Color(0xFF10B981),
+                                title: 'System Diagnostics',
+                                subtitle: 'Live status across all 10 app modules',
+                                badgeText: 'Operational',
+                                badgeColor: const Color(0xFF10B981),
+                                onTap: () {
+                                  Navigator.of(context).push(
+                                    MaterialPageRoute(builder: (_) => const SystemHealthScreen()),
+                                  );
+                                },
+                              ),
+                              _buildDivider(),
+                              _buildNavRow(
+                                icon: Icons.system_update_alt_rounded,
+                                iconColor: const Color(0xFF0284C7),
+                                title: 'App Version',
+                                subtitle: 'v${UpdateService.currentVersion} (Release Build)',
+                                badgeText: _isCheckingUpdate ? 'Checking...' : 'Check for Updates',
+                                onTap: _isCheckingUpdate
+                                    ? null
+                                    : () async {
+                                        setState(() => _isCheckingUpdate = true);
+                                        try {
+                                          final update = await UpdateService.checkForUpdate();
+                                          if (!context.mounted) return;
+                                          if (update != null && update.hasUpdate) {
+                                            UpdateService.showUpdateDialog(context, update);
+                                          } else if (update != null) {
+                                            ScaffoldMessenger.of(context).showSnackBar(
+                                              SnackBar(
+                                                content: Text('✅ Running latest version (v${UpdateService.currentVersion})!'),
+                                                backgroundColor: const Color(0xFF10B981),
+                                              ),
+                                            );
+                                          } else {
+                                            final uri = Uri.parse('https://github.com/Aman6390/imd-portal/releases');
+                                            if (await canLaunchUrl(uri)) {
+                                              await launchUrl(uri, mode: LaunchMode.externalApplication);
+                                            }
+                                          }
+                                        } finally {
+                                          if (mounted) setState(() => _isCheckingUpdate = false);
+                                        }
+                                      },
+                              ),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(height: 20),
+
+                        // SECTION 5: Diagnostic Tools & Security (Protected by Key 6390)
+                        _buildSectionHeader('DIAGNOSTIC TOOLS & SECURITY'),
+                        if (_isDiagnosticsUnlocked)
+                          GlassContainer(
+                            borderRadius: 20,
+                            blur: 18,
+                            padding: const EdgeInsets.all(14),
+                            borderOpacity: 0.22,
+                            surfaceOpacity: 0.1,
+                            tintColor: const Color(0xFF7C3AED),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Row(
+                                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                  children: [
+                                    Row(
+                                      children: [
+                                        const Icon(Icons.build_circle_outlined, color: Color(0xFF7C3AED), size: 20),
+                                        const SizedBox(width: 8),
+                                        Column(
+                                          crossAxisAlignment: CrossAxisAlignment.start,
+                                          children: [
+                                            const Text(
+                                              'Master Troubleshooting',
+                                              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Color(0xFF7C3AED)),
+                                            ),
+                                            if (_diagnosticsTimeRemainingText.isNotEmpty)
+                                              Text(
+                                                '⏳ Lease Active: $_diagnosticsTimeRemainingText (Auto-revokes)',
+                                                style: const TextStyle(fontSize: 10, color: Colors.amber, fontWeight: FontWeight.bold),
+                                              ),
+                                          ],
+                                        ),
+                                      ],
+                                    ),
+                                    IconButton(
+                                      icon: const Icon(Icons.lock, size: 18, color: Colors.grey),
+                                      tooltip: 'Re-lock diagnostic tools',
+                                      onPressed: () async {
+                                        await StorageService.setDiagnosticsUnlocked(false);
+                                        setState(() {
+                                          _isDiagnosticsUnlocked = false;
+                                          _diagnosticsTimeRemainingText = '';
+                                        });
+                                      },
+                                    ),
+                                  ],
+                                ),
+                                const Divider(height: 16),
+                                _buildDiagnosticActionTile(
+                                  icon: Icons.network_check_rounded,
+                                  iconColor: Colors.blueAccent,
+                                  title: 'Check MetNet Portal Connection',
+                                  subtitle: 'Ping server and verify RSA encryption',
+                                  onTap: _testPortalConnection,
+                                ),
+                                _buildDiagnosticActionTile(
+                                  icon: Icons.cleaning_services_rounded,
+                                  iconColor: Colors.amber,
+                                  title: 'Clear Downloaded Documents',
+                                  subtitle: 'Delete locally cached circular PDFs',
+                                  onTap: _clearOfflineDocuments,
+                                ),
+                                _buildDiagnosticActionTile(
+                                  icon: Icons.document_scanner_rounded,
+                                  iconColor: Colors.green,
+                                  title: 'Scanned Notice Text Inspector',
+                                  subtitle: 'Inspect OCR Devanagari text & AI tags',
+                                  onTap: _showOcrSandbox,
+                                ),
+                              ],
+                            ),
+                          )
+                        else
+                          GlassContainer(
+                            borderRadius: 16,
+                            blur: 14,
+                            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                            borderOpacity: 0.12,
+                            surfaceOpacity: 0.05,
+                            child: InkWell(
+                              onTap: _showUnlockKeyPrompt,
+                              borderRadius: BorderRadius.circular(12),
+                              child: const Padding(
+                                padding: EdgeInsets.symmetric(vertical: 6),
+                                child: Row(
+                                  children: [
+                                    Icon(Icons.lock_outline_rounded, size: 18, color: Colors.grey),
+                                    SizedBox(width: 10),
+                                    Expanded(
+                                      child: Text(
+                                        'Diagnostic Tools (Key Required)',
+                                        style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w600, color: Colors.grey),
+                                      ),
+                                    ),
+                                    Icon(Icons.chevron_right_rounded, size: 18, color: Colors.grey),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          ),
+
+                        const SizedBox(height: 32),
+                        Center(
+                          child: Text(
+                            'Meteorological Portal · Built for IMD Staff',
+                            style: TextStyle(
+                              fontSize: 11,
+                              color: isDark ? const Color(0xFF6E6E73) : const Color(0xFF8E8E93),
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 24),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
       ),
     );
   }
 
-  Future<void> _handleSave() async {
-    final user = _usernameController.text.trim();
-    final pass = _passwordController.text.trim();
-
-    if (user.isEmpty || pass.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Please enter both username and password.'),
-          backgroundColor: Colors.orange,
+  Widget _buildSectionHeader(String title) {
+    return Padding(
+      padding: const EdgeInsets.only(left: 4, bottom: 8),
+      child: Text(
+        title,
+        style: TextStyle(
+          fontSize: 11,
+          fontWeight: FontWeight.w700,
+          letterSpacing: 0.8,
+          color: Theme.of(context).brightness == Brightness.dark
+              ? const Color(0xFF8E8E93)
+              : const Color(0xFF6E6E73),
         ),
-      );
-      return;
-    }
-
-    final successCreds = await StorageService.saveCredentials(user, pass);
-    await StorageService.saveVipKeywords(_vipKeywords);
-    await StorageService.saveJunkKeywords(_junkKeywords);
-
-    if (!mounted) return;
-
-    if (successCreds) {
-      Navigator.of(context).pop();
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Settings saved successfully!'),
-          backgroundColor: Colors.green,
-        ),
-      );
-      widget.onSaved();
-    } else {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Failed to save credentials.'),
-          backgroundColor: Colors.red,
-        ),
-      );
-    }
+      ),
+    );
   }
 
-  @override
-  Widget build(BuildContext context) {
-    if (_isLoading) {
-      return const AlertDialog(
-        content: SizedBox(
-          height: 120,
-          child: Center(child: CircularProgressIndicator()),
-        ),
-      );
-    }
+  Widget _buildDivider() {
+    return Divider(
+      height: 1,
+      thickness: 1,
+      indent: 52,
+      color: Theme.of(context).colorScheme.outline.withOpacity(0.08),
+    );
+  }
 
-    return DefaultTabController(
-      length: 4,
-      child: AlertDialog(
-        titlePadding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
-        contentPadding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
-        title: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Row(
+  Widget _buildSettingRow({
+    required IconData icon,
+    required Color iconColor,
+    required String title,
+    required String subtitle,
+    required Widget trailing,
+  }) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(7),
+            decoration: BoxDecoration(
+              color: iconColor.withOpacity(0.14),
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: Icon(icon, size: 18, color: iconColor),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Icon(Icons.tune, size: 22),
-                SizedBox(width: 8),
-                Text('Settings & Preferences', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                Text(
+                  title,
+                  style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13.5),
+                ),
+                const SizedBox(height: 1),
+                Text(
+                  subtitle,
+                  style: TextStyle(
+                    fontSize: 11,
+                    color: Theme.of(context).brightness == Brightness.dark
+                        ? const Color(0xFF8E8E93)
+                        : const Color(0xFF6E6E73),
+                  ),
+                ),
               ],
             ),
-            const SizedBox(height: 10),
-            TabBar(
-              isScrollable: true,
-              labelColor: Theme.of(context).colorScheme.primary,
-              indicatorColor: Theme.of(context).colorScheme.primary,
-              tabs: const [
-                Tab(icon: Icon(Icons.key, size: 16), text: 'Account'),
-                Tab(icon: Icon(Icons.star, size: 16), text: 'VIP Filter'),
-                Tab(icon: Icon(Icons.block, size: 16), text: 'Junk Filter'),
-                Tab(icon: Icon(Icons.info, size: 16), text: 'About & Updates'),
-              ],
-            ),
-          ],
-        ),
-        content: SizedBox(
-          width: double.maxFinite,
-          height: 400,
-          child: TabBarView(
-            children: [
-              // TAB 1: Login Credentials
-              SingleChildScrollView(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const SizedBox(height: 12),
-                    const Text(
-                      'Enter your MetNet intranet credentials. Stored securely on your device for live sync.',
-                      style: TextStyle(fontSize: 12, color: Colors.grey),
-                    ),
-                    const SizedBox(height: 16),
-                    TextField(
-                      controller: _usernameController,
-                      decoration: const InputDecoration(
-                        labelText: 'Username',
-                        prefixIcon: Icon(Icons.person_outline),
-                        border: OutlineInputBorder(),
-                      ),
-                    ),
-                    const SizedBox(height: 14),
-                    TextField(
-                      controller: _passwordController,
-                      obscureText: _obscurePassword,
-                      decoration: InputDecoration(
-                        labelText: 'Password',
-                        prefixIcon: const Icon(Icons.password_outlined),
-                        border: const OutlineInputBorder(),
-                        suffixIcon: IconButton(
-                          icon: Icon(
-                            _obscurePassword ? Icons.visibility_off : Icons.visibility,
-                          ),
-                          onPressed: () {
-                            setState(() {
-                              _obscurePassword = !_obscurePassword;
-                            });
-                          },
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-
-              // TAB 2: VIP Keywords
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const SizedBox(height: 8),
-                  const Text(
-                    'Circulars containing these words in title or scanned PDF (English/हिन्दी) are alerted.',
-                    style: TextStyle(fontSize: 12, color: Colors.grey),
-                  ),
-                  const SizedBox(height: 10),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: TextField(
-                          controller: _newVipController,
-                          decoration: const InputDecoration(
-                            hintText: 'e.g. transfer, पदोन्नति',
-                            isDense: true,
-                            contentPadding: EdgeInsets.symmetric(horizontal: 10, vertical: 10),
-                            border: OutlineInputBorder(),
-                          ),
-                          onSubmitted: (_) => _addVipKeyword(),
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      IconButton.filled(
-                        icon: const Icon(Icons.add, size: 20),
-                        onPressed: _addVipKeyword,
-                        tooltip: 'Add VIP Keyword',
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 10),
-                  Expanded(
-                    child: SingleChildScrollView(
-                      child: Wrap(
-                        spacing: 6,
-                        runSpacing: 4,
-                        children: _vipKeywords.map((kw) {
-                          return Chip(
-                            label: Text(kw, style: const TextStyle(fontSize: 12)),
-                            deleteIcon: const Icon(Icons.close, size: 16),
-                            onDeleted: () {
-                              setState(() {
-                                _vipKeywords.remove(kw);
-                              });
-                            },
-                          );
-                        }).toList(),
-                      ),
-                    ),
-                  ),
-                  Align(
-                    alignment: Alignment.centerRight,
-                    child: TextButton.icon(
-                      icon: const Icon(Icons.restore, size: 16),
-                      label: const Text('Reset Defaults', style: TextStyle(fontSize: 12)),
-                      onPressed: _resetKeywords,
-                    ),
-                  ),
-                ],
-              ),
-
-              // TAB 3: Junk Keywords
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const SizedBox(height: 8),
-                  const Text(
-                    'Circulars matching these words in title are discarded automatically.',
-                    style: TextStyle(fontSize: 12, color: Colors.grey),
-                  ),
-                  const SizedBox(height: 10),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: TextField(
-                          controller: _newJunkController,
-                          decoration: const InputDecoration(
-                            hintText: 'e.g. driver, canteen',
-                            isDense: true,
-                            contentPadding: EdgeInsets.symmetric(horizontal: 10, vertical: 10),
-                            border: OutlineInputBorder(),
-                          ),
-                          onSubmitted: (_) => _addJunkKeyword(),
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      IconButton.filled(
-                        icon: const Icon(Icons.add, size: 20),
-                        onPressed: _addJunkKeyword,
-                        tooltip: 'Add Junk Keyword',
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 10),
-                  Expanded(
-                    child: SingleChildScrollView(
-                      child: Wrap(
-                        spacing: 6,
-                        runSpacing: 4,
-                        children: _junkKeywords.map((kw) {
-                          return Chip(
-                            label: Text(kw, style: const TextStyle(fontSize: 12)),
-                            deleteIcon: const Icon(Icons.close, size: 16),
-                            onDeleted: () {
-                              setState(() {
-                                _junkKeywords.remove(kw);
-                              });
-                            },
-                          );
-                        }).toList(),
-                      ),
-                    ),
-                  ),
-                  Align(
-                    alignment: Alignment.centerRight,
-                    child: TextButton.icon(
-                      icon: const Icon(Icons.restore, size: 16),
-                      label: const Text('Reset Defaults', style: TextStyle(fontSize: 12)),
-                      onPressed: _resetKeywords,
-                    ),
-                  ),
-                ],
-              ),
-
-              // TAB 4: About, Theme & Updates
-              SingleChildScrollView(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const SizedBox(height: 12),
-                    // Theme Switcher Row
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        const Row(
-                          children: [
-                            Icon(Icons.dark_mode_outlined, size: 20),
-                            SizedBox(width: 8),
-                            Text('Dark Mode', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
-                          ],
-                        ),
-                        Switch(
-                          value: widget.isDarkMode ?? true,
-                          onChanged: (_) {
-                            if (widget.onToggleTheme != null) {
-                              widget.onToggleTheme!();
-                            }
-                          },
-                        ),
-                      ],
-                    ),
-                    const Divider(height: 18),
-
-                    // Cloud AI Summaries Switch
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        const Row(
-                          children: [
-                            Icon(Icons.auto_awesome_rounded, size: 20, color: Colors.purpleAccent),
-                            SizedBox(width: 8),
-                            Text('Cloud AI Summaries', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
-                          ],
-                        ),
-                        Switch(
-                          value: _enableAiSummaries,
-                          onChanged: (val) {
-                            setState(() {
-                              _enableAiSummaries = val;
-                            });
-                            AiCircularService.setUserEnabled(val);
-                          },
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 4),
-                    const Text(
-                      'Shows instant 1-sentence AI summaries and cadre tags on circulars.',
-                      style: TextStyle(fontSize: 11, color: Colors.grey),
-                    ),
-                    const Divider(height: 24),
-
-                    // Closed-App Background Notifications & Battery Card
-                    Container(
-                      padding: const EdgeInsets.all(12),
-                      decoration: BoxDecoration(
-                        color: Theme.of(context).colorScheme.surfaceVariant.withOpacity(0.35),
-                        borderRadius: BorderRadius.circular(12),
-                        border: Border.all(
-                          color: Theme.of(context).colorScheme.outline.withOpacity(0.2),
-                        ),
-                      ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: [
-                              Row(
-                                children: [
-                                  Icon(
-                                    _isBatteryUnrestricted ? Icons.bolt_rounded : Icons.battery_saver_rounded,
-                                    size: 20,
-                                    color: _isBatteryUnrestricted ? Colors.green : Colors.orangeAccent,
-                                  ),
-                                  const SizedBox(width: 8),
-                                  const Text(
-                                    'Closed-App Notifications',
-                                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
-                                  ),
-                                ],
-                              ),
-                              Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                                decoration: BoxDecoration(
-                                  color: (_isBatteryUnrestricted ? Colors.green : Colors.orange).withOpacity(0.12),
-                                  borderRadius: BorderRadius.circular(8),
-                                ),
-                                child: Text(
-                                  _isBatteryUnrestricted ? 'Active' : 'Optimized',
-                                  style: TextStyle(
-                                    fontSize: 11,
-                                    fontWeight: FontWeight.bold,
-                                    color: _isBatteryUnrestricted ? Colors.green : Colors.orange.shade800,
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 6),
-                          Text(
-                            _isBatteryUnrestricted
-                                ? 'Background sync is unrestricted. Your phone will check every 1.5 hrs during office hours and alert you when closed.'
-                                : 'Android may delay notifications when closed. Tap below to allow 1-tap background execution.',
-                            style: const TextStyle(fontSize: 11, color: Colors.grey, height: 1.3),
-                          ),
-                          if (!_isBatteryUnrestricted) ...[
-                            const SizedBox(height: 10),
-                            SizedBox(
-                              width: double.infinity,
-                              child: FilledButton.tonalIcon(
-                                icon: const Icon(Icons.flash_on_rounded, size: 16),
-                                label: const Text('Enable Closed-App Alerts (1-Tap)', style: TextStyle(fontSize: 12)),
-                                onPressed: () async {
-                                  await BatteryOptimizationService.requestIgnoreBatteryOptimizations();
-                                  final isUnrestricted = await BatteryOptimizationService.isIgnoringBatteryOptimizations();
-                                  if (mounted) {
-                                    setState(() => _isBatteryUnrestricted = isUnrestricted);
-                                  }
-                                },
-                              ),
-                            ),
-                          ],
-                        ],
-                      ),
-                    ),
-                    const Divider(height: 24),
-
-                    // Free Edition Banner
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                      decoration: BoxDecoration(
-                        color: Colors.green.withOpacity(0.12),
-                        borderRadius: BorderRadius.circular(8),
-                        border: Border.all(color: Colors.green.shade600, width: 1),
-                      ),
-                      child: Row(
-                        children: [
-                          const Icon(Icons.volunteer_activism_rounded, color: Colors.green, size: 20),
-                          const SizedBox(width: 8),
-                          Expanded(
-                            child: Text(
-                              'Free Edition for Meteorological Staff (v${UpdateService.currentVersion})',
-                              style: const TextStyle(
-                                fontWeight: FontWeight.bold,
-                                color: Colors.green,
-                                fontSize: 13,
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(height: 14),
-
-                    // App Updates Section
-                    const Text('App Updates', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
-                    const SizedBox(height: 6),
-                    const Text(
-                      'Check online for new releases, bug fixes, and feature updates directly from the project repository.',
-                      style: TextStyle(fontSize: 12, color: Colors.grey, height: 1.4),
-                    ),
-                    const SizedBox(height: 8),
-                    OutlinedButton.icon(
-                      icon: _isCheckingUpdate
-                          ? const SizedBox(
-                              width: 16,
-                              height: 16,
-                              child: CircularProgressIndicator(strokeWidth: 2),
-                            )
-                          : const Icon(Icons.system_update_alt, size: 18),
-                      label: Text(
-                        _isCheckingUpdate
-                            ? 'Checking for Updates Online...'
-                            : 'Check for Updates / Download Latest APK',
-                      ),
-                      onPressed: _isCheckingUpdate
-                          ? null
-                          : () async {
-                              setState(() {
-                                _isCheckingUpdate = true;
-                              });
-
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(
-                                  content: Row(
-                                    children: [
-                                      SizedBox(
-                                        width: 16,
-                                        height: 16,
-                                        child: CircularProgressIndicator(
-                                          strokeWidth: 2,
-                                          valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
-                                        ),
-                                      ),
-                                      SizedBox(width: 12),
-                                      Text('Connecting to GitHub to check for updates...'),
-                                    ],
-                                  ),
-                                  duration: Duration(seconds: 2),
-                                ),
-                              );
-
-                              try {
-                                final update = await UpdateService.checkForUpdate();
-                                if (!context.mounted) return;
-
-                                if (update != null && update.hasUpdate) {
-                                  UpdateService.showUpdateDialog(context, update);
-                                } else if (update != null) {
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    SnackBar(
-                                      content: Text('✅ You are running the latest version (v${UpdateService.currentVersion})!'),
-                                      backgroundColor: Colors.green,
-                                      duration: const Duration(seconds: 3),
-                                    ),
-                                  );
-                                } else {
-                                  // Offline or error fallback: open releases page directly
-                                  final uri = Uri.parse('https://github.com/Aman6390/imd-portal/releases');
-                                  if (await canLaunchUrl(uri)) {
-                                    await launchUrl(uri, mode: LaunchMode.externalApplication);
-                                  }
-                                }
-                              } finally {
-                                if (mounted) {
-                                  setState(() {
-                                    _isCheckingUpdate = false;
-                                  });
-                                }
-                              }
-                            },
-                    ),
-
-                    const Divider(height: 24),
-                    // App Brand Header with Logo
-                    Row(
-                      children: [
-                        ClipRRect(
-                          borderRadius: BorderRadius.circular(10),
-                          child: Image.asset(
-                            'assets/icon/app_icon.png',
-                            width: 44,
-                            height: 44,
-                            fit: BoxFit.cover,
-                          ),
-                        ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              const Text('Meteorological Portal', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
-                              Text('Version ${UpdateService.currentVersion}', style: const TextStyle(fontSize: 12, color: Colors.grey)),
-                            ],
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 14),
-                    // App Info
-                    const Text('About Meteorological Portal', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
-                    const SizedBox(height: 6),
-                    const Text(
-                      'Meteorological Portal is an automated companion app designed for meteorological staff and employees.\n\n'
-                      'Features include automated MetNet login, real-time Casual Leave, RH, and Compensatory Off balance tracking with 6-month expiry forecasting, rolling 30-day circulars, bilingual Devanagari OCR for Hindi orders, deduplicated offline caching, and Android Home Screen widgets.',
-                      style: TextStyle(fontSize: 12, color: Colors.grey, height: 1.4),
-                    ),
-                    const SizedBox(height: 16),
-                    const Text('Developer Information', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
-                    const SizedBox(height: 6),
-                    Text(
-                      'Designed & Developed by Aman (Aman6390).\n'
-                      'Built to simplify daily departmental tracking and streamline intranet access for colleagues.\n'
-                      'Version: ${UpdateService.currentVersion} (Release Build)',
-                      style: const TextStyle(fontSize: 12, color: Colors.grey, height: 1.4),
-                    ),
-
-                    const SizedBox(height: 16),
-                    // System Health & Diagnostics Monitor Card
-                    InkWell(
-                      onTap: () {
-                        Navigator.of(context).push(
-                          MaterialPageRoute(builder: (_) => const SystemHealthScreen()),
-                        );
-                      },
-                      borderRadius: BorderRadius.circular(12),
-                      child: Container(
-                        padding: const EdgeInsets.all(12),
-                        decoration: BoxDecoration(
-                          gradient: LinearGradient(
-                            colors: [
-                              Colors.blueAccent.withOpacity(0.12),
-                              Colors.green.withOpacity(0.08),
-                            ],
-                            begin: Alignment.topLeft,
-                            end: Alignment.bottomRight,
-                          ),
-                          borderRadius: BorderRadius.circular(12),
-                          border: Border.all(color: Colors.blueAccent.withOpacity(0.3)),
-                        ),
-                        child: Row(
-                          children: [
-                            Container(
-                              padding: const EdgeInsets.all(8),
-                              decoration: BoxDecoration(
-                                color: Colors.blueAccent.withOpacity(0.2),
-                                borderRadius: BorderRadius.circular(8),
-                              ),
-                              child: const Icon(Icons.monitor_heart_rounded, color: Colors.blueAccent, size: 24),
-                            ),
-                            const SizedBox(width: 12),
-                            const Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    'System Health & Subsystems',
-                                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
-                                  ),
-                                  SizedBox(height: 2),
-                                  Text(
-                                    'Live Green/Red status of all 10 app modules',
-                                    style: TextStyle(fontSize: 11, color: Colors.grey),
-                                  ),
-                                ],
-                              ),
-                            ),
-                            const Icon(Icons.arrow_forward_ios_rounded, size: 14, color: Colors.grey),
-                          ],
-                        ),
-                      ),
-                    ),
-
-                    // Diagnostic Tools Section (Protected by Key 6390)
-                    if (_isDiagnosticsUnlocked) ...[
-                      const Divider(height: 24),
-                      Container(
-                        padding: const EdgeInsets.all(12),
-                        decoration: BoxDecoration(
-                          color: Colors.purple.withOpacity(0.08),
-                          borderRadius: BorderRadius.circular(10),
-                          border: Border.all(color: Colors.purple.withOpacity(0.3)),
-                        ),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                              children: [
-                                Row(
-                                  children: [
-                                    const Icon(Icons.build_circle_outlined, color: Colors.purpleAccent, size: 20),
-                                    const SizedBox(width: 8),
-                                    Column(
-                                      crossAxisAlignment: CrossAxisAlignment.start,
-                                      children: [
-                                        const Text(
-                                          'Troubleshooting Tools',
-                                          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: Colors.purpleAccent),
-                                        ),
-                                        if (_diagnosticsTimeRemainingText.isNotEmpty)
-                                          Text(
-                                            '⏳ Active: $_diagnosticsTimeRemainingText (Auto-revokes at 24h)',
-                                            style: const TextStyle(fontSize: 10, color: Colors.amber, fontWeight: FontWeight.bold),
-                                          ),
-                                      ],
-                                    ),
-                                  ],
-                                ),
-                                IconButton(
-                                  icon: const Icon(Icons.lock, size: 18, color: Colors.grey),
-                                  tooltip: 'Re-lock diagnostic tools',
-                                  onPressed: () async {
-                                    await StorageService.setDiagnosticsUnlocked(false);
-                                    setState(() {
-                                      _isDiagnosticsUnlocked = false;
-                                      _diagnosticsTimeRemainingText = '';
-                                    });
-                                    if (context.mounted) {
-                                      ScaffoldMessenger.of(context).showSnackBar(
-                                        const SnackBar(
-                                          content: Text('🔒 Diagnostic tools locked.'),
-                                          duration: Duration(seconds: 2),
-                                        ),
-                                      );
-                                    }
-                                  },
-                                ),
-                              ],
-                            ),
-                            const SizedBox(height: 4),
-                            ListTile(
-                              dense: true,
-                              contentPadding: EdgeInsets.zero,
-                              leading: const Icon(Icons.monitor_heart_rounded, color: Color(0xFF10B981)),
-                              title: const Text('Live Subsystem Health Monitor', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
-                              subtitle: const Text('Real-time Green/Red diagnostic pulse across all 10 modules', style: TextStyle(fontSize: 11)),
-                              trailing: const Icon(Icons.chevron_right, size: 18),
-                              onTap: () {
-                                Navigator.of(context).push(
-                                  MaterialPageRoute(builder: (_) => const SystemHealthScreen()),
-                                );
-                              },
-                            ),
-                            const Divider(height: 1),
-                            ListTile(
-                              dense: true,
-                              contentPadding: EdgeInsets.zero,
-                              leading: const Icon(Icons.network_check_rounded, color: Colors.blueAccent),
-                              title: const Text('Check Portal Connection', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
-                              subtitle: const Text('Ping MetNet server & check RSA encryption availability', style: TextStyle(fontSize: 11)),
-                              trailing: const Icon(Icons.chevron_right, size: 18),
-                              onTap: _testPortalConnection,
-                            ),
-                            const Divider(height: 1),
-                            ListTile(
-                              dense: true,
-                              contentPadding: EdgeInsets.zero,
-                              leading: const Icon(Icons.cleaning_services_rounded, color: Colors.amber),
-                              title: const Text('Clear Downloaded Documents', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
-                              subtitle: const Text('Free up storage by clearing locally cached circular PDFs', style: TextStyle(fontSize: 11)),
-                              trailing: const Icon(Icons.chevron_right, size: 18),
-                              onTap: _clearOfflineDocuments,
-                            ),
-                            const Divider(height: 1),
-                            ListTile(
-                              dense: true,
-                              contentPadding: EdgeInsets.zero,
-                              leading: const Icon(Icons.document_scanner_rounded, color: Colors.green),
-                              title: const Text('Scanned Notice Text Inspector', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
-                              subtitle: const Text('Pick a circular to inspect extracted Devanagari/English text & AI summary', style: TextStyle(fontSize: 11)),
-                              trailing: const Icon(Icons.chevron_right, size: 18),
-                              onTap: _showOcrSandbox,
-                            ),
-                          ],
-                        ),
-                      ),
-                    ] else ...[
-                      const SizedBox(height: 12),
-                      Align(
-                        alignment: Alignment.centerLeft,
-                        child: TextButton.icon(
-                          icon: const Icon(Icons.build_outlined, size: 14, color: Colors.grey),
-                          label: const Text(
-                            'Diagnostic Tools (Key Required)',
-                            style: TextStyle(fontSize: 11, color: Colors.grey),
-                          ),
-                          onPressed: _showUnlockKeyPrompt,
-                        ),
-                      ),
-                    ],
-                  ],
-                ),
-              ),
-            ],
           ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(),
-            child: const Text('Cancel'),
-          ),
-          FilledButton(
-            onPressed: _handleSave,
-            child: const Text('Save All'),
-          ),
+          trailing,
         ],
       ),
+    );
+  }
+
+  Widget _buildNavRow({
+    required IconData icon,
+    required Color iconColor,
+    required String title,
+    required String subtitle,
+    required String badgeText,
+    Color? badgeColor,
+    VoidCallback? onTap,
+  }) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(14),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
+        child: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(7),
+              decoration: BoxDecoration(
+                color: iconColor.withOpacity(0.14),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Icon(icon, size: 18, color: iconColor),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    title,
+                    style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13.5),
+                  ),
+                  const SizedBox(height: 1),
+                  Text(
+                    subtitle,
+                    style: TextStyle(
+                      fontSize: 11,
+                      color: Theme.of(context).brightness == Brightness.dark
+                          ? const Color(0xFF8E8E93)
+                          : const Color(0xFF6E6E73),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+              decoration: BoxDecoration(
+                color: (badgeColor ?? const Color(0xFF0284C7)).withOpacity(0.12),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Text(
+                badgeText,
+                style: TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.bold,
+                  color: badgeColor ?? const Color(0xFF0284C7),
+                ),
+              ),
+            ),
+            const SizedBox(width: 4),
+            const Icon(Icons.chevron_right_rounded, size: 18, color: Colors.grey),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildDiagnosticActionTile({
+    required IconData icon,
+    required Color iconColor,
+    required String title,
+    required String subtitle,
+    required VoidCallback onTap,
+  }) {
+    return ListTile(
+      dense: true,
+      contentPadding: EdgeInsets.zero,
+      leading: Container(
+        padding: const EdgeInsets.all(6),
+        decoration: BoxDecoration(
+          color: iconColor.withOpacity(0.12),
+          borderRadius: BorderRadius.circular(8),
+        ),
+        child: Icon(icon, color: iconColor, size: 18),
+      ),
+      title: Text(title, style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w600)),
+      subtitle: Text(subtitle, style: const TextStyle(fontSize: 10.5)),
+      trailing: const Icon(Icons.chevron_right_rounded, size: 16),
+      onTap: onTap,
     );
   }
 }
