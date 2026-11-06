@@ -174,7 +174,7 @@ class TelemetryService {
         final tsStr = parsed['timestamp'] as String? ?? issue['created_at'];
         final timestamp = DateTime.tryParse(tsStr) ?? DateTime.now();
 
-        if (deviceId.isNotEmpty) {
+        if (deviceId.isNotEmpty && !deviceId.startsWith('test_')) {
           final item = TelemetryPingItem(
             deviceId: deviceId,
             version: version,

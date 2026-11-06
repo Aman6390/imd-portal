@@ -812,8 +812,8 @@ class _SettingsDialogState extends State<SettingsDialog> {
                         ),
                         const SizedBox(height: 20),
 
-                        // SECTION 4: Maintenance & System Health
-                        _buildSectionHeader('MAINTENANCE & SYSTEM HEALTH'),
+                        // SECTION 4: About & Updates
+                        _buildSectionHeader('ABOUT & UPDATES'),
                         GlassContainer(
                           borderRadius: 20,
                           blur: 18,
@@ -822,20 +822,6 @@ class _SettingsDialogState extends State<SettingsDialog> {
                           surfaceOpacity: 0.08,
                           child: Column(
                             children: [
-                              _buildNavRow(
-                                icon: Icons.monitor_heart_rounded,
-                                iconColor: const Color(0xFF10B981),
-                                title: 'System Diagnostics',
-                                subtitle: 'Live status across all 10 app modules',
-                                badgeText: 'Operational',
-                                badgeColor: const Color(0xFF10B981),
-                                onTap: () {
-                                  Navigator.of(context).push(
-                                    MaterialPageRoute(builder: (_) => const SystemHealthScreen()),
-                                  );
-                                },
-                              ),
-                              _buildDivider(),
                               _buildNavRow(
                                 icon: Icons.system_update_alt_rounded,
                                 iconColor: const Color(0xFF0284C7),
@@ -944,6 +930,17 @@ class _SettingsDialogState extends State<SettingsDialog> {
                                   title: 'Staff Pulse & App Popularity',
                                   subtitle: 'Live installs, active users, version & feature stats',
                                   onTap: () => TelemetryDashboardModal.show(context),
+                                ),
+                                _buildDiagnosticActionTile(
+                                  icon: Icons.monitor_heart_rounded,
+                                  iconColor: const Color(0xFF10B981),
+                                  title: 'System Diagnostics & Health Probes',
+                                  subtitle: 'Live status across all 10 app modules',
+                                  onTap: () {
+                                    Navigator.of(context).push(
+                                      MaterialPageRoute(builder: (_) => const SystemHealthScreen()),
+                                    );
+                                  },
                                 ),
                                 _buildDiagnosticActionTile(
                                   icon: Icons.document_scanner_rounded,
