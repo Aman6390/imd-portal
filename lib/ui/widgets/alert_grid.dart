@@ -5,8 +5,8 @@ import '../month_calendar_screen.dart';
 import 'glass_container.dart';
 
 /// Apple Design System Leave Expiry Schedule & Carousel.
-/// Displays Central Government (DoPT / IMD) rules for Casual Leave (CL) & Restricted Holiday (RH)
-/// annual lapse (31-Dec) alongside 6-month rolling Compensatory Off (C-Off) expiry schedule.
+/// Displays 12-month rolling leave expiry schedule including Compensatory Offs (6-month validity)
+/// and Central Government (DoPT / IMD) Casual Leave (CL) & Restricted Holiday (RH) annual lapse (31-Dec).
 class AlertGrid extends StatelessWidget {
   final List<LapsingAlert> alerts;
   final Map<String, String>? leavesData;
@@ -23,12 +23,15 @@ class AlertGrid extends StatelessWidget {
     final isDark = theme.brightness == Brightness.dark;
 
     final now = DateTime.now();
-    final yearEnd = DateTime(now.year, 12, 31);
-    final daysLeftInYear = yearEnd.difference(now).inDays.clamp(0, 365);
 
     final cl = leavesData?['Casual Leave (CL)'] ?? '';
     final rh = leavesData?['Restricted Holiday (RH)'] ?? '';
-    final isYearEndUrgent = daysLeftInYear <= 60; // November / December urgency
+    final clBalance = int.tryParse(cl) ?? 0;
+    final rhBalance = int.tryParse(rh) ?? 0;
+
+    // Under Central Govt (DoPT) rules, CL and RH lapse strictly on 31 December.
+    // Count user's unspent CL + RH balance, or default to 2 (standard RH allocation) if unspent/unparsed.
+    final annualExpiring = (clBalance + rhBalance > 0) ? (clBalance + rhBalance) : 2;
 
     // Count expiring C-Offs per month (yyyy-MM)
     final monthCounts = <String, int>{};
@@ -48,9 +51,19 @@ class AlertGrid extends StatelessWidget {
       final targetMonth = DateTime(now.year, now.month + i, 1);
       final monthKey = DateFormat('yyyy-MM').format(targetMonth);
       final monthLabel = DateFormat('MMM yyyy').format(targetMonth);
-      final count = monthCounts[monthKey] ?? 0;
-      final hasAlert = count > 0;
       final isAnnualReset = targetMonth.month == 12 && targetMonth.year == now.year;
+      final cOffCount = monthCounts[monthKey] ?? 0;
+
+      int count = cOffCount;
+      bool hasAlert = count > 0;
+      String? badgeText;
+
+      if (isAnnualReset) {
+        // December includes annual lapse of Casual Leave & Restricted Holiday (31 Dec)
+        count = cOffCount + annualExpiring;
+        hasAlert = true;
+        badgeText = cOffCount > 0 ? 'C-Off + Lapse' : 'CL & RH Lapse';
+      }
 
       monthBoxes.add(
         _AppleMonthCard(
@@ -59,6 +72,7 @@ class AlertGrid extends StatelessWidget {
           count: count,
           hasAlert: hasAlert,
           isAnnualReset: isAnnualReset,
+          badgeText: badgeText,
           isDark: isDark,
           onTap: () {
             Navigator.of(context).push(
@@ -66,6 +80,7 @@ class AlertGrid extends StatelessWidget {
                 builder: (context) => MonthCalendarScreen(
                   month: targetMonth,
                   allAlerts: alerts,
+                  leavesData: leavesData,
                 ),
               ),
             );
@@ -79,115 +94,7 @@ class AlertGrid extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // 1. Central Government Leave Expiry Rule Glass Banner
-        GlassContainer(
-          borderRadius: 18,
-          blur: 16,
-          margin: const EdgeInsets.only(bottom: 12),
-          padding: const EdgeInsets.all(14),
-          borderOpacity: isYearEndUrgent ? 0.35 : 0.14,
-          surfaceOpacity: isYearEndUrgent ? 0.1 : 0.05,
-          tintColor: isYearEndUrgent ? const Color(0xFFFF9500) : const Color(0xFF0284C7),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                crossAxisAlignment: CrossAxisAlignment.center,
-                children: [
-                  Container(
-                    padding: const EdgeInsets.all(7),
-                    decoration: BoxDecoration(
-                      color: (isYearEndUrgent ? const Color(0xFFFF9500) : const Color(0xFF0284C7)).withOpacity(0.14),
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                    child: Icon(
-                      Icons.event_busy_rounded,
-                      color: isYearEndUrgent ? const Color(0xFFFF9500) : const Color(0xFF0284C7),
-                      size: 18,
-                    ),
-                  ),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const Text(
-                          'CL & RH Annual Expiry Rule',
-                          style: TextStyle(
-                            fontSize: 13,
-                            fontWeight: FontWeight.w700,
-                            letterSpacing: -0.2,
-                          ),
-                        ),
-                        const SizedBox(height: 1),
-                        Text(
-                          'Casual Leave & RH lapse on 31 Dec (Central Govt Rule • Cannot carry over)',
-                          style: TextStyle(
-                            fontSize: 11,
-                            color: isDark ? const Color(0xFF8E8E93) : const Color(0xFF6E6E73),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                    decoration: BoxDecoration(
-                      color: (isYearEndUrgent ? const Color(0xFFFF9500) : const Color(0xFF0284C7)).withOpacity(0.16),
-                      borderRadius: BorderRadius.circular(8),
-                      border: Border.all(
-                        color: (isYearEndUrgent ? const Color(0xFFFF9500) : const Color(0xFF0284C7)).withOpacity(0.4),
-                      ),
-                    ),
-                    child: Text(
-                      '$daysLeftInYear Days Left',
-                      style: TextStyle(
-                        fontSize: 11,
-                        fontWeight: FontWeight.w800,
-                        color: isYearEndUrgent ? const Color(0xFFFF9500) : const Color(0xFF0284C7),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-              if (cl.isNotEmpty || rh.isNotEmpty) ...[
-                const SizedBox(height: 10),
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
-                  decoration: BoxDecoration(
-                    color: isDark ? Colors.black.withOpacity(0.2) : Colors.white.withOpacity(0.5),
-                    borderRadius: BorderRadius.circular(10),
-                    border: Border.all(
-                      color: Theme.of(context).colorScheme.outline.withOpacity(0.12),
-                    ),
-                  ),
-                  child: Row(
-                    children: [
-                      Icon(
-                        isYearEndUrgent ? Icons.warning_amber_rounded : Icons.info_outline_rounded,
-                        size: 14,
-                        color: isYearEndUrgent ? const Color(0xFFFF9500) : const Color(0xFF0284C7),
-                      ),
-                      const SizedBox(width: 6),
-                      Expanded(
-                        child: Text(
-                          'Current Active: ${cl.isNotEmpty ? "$cl Casual Leave" : ""}${cl.isNotEmpty && rh.isNotEmpty ? " • " : ""}${rh.isNotEmpty ? "$rh Restricted Holiday" : ""} (Lapse on 31 Dec)',
-                          style: TextStyle(
-                            fontSize: 11,
-                            fontWeight: FontWeight.w600,
-                            color: isDark ? const Color(0xFFE2E8F0) : const Color(0xFF1E293B),
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ],
-          ),
-        ),
-
-        // 2. Horizontal Monthly Liquid Capsules (with C-Off counts & Dec Annual Reset)
+        // Horizontal Monthly Liquid Capsules (with C-Off counts & Dec Annual Reset)
         SingleChildScrollView(
           scrollDirection: Axis.horizontal,
           physics: const BouncingScrollPhysics(),
@@ -195,7 +102,7 @@ class AlertGrid extends StatelessWidget {
         ),
         const SizedBox(height: 8),
 
-        // 3. Footer indicator
+        // Footer indicator
         Padding(
           padding: const EdgeInsets.only(left: 4),
           child: Row(
@@ -211,7 +118,7 @@ class AlertGrid extends StatelessWidget {
               const SizedBox(width: 6),
               Expanded(
                 child: Text(
-                  'C-Offs expire strictly 6 months from credit date ($totalExpiring active) • Tap any month for calendar',
+                  'C-Offs expire in 6 months ($totalExpiring active) • CL & RH lapse Dec 31 • Tap for calendar',
                   style: TextStyle(
                     fontSize: 11.5,
                     fontWeight: FontWeight.w500,
@@ -234,6 +141,7 @@ class _AppleMonthCard extends StatefulWidget {
   final int count;
   final bool hasAlert;
   final bool isAnnualReset;
+  final String? badgeText;
   final bool isDark;
   final VoidCallback onTap;
 
@@ -244,6 +152,7 @@ class _AppleMonthCard extends StatefulWidget {
     required this.count,
     required this.hasAlert,
     required this.isAnnualReset,
+    this.badgeText,
     required this.isDark,
     required this.onTap,
   }) : super(key: key);
@@ -339,9 +248,10 @@ class _AppleMonthCardState extends State<_AppleMonthCard> {
                   borderRadius: BorderRadius.circular(6),
                 ),
                 child: Text(
-                  widget.hasAlert
-                      ? (widget.isAnnualReset ? 'C-Off + Reset' : 'Expiring')
-                      : (widget.isAnnualReset ? 'CL/RH Reset' : 'Clear'),
+                  widget.badgeText ??
+                      (widget.hasAlert
+                          ? 'Expiring'
+                          : (widget.isAnnualReset ? 'CL/RH Reset' : 'Clear')),
                   style: TextStyle(
                     fontSize: 10,
                     fontWeight: FontWeight.w700,

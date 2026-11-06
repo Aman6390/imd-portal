@@ -5,11 +5,13 @@ import '../../models/dashboard_data.dart';
 class MonthCalendarScreen extends StatelessWidget {
   final DateTime month;
   final List<LapsingAlert> allAlerts;
+  final Map<String, String>? leavesData;
 
   const MonthCalendarScreen({
     Key? key,
     required this.month,
     required this.allAlerts,
+    this.leavesData,
   }) : super(key: key);
 
   @override
@@ -29,9 +31,27 @@ class MonthCalendarScreen extends StatelessWidget {
       } catch (_) {}
     }
 
+    final isDecember = month.month == 12;
+    final clBalance = int.tryParse(leavesData?['Casual Leave (CL)'] ?? '') ?? 0;
+    final rhBalance = int.tryParse(leavesData?['Restricted Holiday (RH)'] ?? '') ?? 0;
+    final annualLapseCount = (clBalance + rhBalance > 0) ? (clBalance + rhBalance) : 2;
+
     final daysInMonth = DateTime(month.year, month.month + 1, 0).day;
     final firstWeekday = DateTime(month.year, month.month, 1).weekday; // 1 = Monday, 7 = Sunday
-    final totalExpiringInMonth = dayAlerts.values.fold(0, (sum, list) => sum + list.length);
+    final totalExpiringInMonth = dayAlerts.values.fold(0, (sum, list) => sum + list.length) + (isDecember ? annualLapseCount : 0);
+
+    String summaryTitle;
+    String summarySubtitle;
+    if (isDecember) {
+      summaryTitle = '$totalExpiringInMonth Leaves Expiring in $monthName';
+      summarySubtitle = 'Includes Casual Leave (CL) & Restricted Holiday (RH) lapsing on 31 Dec (Central Govt Rule).';
+    } else if (totalExpiringInMonth > 0) {
+      summaryTitle = '$totalExpiringInMonth C-Off${totalExpiringInMonth > 1 ? 's' : ''} Expiring in $monthName';
+      summarySubtitle = 'Highlighted days indicate exact expiration dates.';
+    } else {
+      summaryTitle = 'No Leaves Expiring in $monthName';
+      summarySubtitle = 'Your leave balance is safe for this month.';
+    }
 
     return Scaffold(
       appBar: AppBar(
@@ -73,16 +93,12 @@ class MonthCalendarScreen extends StatelessWidget {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          totalExpiringInMonth > 0
-                              ? '$totalExpiringInMonth C-Off${totalExpiringInMonth > 1 ? 's' : ''} Expiring in $monthName'
-                              : 'No C-Offs Expiring in $monthName',
+                          summaryTitle,
                           style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
                         ),
                         const SizedBox(height: 4),
                         Text(
-                          totalExpiringInMonth > 0
-                              ? 'Highlighted days indicate exact expiration dates.'
-                              : 'Your C-Off balance is safe for this month.',
+                          summarySubtitle,
                           style: TextStyle(fontSize: 12, color: Colors.grey.shade400),
                         ),
                       ],
@@ -123,7 +139,7 @@ class MonthCalendarScreen extends StatelessWidget {
                     const Divider(height: 20),
 
                     // Calendar Grid Days
-                    _buildCalendarGrid(daysInMonth, firstWeekday, dayAlerts, context),
+                    _buildCalendarGrid(daysInMonth, firstWeekday, dayAlerts, isDecember, annualLapseCount, context),
                   ],
                 ),
               ),
@@ -131,7 +147,7 @@ class MonthCalendarScreen extends StatelessWidget {
             const SizedBox(height: 24),
 
             // List of specific expiring dates
-            if (dayAlerts.isNotEmpty) ...[
+            if (dayAlerts.isNotEmpty || isDecember) ...[
               const Text(
                 '📅 Breakdown by Day:',
                 style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
@@ -171,6 +187,46 @@ class MonthCalendarScreen extends StatelessWidget {
                   ),
                 );
               }).toList(),
+
+              if (isDecember)
+                Card(
+                  margin: const EdgeInsets.only(bottom: 8),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    side: BorderSide(color: Colors.amber.withOpacity(0.5)),
+                  ),
+                  child: ListTile(
+                    leading: CircleAvatar(
+                      backgroundColor: Colors.amber.shade900,
+                      foregroundColor: Colors.amberAccent,
+                      child: const Text('31', style: TextStyle(fontWeight: FontWeight.bold)),
+                    ),
+                    title: Text(
+                      '$annualLapseCount Leaves Expiring (CL & RH Annual Lapse)',
+                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                    ),
+                    subtitle: const Text(
+                      'Casual Leave (CL) & Restricted Holiday (RH) lapse on 31 Dec under Central Govt (DoPT) rules. Cannot be carried forward.',
+                      style: TextStyle(fontSize: 12),
+                    ),
+                    trailing: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: Colors.redAccent.withOpacity(0.2),
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(color: Colors.redAccent.withOpacity(0.4)),
+                      ),
+                      child: const Text(
+                        'Lapse',
+                        style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          color: Colors.redAccent,
+                          fontSize: 12,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
             ],
           ],
         ),
@@ -182,6 +238,8 @@ class MonthCalendarScreen extends StatelessWidget {
     int daysInMonth,
     int firstWeekday,
     Map<int, List<LapsingAlert>> dayAlerts,
+    bool isDecember,
+    int annualLapseCount,
     BuildContext context,
   ) {
     final List<Widget> dayCells = [];
@@ -195,7 +253,9 @@ class MonthCalendarScreen extends StatelessWidget {
     for (int day = 1; day <= daysInMonth; day++) {
       final expiringHere = dayAlerts[day];
       final count = expiringHere?.length ?? 0;
-      final hasAlert = count > 0;
+      final isDec31 = isDecember && day == 31;
+      final hasAlert = count > 0 || isDec31;
+      final totalBadge = count + (isDec31 ? annualLapseCount : 0);
 
       dayCells.add(
         Container(
@@ -221,7 +281,7 @@ class MonthCalendarScreen extends StatelessWidget {
                     fontSize: 13,
                   ),
                 ),
-                if (hasAlert && count > 1)
+                if (hasAlert && totalBadge > 1)
                   Positioned(
                     top: 1,
                     right: 1,
@@ -232,7 +292,7 @@ class MonthCalendarScreen extends StatelessWidget {
                         shape: BoxShape.circle,
                       ),
                       child: Text(
-                        '$count',
+                        '$totalBadge',
                         style: const TextStyle(
                           fontSize: 8,
                           color: Colors.black,
