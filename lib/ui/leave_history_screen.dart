@@ -6,10 +6,10 @@ import 'package:intl/intl.dart';
 import '../models/dashboard_data.dart';
 import 'widgets/glass_container.dart';
 
-/// Apple iOS 27 Chronological Monthly Grouped Leave Records Screen.
-/// Displays official MetNet leave history grouped by month and year in descending order,
-/// featuring status badges, station leaving permissions (SLP), approving officer remarks,
-/// summary Bento pods, and instant filtering.
+/// Apple iOS 27 Month Box & Day-by-Day Leave Records Screen.
+/// 1. Top-Level: Sleek Apple Glass "Month Boxes" for each month with leave activity.
+/// 2. Drill-Down: Day-by-Day list showing the exact Leave Type right in front of the date:
+///    [ 09-Mar-2026 Mon ] ───▶ [ Casual Leave (CL) ]  [ ✓ Availed ]
 class LeaveHistoryScreen extends StatefulWidget {
   final List<LeaveHistoryItem> leaveHistory;
   final Map<String, String> balances;
@@ -29,6 +29,7 @@ class LeaveHistoryScreen extends StatefulWidget {
 class _LeaveHistoryScreenState extends State<LeaveHistoryScreen> {
   String _selectedFilter = 'All'; // 'All', 'Availed', 'Cancelled', 'Casual Leave', 'RH'
   String _searchQuery = '';
+  String? _selectedMonth; // When non-null, shows Day-by-Day detail view for that month
   final TextEditingController _searchController = TextEditingController();
   bool _isRefreshing = false;
 
@@ -120,338 +121,998 @@ class _LeaveHistoryScreenState extends State<LeaveHistoryScreen> {
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
 
-    // Metrics for Bento header
+    // Intercept hardware/gesture back when in Month Day-by-Day view
+    return PopScope(
+      canPop: _selectedMonth == null,
+      onPopInvoked: (didPop) {
+        if (!didPop && _selectedMonth != null) {
+          setState(() => _selectedMonth = null);
+        }
+      },
+      child: Scaffold(
+        backgroundColor: isDark ? const Color(0xFF0C0F14) : const Color(0xFFF6F8FC),
+        body: SafeArea(
+          top: false,
+          child: RefreshIndicator(
+            onRefresh: _handleRefresh,
+            color: const Color(0xFF00C7FF),
+            child: _selectedMonth == null
+                ? _buildMonthBoxesOverview(isDark)
+                : _buildMonthDayByDayDetail(_selectedMonth!, isDark),
+          ),
+        ),
+      ),
+    );
+  }
+
+  // =========================================================================
+  // VIEW 1: MONTH BOXES OVERVIEW (Like Leave Balances Bento Boxes)
+  // =========================================================================
+
+  Widget _buildMonthBoxesOverview(bool isDark) {
     final totalAvailed = widget.leaveHistory.where((l) => l.isApproved).length;
     final totalCancelled = widget.leaveHistory.where((l) => l.isCancelled).length;
     final clBalance = widget.balances['Casual Leave (CL)'] ?? '0';
 
     final grouped = _groupedByMonth;
 
-    return Scaffold(
-      backgroundColor: isDark ? const Color(0xFF0C0F14) : const Color(0xFFF6F8FC),
-      body: SafeArea(
-        top: false,
-        child: RefreshIndicator(
-          onRefresh: _handleRefresh,
-          color: const Color(0xFF00C7FF),
-          child: CustomScrollView(
-            physics: const BouncingScrollPhysics(parent: AlwaysScrollableScrollPhysics()),
-            slivers: [
-              // 1. Frosted Translucent Apple App Bar
-              SliverAppBar(
-                pinned: true,
-                elevation: 0,
-                backgroundColor: isDark
-                    ? const Color(0xFF0C0F14).withOpacity(0.85)
-                    : const Color(0xFFF6F8FC).withOpacity(0.85),
-                flexibleSpace: ClipRect(
-                  child: BackdropFilter(
-                    filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
-                    child: Container(color: Colors.transparent),
+    return CustomScrollView(
+      physics: const BouncingScrollPhysics(parent: AlwaysScrollableScrollPhysics()),
+      slivers: [
+        // 1. Frosted Translucent Apple App Bar
+        SliverAppBar(
+          pinned: true,
+          elevation: 0,
+          backgroundColor: isDark
+              ? const Color(0xFF0C0F14).withOpacity(0.85)
+              : const Color(0xFFF6F8FC).withOpacity(0.85),
+          flexibleSpace: ClipRect(
+            child: BackdropFilter(
+              filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
+              child: Container(color: Colors.transparent),
+            ),
+          ),
+          leading: IconButton(
+            icon: Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: isDark ? Colors.white.withOpacity(0.08) : Colors.black.withOpacity(0.05),
+                shape: BoxShape.circle,
+              ),
+              child: Icon(
+                Icons.arrow_back_ios_new_rounded,
+                size: 16,
+                color: isDark ? Colors.white : Colors.black87,
+              ),
+            ),
+            onPressed: () {
+              HapticFeedback.lightImpact();
+              Navigator.of(context).pop();
+            },
+          ),
+          title: Column(
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              Text(
+                'Leave Records',
+                style: TextStyle(
+                  fontSize: 17,
+                  fontWeight: FontWeight.w700,
+                  letterSpacing: -0.4,
+                  color: isDark ? Colors.white : const Color(0xFF0F172A),
+                ),
+              ),
+              Container(
+                margin: const EdgeInsets.only(top: 2),
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 1.5),
+                decoration: BoxDecoration(
+                  color: isDark ? Colors.white.withOpacity(0.08) : Colors.black.withOpacity(0.05),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Text(
+                  '‹  2026 Leave Activity  ›',
+                  style: TextStyle(
+                    fontSize: 10.5,
+                    fontWeight: FontWeight.w600,
+                    letterSpacing: 0.3,
+                    color: isDark ? Colors.white70 : Colors.black54,
                   ),
                 ),
-                leading: IconButton(
-                  icon: Container(
-                    padding: const EdgeInsets.all(8),
-                    decoration: BoxDecoration(
-                      color: isDark ? Colors.white.withOpacity(0.08) : Colors.black.withOpacity(0.05),
-                      shape: BoxShape.circle,
-                    ),
-                    child: Icon(
-                      Icons.arrow_back_ios_new_rounded,
-                      size: 16,
-                      color: isDark ? Colors.white : Colors.black87,
-                    ),
-                  ),
-                  onPressed: () {
-                    HapticFeedback.lightImpact();
-                    Navigator.of(context).pop();
-                  },
+              ),
+            ],
+          ),
+          centerTitle: true,
+          actions: [
+            if (widget.onRefresh != null)
+              IconButton(
+                icon: _isRefreshing
+                    ? const SizedBox(
+                        width: 18,
+                        height: 18,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : Container(
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                          color: isDark
+                              ? Colors.white.withOpacity(0.08)
+                              : Colors.black.withOpacity(0.05),
+                          shape: BoxShape.circle,
+                        ),
+                        child: Icon(
+                          Icons.refresh_rounded,
+                          size: 18,
+                          color: isDark ? Colors.white : Colors.black87,
+                        ),
+                      ),
+                onPressed: _handleRefresh,
+              ),
+            const SizedBox(width: 8),
+          ],
+        ),
+
+        // 2. Refined Single Horizontal Summary Capsule (Minimalist, Zero Clutter)
+        SliverToBoxAdapter(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+              decoration: BoxDecoration(
+                color: isDark ? Colors.white.withOpacity(0.05) : Colors.white,
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(
+                  color: isDark ? Colors.white.withOpacity(0.08) : Colors.black.withOpacity(0.06),
                 ),
-                title: Column(
-                  crossAxisAlignment: CrossAxisAlignment.center,
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(isDark ? 0.2 : 0.03),
+                    blurRadius: 10,
+                    offset: const Offset(0, 2),
+                  ),
+                ],
+              ),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceAround,
+                children: [
+                  _buildSummaryIndicator(
+                    label: 'Availed',
+                    value: '$totalAvailed Days',
+                    color: const Color(0xFF10B981),
+                    isDark: isDark,
+                  ),
+                  Container(
+                    width: 1,
+                    height: 20,
+                    color: isDark ? Colors.white12 : Colors.black12,
+                  ),
+                  _buildSummaryIndicator(
+                    label: 'CL Balance',
+                    value: '$clBalance Days',
+                    color: const Color(0xFF00C7FF),
+                    isDark: isDark,
+                  ),
+                  Container(
+                    width: 1,
+                    height: 20,
+                    color: isDark ? Colors.white12 : Colors.black12,
+                  ),
+                  _buildSummaryIndicator(
+                    label: 'Cancelled',
+                    value: '$totalCancelled Days',
+                    color: const Color(0xFFFF453A),
+                    isDark: isDark,
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+
+        // 3. Search Bar
+        SliverToBoxAdapter(
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            child: Container(
+              height: 40,
+              decoration: BoxDecoration(
+                color: isDark ? Colors.white.withOpacity(0.06) : Colors.white,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(
+                  color: isDark ? Colors.white.withOpacity(0.09) : Colors.black.withOpacity(0.08),
+                ),
+              ),
+              child: TextField(
+                controller: _searchController,
+                style: TextStyle(
+                  fontSize: 13.5,
+                  color: isDark ? Colors.white : Colors.black87,
+                ),
+                decoration: InputDecoration(
+                  hintText: 'Search reason, officer, or SLP address...',
+                  hintStyle: TextStyle(
+                    fontSize: 12.5,
+                    color: isDark ? Colors.white38 : Colors.black38,
+                  ),
+                  prefixIcon: Icon(
+                    Icons.search_rounded,
+                    size: 18,
+                    color: isDark ? Colors.white38 : Colors.black45,
+                  ),
+                  suffixIcon: _searchQuery.isNotEmpty
+                      ? IconButton(
+                          icon: const Icon(Icons.clear_rounded, size: 16),
+                          onPressed: () {
+                            HapticFeedback.lightImpact();
+                            _searchController.clear();
+                            setState(() => _searchQuery = '');
+                          },
+                        )
+                      : null,
+                  border: InputBorder.none,
+                  contentPadding: const EdgeInsets.symmetric(vertical: 9),
+                ),
+                onChanged: (val) {
+                  setState(() => _searchQuery = val.trim());
+                },
+              ),
+            ),
+          ),
+        ),
+
+        // 4. Filter Pills
+        SliverToBoxAdapter(
+          child: Padding(
+            padding: const EdgeInsets.symmetric(vertical: 12),
+            child: SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              physics: const BouncingScrollPhysics(),
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              child: Row(
+                children: [
+                  _buildFilterPill('All', widget.leaveHistory.length, isDark),
+                  const SizedBox(width: 8),
+                  _buildFilterPill('Availed', totalAvailed, isDark),
+                  const SizedBox(width: 8),
+                  _buildFilterPill('Cancelled', totalCancelled, isDark),
+                  const SizedBox(width: 8),
+                  _buildFilterPill(
+                    'Casual Leave',
+                    widget.leaveHistory
+                        .where((l) => l.leaveType.toLowerCase().contains('casual'))
+                        .length,
+                    isDark,
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+
+        // Section Title: Month Boxes Header
+        SliverToBoxAdapter(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(16, 4, 16, 12),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(
+                  'MONTHS WITH LEAVE ACTIVITY',
+                  style: TextStyle(
+                    fontSize: 11.5,
+                    fontWeight: FontWeight.w700,
+                    letterSpacing: 0.6,
+                    color: isDark ? Colors.white54 : Colors.black45,
+                  ),
+                ),
+                Text(
+                  'Tap a box for day-by-day',
+                  style: TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w500,
+                    color: isDark ? const Color(0xFF00C7FF) : const Color(0xFF0284C7),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+
+        // 5. Month Boxes Arrangement
+        if (grouped.isEmpty)
+          SliverToBoxAdapter(
+            child: _buildEmptyState(isDark),
+          )
+        else
+          SliverPadding(
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            sliver: SliverList(
+              delegate: SliverChildBuilderDelegate(
+                (context, index) {
+                  final monthKey = grouped.keys.elementAt(index);
+                  final leavesInMonth = grouped[monthKey]!;
+                  return _buildMonthBoxCard(monthKey, leavesInMonth, isDark);
+                },
+                childCount: grouped.keys.length,
+              ),
+            ),
+          ),
+
+        const SliverToBoxAdapter(
+          child: SizedBox(height: 50),
+        ),
+      ],
+    );
+  }
+
+  /// Tactile Apple Liquid Glass Month Box (Like Leave Balances Bento Card)
+  Widget _buildMonthBoxCard(
+    String monthTitle,
+    List<LeaveHistoryItem> leaves,
+    bool isDark,
+  ) {
+    final availedCount = leaves.where((l) => l.isApproved).length;
+    final cancelledCount = leaves.where((l) => l.isCancelled).length;
+
+    // Pick a thematic accent based on activity
+    final accentColor = availedCount > 0
+        ? const Color(0xFF00C7FF) // Electric Cyan
+        : const Color(0xFFFF453A); // Coral
+
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: GlassContainer(
+        borderRadius: 22,
+        blur: 20,
+        padding: const EdgeInsets.all(16),
+        borderOpacity: isDark ? 0.18 : 0.10,
+        surfaceOpacity: isDark ? 0.06 : 0.60,
+        onTap: () {
+          HapticFeedback.lightImpact();
+          setState(() {
+            _selectedMonth = monthTitle;
+          });
+        },
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Top Row: Month Badge & Action Chevron
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Row(
                   children: [
-                    Text(
-                      'Leave Records',
-                      style: TextStyle(
-                        fontSize: 17,
-                        fontWeight: FontWeight.w700,
-                        letterSpacing: -0.4,
-                        color: isDark ? Colors.white : const Color(0xFF0F172A),
+                    Container(
+                      padding: const EdgeInsets.all(6),
+                      decoration: BoxDecoration(
+                        color: accentColor.withOpacity(0.16),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Icon(
+                        Icons.calendar_month_rounded,
+                        size: 15,
+                        color: accentColor,
                       ),
                     ),
+                    const SizedBox(width: 8),
                     Text(
-                      'Chronological Monthly Timeline',
+                      monthTitle.toUpperCase(),
                       style: TextStyle(
-                        fontSize: 11,
-                        fontWeight: FontWeight.w500,
-                        color: isDark ? Colors.white60 : Colors.black54,
+                        fontSize: 13,
+                        fontWeight: FontWeight.w800,
+                        letterSpacing: 0.5,
+                        color: isDark ? Colors.white : const Color(0xFF0F172A),
                       ),
                     ),
                   ],
                 ),
-                centerTitle: true,
-                actions: [
-                  if (widget.onRefresh != null)
-                    IconButton(
-                      icon: _isRefreshing
-                          ? const SizedBox(
-                              width: 18,
-                              height: 18,
-                              child: CircularProgressIndicator(strokeWidth: 2),
-                            )
-                          : Container(
-                              padding: const EdgeInsets.all(8),
-                              decoration: BoxDecoration(
-                                color: isDark
-                                    ? Colors.white.withOpacity(0.08)
-                                    : Colors.black.withOpacity(0.05),
-                                shape: BoxShape.circle,
-                              ),
-                              child: Icon(
-                                Icons.refresh_rounded,
-                                size: 18,
-                                color: isDark ? Colors.white : Colors.black87,
-                              ),
-                            ),
-                      onPressed: _handleRefresh,
-                    ),
-                  const SizedBox(width: 8),
-                ],
-              ),
-
-              // 2. Bento Summary Grid (Availed, Balance, Cancelled)
-              SliverToBoxAdapter(
-                child: Padding(
-                  padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                  decoration: BoxDecoration(
+                    color: isDark ? Colors.white.withOpacity(0.08) : Colors.black.withOpacity(0.04),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
                   child: Row(
                     children: [
-                      // Availed Pod
-                      Expanded(
-                        child: _buildBentoPod(
-                          title: 'AVAILED',
-                          count: '$totalAvailed Days',
-                          subtitle: 'Approved & Used',
-                          color: const Color(0xFF10B981), // Emerald
-                          icon: Icons.check_circle_rounded,
-                          isDark: isDark,
+                      Text(
+                        'View Day-by-Day',
+                        style: TextStyle(
+                          fontSize: 10.5,
+                          fontWeight: FontWeight.w600,
+                          color: isDark ? Colors.white70 : Colors.black54,
                         ),
                       ),
-                      const SizedBox(width: 10),
-                      // Casual Balance Pod
-                      Expanded(
-                        child: _buildBentoPod(
-                          title: 'CL BALANCE',
-                          count: '$clBalance Days',
-                          subtitle: 'Available Now',
-                          color: const Color(0xFF00C7FF), // Cyan
-                          icon: Icons.account_balance_wallet_rounded,
-                          isDark: isDark,
-                        ),
-                      ),
-                      const SizedBox(width: 10),
-                      // Cancelled Pod
-                      Expanded(
-                        child: _buildBentoPod(
-                          title: 'CANCELLED',
-                          count: '$totalCancelled Days',
-                          subtitle: 'Self / Auto Revoked',
-                          color: const Color(0xFFFF453A), // Apple Coral Red
-                          icon: Icons.cancel_rounded,
-                          isDark: isDark,
-                        ),
+                      const SizedBox(width: 2),
+                      Icon(
+                        Icons.chevron_right_rounded,
+                        size: 14,
+                        color: isDark ? Colors.white54 : Colors.black45,
                       ),
                     ],
                   ),
                 ),
-              ),
+              ],
+            ),
+            const SizedBox(height: 14),
 
-              // 3. Search Bar
-              SliverToBoxAdapter(
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 16),
-                  child: Container(
-                    height: 44,
-                    decoration: BoxDecoration(
-                      color: isDark ? Colors.white.withOpacity(0.06) : Colors.white,
-                      borderRadius: BorderRadius.circular(14),
-                      border: Border.all(
-                        color: isDark ? Colors.white.withOpacity(0.1) : Colors.black.withOpacity(0.08),
-                        width: 1,
-                      ),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.black.withOpacity(isDark ? 0.2 : 0.03),
-                          blurRadius: 8,
-                          offset: const Offset(0, 2),
-                        ),
-                      ],
-                    ),
-                    child: TextField(
-                      controller: _searchController,
-                      style: TextStyle(
-                        fontSize: 14,
-                        color: isDark ? Colors.white : Colors.black87,
-                      ),
-                      decoration: InputDecoration(
-                        hintText: 'Search by reason, officer, or SLP address...',
-                        hintStyle: TextStyle(
-                          fontSize: 13,
-                          color: isDark ? Colors.white38 : Colors.black38,
-                        ),
-                        prefixIcon: Icon(
-                          Icons.search_rounded,
-                          size: 19,
-                          color: isDark ? Colors.white38 : Colors.black45,
-                        ),
-                        suffixIcon: _searchQuery.isNotEmpty
-                            ? IconButton(
-                                icon: const Icon(Icons.clear_rounded, size: 18),
-                                onPressed: () {
-                                  HapticFeedback.lightImpact();
-                                  _searchController.clear();
-                                  setState(() => _searchQuery = '');
-                                },
-                              )
-                            : null,
-                        border: InputBorder.none,
-                        contentPadding: const EdgeInsets.symmetric(vertical: 11),
-                      ),
-                      onChanged: (val) {
-                        setState(() => _searchQuery = val.trim());
-                      },
-                    ),
+            // Middle Display Metric: Large Bold Number of Days Availed
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.baseline,
+              textBaseline: TextBaseline.alphabetic,
+              children: [
+                Text(
+                  '$availedCount',
+                  style: TextStyle(
+                    fontSize: 34,
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: -1.0,
+                    color: isDark ? Colors.white : const Color(0xFF0F172A),
                   ),
                 ),
-              ),
+                const SizedBox(width: 8),
+                Text(
+                  availedCount == 1 ? 'Day Availed' : 'Days Availed',
+                  style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                    color: isDark ? Colors.white60 : Colors.black54,
+                  ),
+                ),
+                const Spacer(),
 
-              // 4. Horizontal Filter Segmented Pills
-              SliverToBoxAdapter(
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 14),
-                  child: SingleChildScrollView(
-                    scrollDirection: Axis.horizontal,
-                    physics: const BouncingScrollPhysics(),
-                    padding: const EdgeInsets.symmetric(horizontal: 16),
-                    child: Row(
-                      children: [
-                        _buildFilterPill('All', widget.leaveHistory.length, isDark),
-                        const SizedBox(width: 8),
-                        _buildFilterPill('Availed', totalAvailed, isDark),
-                        const SizedBox(width: 8),
-                        _buildFilterPill('Cancelled', totalCancelled, isDark),
-                        const SizedBox(width: 8),
-                        _buildFilterPill(
-                          'Casual Leave',
-                          widget.leaveHistory
-                              .where((l) => l.leaveType.toLowerCase().contains('casual'))
-                              .length,
-                          isDark,
+                // Status Badges
+                Row(
+                  children: [
+                    if (availedCount > 0)
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
+                        margin: const EdgeInsets.only(right: 6),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF10B981).withOpacity(0.16),
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(
+                            color: const Color(0xFF10B981).withOpacity(0.35),
+                            width: 0.6,
+                          ),
                         ),
-                      ],
-                    ),
-                  ),
+                        child: Text(
+                          '$availedCount Availed',
+                          style: const TextStyle(
+                            fontSize: 10.5,
+                            fontWeight: FontWeight.w700,
+                            color: Color(0xFF10B981),
+                          ),
+                        ),
+                      ),
+                    if (cancelledCount > 0)
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFFF453A).withOpacity(0.16),
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(
+                            color: const Color(0xFFFF453A).withOpacity(0.35),
+                            width: 0.6,
+                          ),
+                        ),
+                        child: Text(
+                          '$cancelledCount Cancelled',
+                          style: const TextStyle(
+                            fontSize: 10.5,
+                            fontWeight: FontWeight.w700,
+                            color: Color(0xFFFF453A),
+                          ),
+                        ),
+                      ),
+                  ],
                 ),
-              ),
+              ],
+            ),
+            const SizedBox(height: 10),
 
-              // 5. Month Grouped Chronological Timeline
-              if (grouped.isEmpty)
-                SliverToBoxAdapter(
-                  child: _buildEmptyState(isDark),
-                )
-              else
-                SliverList(
-                  delegate: SliverChildBuilderDelegate(
-                    (context, index) {
-                      final monthKey = grouped.keys.elementAt(index);
-                      final leavesInMonth = grouped[monthKey]!;
-                      return _buildMonthSection(monthKey, leavesInMonth, isDark);
-                    },
-                    childCount: grouped.keys.length,
-                  ),
-                ),
-
-              const SliverToBoxAdapter(
-                child: SizedBox(height: 60),
+            // Bottom Subtitle Row: Quick preview of leave dates
+            Text(
+              '${leaves.length} ${leaves.length == 1 ? "entry" : "entries"}: '
+              '${leaves.map((l) => l.leaveDate.split("-").take(2).join("-")).join(", ")}',
+              style: TextStyle(
+                fontSize: 11,
+                fontWeight: FontWeight.w500,
+                color: isDark ? Colors.white38 : Colors.black38,
               ),
-            ],
-          ),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
+          ],
         ),
       ),
     );
   }
 
-  /// Compact Top Bento Metric Pod
-  Widget _buildBentoPod({
-    required String title,
-    required String count,
-    required String subtitle,
-    required Color color,
-    required IconData icon,
-    required bool isDark,
-  }) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-      decoration: BoxDecoration(
-        color: isDark ? color.withOpacity(0.08) : Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(
-          color: color.withOpacity(isDark ? 0.25 : 0.2),
-          width: 1,
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: color.withOpacity(isDark ? 0.08 : 0.04),
-            blurRadius: 10,
-            offset: const Offset(0, 3),
+  // =========================================================================
+  // VIEW 2: DAY-BY-DAY LIST WITH LEAVE TYPE RIGHT IN FRONT OF DATE
+  // =========================================================================
+
+  Widget _buildMonthDayByDayDetail(String monthTitle, bool isDark) {
+    final grouped = _groupedByMonth;
+    final leaves = grouped[monthTitle] ?? [];
+
+    final availedCount = leaves.where((l) => l.isApproved).length;
+    final cancelledCount = leaves.where((l) => l.isCancelled).length;
+
+    return CustomScrollView(
+      physics: const BouncingScrollPhysics(parent: AlwaysScrollableScrollPhysics()),
+      slivers: [
+        // 1. Apple Detail Top Bar with "< Back to Months"
+        SliverAppBar(
+          pinned: true,
+          elevation: 0,
+          backgroundColor: isDark
+              ? const Color(0xFF0C0F14).withOpacity(0.85)
+              : const Color(0xFFF6F8FC).withOpacity(0.85),
+          flexibleSpace: ClipRect(
+            child: BackdropFilter(
+              filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
+              child: Container(color: Colors.transparent),
+            ),
           ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text(
-                title,
-                style: TextStyle(
-                  fontSize: 9.5,
-                  fontWeight: FontWeight.w700,
-                  letterSpacing: 0.5,
-                  color: color,
-                ),
+          leading: IconButton(
+            icon: Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: isDark ? Colors.white.withOpacity(0.08) : Colors.black.withOpacity(0.05),
+                shape: BoxShape.circle,
               ),
-              Icon(icon, size: 14, color: color),
-            ],
+              child: Icon(
+                Icons.arrow_back_ios_new_rounded,
+                size: 16,
+                color: isDark ? Colors.white : Colors.black87,
+              ),
+            ),
+            onPressed: () {
+              HapticFeedback.lightImpact();
+              setState(() => _selectedMonth = null);
+            },
           ),
-          const SizedBox(height: 6),
-          Text(
-            count,
+          title: Text(
+            monthTitle,
             style: TextStyle(
-              fontSize: 16,
+              fontSize: 18,
               fontWeight: FontWeight.w800,
               letterSpacing: -0.4,
               color: isDark ? Colors.white : const Color(0xFF0F172A),
             ),
           ),
-          const SizedBox(height: 2),
-          Text(
-            subtitle,
-            style: TextStyle(
-              fontSize: 9.5,
-              fontWeight: FontWeight.w500,
-              color: isDark ? Colors.white54 : Colors.black45,
+          centerTitle: true,
+          actions: [
+            TextButton.icon(
+              onPressed: () {
+                HapticFeedback.lightImpact();
+                setState(() => _selectedMonth = null);
+              },
+              icon: const Icon(Icons.grid_view_rounded, size: 14),
+              label: const Text('Months', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
+              style: TextButton.styleFrom(
+                foregroundColor: const Color(0xFF00C7FF),
+              ),
             ),
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
+            const SizedBox(width: 4),
+          ],
+        ),
+
+        // 2. Month Subtitle Stats Bar
+        SliverToBoxAdapter(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(16, 10, 16, 14),
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+              decoration: BoxDecoration(
+                color: isDark ? Colors.white.withOpacity(0.05) : Colors.white,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(
+                  color: isDark ? Colors.white.withOpacity(0.08) : Colors.black.withOpacity(0.06),
+                ),
+              ),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(Icons.event_available_rounded, size: 15, color: const Color(0xFF10B981)),
+                  const SizedBox(width: 6),
+                  Text(
+                    '$availedCount Availed',
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w700,
+                      color: isDark ? Colors.white : const Color(0xFF0F172A),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Text('•', style: TextStyle(color: isDark ? Colors.white24 : Colors.black26)),
+                  const SizedBox(width: 12),
+                  Icon(Icons.event_busy_rounded, size: 15, color: const Color(0xFFFF453A)),
+                  const SizedBox(width: 6),
+                  Text(
+                    '$cancelledCount Cancelled',
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w700,
+                      color: isDark ? Colors.white : const Color(0xFF0F172A),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Text('•', style: TextStyle(color: isDark ? Colors.white24 : Colors.black26)),
+                  const SizedBox(width: 12),
+                  Text(
+                    '${leaves.length} Entries',
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                      color: isDark ? Colors.white60 : Colors.black54,
+                    ),
+                  ),
+                ],
+              ),
+            ),
           ),
-        ],
+        ),
+
+        // Section Title: Day-by-Day List
+        SliverToBoxAdapter(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(16, 4, 16, 10),
+            child: Row(
+              children: [
+                Text(
+                  'DAY-BY-DAY LEAVE LIST',
+                  style: TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w700,
+                    letterSpacing: 0.6,
+                    color: isDark ? Colors.white54 : Colors.black45,
+                  ),
+                ),
+                const Spacer(),
+                Text(
+                  'Date ───▶ Leave Type',
+                  style: TextStyle(
+                    fontSize: 10.5,
+                    fontWeight: FontWeight.w600,
+                    color: isDark ? const Color(0xFF00C7FF) : const Color(0xFF0284C7),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+
+        // 3. Day-by-Day Rows
+        SliverPadding(
+          padding: const EdgeInsets.symmetric(horizontal: 16),
+          sliver: SliverList(
+            delegate: SliverChildBuilderDelegate(
+              (context, index) {
+                final item = leaves[index];
+                return _buildDayByDayRow(item, isDark);
+              },
+              childCount: leaves.length,
+            ),
+          ),
+        ),
+
+        // Bottom Button: Return to All Month Boxes
+        SliverToBoxAdapter(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(16, 20, 16, 40),
+            child: SizedBox(
+              height: 44,
+              child: OutlinedButton.icon(
+                onPressed: () {
+                  HapticFeedback.lightImpact();
+                  setState(() => _selectedMonth = null);
+                },
+                icon: const Icon(Icons.arrow_back_rounded, size: 16),
+                label: const Text('Back to Month Boxes', style: TextStyle(fontWeight: FontWeight.w700)),
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: const Color(0xFF00C7FF),
+                  side: BorderSide(
+                    color: const Color(0xFF00C7FF).withOpacity(0.35),
+                  ),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(14),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  /// Single Day-by-Day Card with Date on Left and Leave Type Right in Front
+  Widget _buildDayByDayRow(LeaveHistoryItem item, bool isDark) {
+    final parsedDate = item.parsedLeaveDate;
+    final dateDisplay = parsedDate != null ? DateFormat('dd-MMM-yyyy').format(parsedDate) : item.leaveDate;
+    final dayOfWeek = parsedDate != null ? DateFormat('EEE').format(parsedDate) : '';
+
+    final isAvailed = item.isApproved;
+    final isCancelled = item.isCancelled;
+
+    // Leave Type Accent Colors & Badges
+    final isCasual = item.leaveType.toLowerCase().contains('casual');
+    final isRestricted = item.leaveType.toLowerCase().contains('restricted');
+    final typeColor = isCasual
+        ? const Color(0xFF00C7FF) // Electric Cyan
+        : isRestricted
+            ? const Color(0xFFA855F7) // Liquid Violet
+            : const Color(0xFFFF9F0A); // Radiant Amber
+
+    final statusColor = isAvailed
+        ? const Color(0xFF10B981) // Emerald Green
+        : isCancelled
+            ? const Color(0xFFFF453A) // Coral Red
+            : const Color(0xFFFF9F0A); // Amber
+
+    final statusIcon = isAvailed
+        ? Icons.check_circle_rounded
+        : isCancelled
+            ? Icons.cancel_rounded
+            : Icons.hourglass_top_rounded;
+
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 10),
+      child: GlassContainer(
+        borderRadius: 16,
+        blur: 16,
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+        borderOpacity: isDark ? 0.14 : 0.08,
+        surfaceOpacity: isDark ? 0.05 : 0.55,
+        onTap: () {
+          HapticFeedback.lightImpact();
+          _showLeaveDetailModal(context, item, isDark);
+        },
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Row 1: Date on the Left ───▶ Leave Type Right in Front ───▶ Status on Right
+            Row(
+              children: [
+                // Date & Day
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: isDark ? Colors.white.withOpacity(0.08) : Colors.black.withOpacity(0.04),
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(
+                      color: isDark ? Colors.white.withOpacity(0.08) : Colors.black.withOpacity(0.04),
+                    ),
+                  ),
+                  child: Row(
+                    children: [
+                      Text(
+                        dateDisplay,
+                        style: TextStyle(
+                          fontSize: 12.5,
+                          fontWeight: FontWeight.w800,
+                          letterSpacing: -0.2,
+                          color: isDark ? Colors.white : const Color(0xFF0F172A),
+                        ),
+                      ),
+                      const SizedBox(width: 4),
+                      Text(
+                        dayOfWeek,
+                        style: TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w600,
+                          color: isDark ? Colors.white54 : Colors.black45,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 8),
+
+                // Connector arrow
+                Icon(
+                  Icons.arrow_forward_rounded,
+                  size: 13,
+                  color: isDark ? Colors.white30 : Colors.black26,
+                ),
+                const SizedBox(width: 8),
+
+                // LEAVE TYPE RIGHT IN FRONT OF DATE
+                Expanded(
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3.5),
+                    decoration: BoxDecoration(
+                      color: typeColor.withOpacity(isDark ? 0.18 : 0.12),
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(
+                        color: typeColor.withOpacity(0.35),
+                        width: 0.8,
+                      ),
+                    ),
+                    child: Text(
+                      item.leaveType,
+                      style: TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w700,
+                        color: typeColor,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 8),
+
+                // Status Badge on Far Right
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3.5),
+                  decoration: BoxDecoration(
+                    color: statusColor.withOpacity(isDark ? 0.16 : 0.12),
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(
+                      color: statusColor.withOpacity(0.3),
+                      width: 0.6,
+                    ),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(statusIcon, size: 10, color: statusColor),
+                      const SizedBox(width: 3.5),
+                      Text(
+                        isAvailed ? 'Availed' : isCancelled ? 'Cancelled' : item.status,
+                        style: TextStyle(
+                          fontSize: 10,
+                          fontWeight: FontWeight.w700,
+                          color: statusColor,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+
+            // Row 2: Reason Title
+            Text(
+              item.reason,
+              style: TextStyle(
+                fontSize: 12.5,
+                fontWeight: FontWeight.w700,
+                color: isDark ? const Color(0xFFE2E8F0) : const Color(0xFF1E293B),
+              ),
+            ),
+
+            // Station Leaving Permission (SLP) Address badge if present
+            if (item.slpAddress != null && item.slpAddress!.isNotEmpty) ...[
+              const SizedBox(height: 5),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3.5),
+                decoration: BoxDecoration(
+                  color: isDark
+                      ? const Color(0xFF38BDF8).withOpacity(0.08)
+                      : const Color(0xFFE0F2FE),
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(
+                    color: const Color(0xFF0284C7).withOpacity(0.2),
+                    width: 0.6,
+                  ),
+                ),
+                child: Row(
+                  children: [
+                    Icon(
+                      Icons.location_on_rounded,
+                      size: 11,
+                      color: isDark ? const Color(0xFF38BDF8) : const Color(0xFF0284C7),
+                    ),
+                    const SizedBox(width: 4),
+                    Expanded(
+                      child: Text(
+                        'SLP: ${item.slpAddress}',
+                        style: TextStyle(
+                          fontSize: 10,
+                          fontWeight: FontWeight.w500,
+                          color: isDark ? const Color(0xFFBAE6FD) : const Color(0xFF0369A1),
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+
+            const SizedBox(height: 5),
+
+            // Row 3: Action Officer & Remarks / App Date
+            Row(
+              children: [
+                Icon(
+                  isCancelled ? Icons.person_off_rounded : Icons.person_rounded,
+                  size: 12,
+                  color: isDark ? Colors.white38 : Colors.black38,
+                ),
+                const SizedBox(width: 4),
+                Expanded(
+                  child: Text(
+                    '${item.actionBy}${item.actionRemarks != null ? " • ${item.actionRemarks}" : ""}',
+                    style: TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w500,
+                      color: isDark ? Colors.white60 : Colors.black54,
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Text(
+                  'App: ${item.applicationDate}',
+                  style: TextStyle(
+                    fontSize: 10,
+                    fontWeight: FontWeight.w500,
+                    color: isDark ? Colors.white38 : Colors.black38,
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
       ),
     );
   }
 
-  /// Filter Capsule Pill
+  // =========================================================================
+  // HELPER WIDGETS
+  // =========================================================================
+
+  Widget _buildSummaryIndicator({
+    required String label,
+    required String value,
+    required Color color,
+    required bool isDark,
+  }) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Container(
+          width: 7,
+          height: 7,
+          decoration: BoxDecoration(
+            color: color,
+            shape: BoxShape.circle,
+          ),
+        ),
+        const SizedBox(width: 6),
+        Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              label,
+              style: TextStyle(
+                fontSize: 9.5,
+                fontWeight: FontWeight.w600,
+                color: isDark ? Colors.white54 : Colors.black45,
+              ),
+            ),
+            Text(
+              value,
+              style: TextStyle(
+                fontSize: 12.5,
+                fontWeight: FontWeight.w800,
+                letterSpacing: -0.2,
+                color: isDark ? Colors.white : const Color(0xFF0F172A),
+              ),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+
   Widget _buildFilterPill(String filterName, int count, bool isDark) {
     final isSelected = _selectedFilter == filterName;
     const activeColor = Color(0xFF00C7FF);
@@ -525,306 +1186,6 @@ class _LeaveHistoryScreenState extends State<LeaveHistoryScreen> {
     );
   }
 
-  /// Month Group Header & Leaves List
-  Widget _buildMonthSection(
-    String monthTitle,
-    List<LeaveHistoryItem> leaves,
-    bool isDark,
-  ) {
-    // Total days in this month
-    final availedCount = leaves.where((l) => l.isApproved).length;
-    final cancelledCount = leaves.where((l) => l.isCancelled).length;
-
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // Section Header Badge
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-            decoration: BoxDecoration(
-              color: isDark ? Colors.white.withOpacity(0.06) : Colors.black.withOpacity(0.04),
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(
-                color: isDark ? Colors.white.withOpacity(0.08) : Colors.black.withOpacity(0.04),
-              ),
-            ),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Icon(
-                  Icons.calendar_today_rounded,
-                  size: 13,
-                  color: const Color(0xFF00C7FF),
-                ),
-                const SizedBox(width: 6),
-                Text(
-                  monthTitle,
-                  style: TextStyle(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w700,
-                    letterSpacing: -0.2,
-                    color: isDark ? Colors.white : const Color(0xFF0F172A),
-                  ),
-                ),
-                const SizedBox(width: 8),
-                Text(
-                  '•  ${leaves.length} ${leaves.length == 1 ? "entry" : "entries"}'
-                  '${availedCount > 0 ? " ($availedCount availed" : ""}'
-                  '${cancelledCount > 0 ? ", $cancelledCount cancelled)" : availedCount > 0 ? ")" : ""}',
-                  style: TextStyle(
-                    fontSize: 11,
-                    fontWeight: FontWeight.w500,
-                    color: isDark ? Colors.white54 : Colors.black54,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(height: 10),
-
-          // Leave Cards for this Month
-          ...leaves.map((item) => _buildLeaveCard(item, isDark)).toList(),
-        ],
-      ),
-    );
-  }
-
-  /// Apple Glass Leave Record Card
-  Widget _buildLeaveCard(LeaveHistoryItem item, bool isDark) {
-    final parsedDate = item.parsedLeaveDate;
-    final dayNum = parsedDate != null ? DateFormat('dd').format(parsedDate) : '--';
-    final dayName = parsedDate != null ? DateFormat('EEE').format(parsedDate).toUpperCase() : '';
-    final monthShort = parsedDate != null ? DateFormat('MMM').format(parsedDate).toUpperCase() : '';
-
-    final isAvailed = item.isApproved;
-    final isCancelled = item.isCancelled;
-
-    final badgeColor = isAvailed
-        ? const Color(0xFF10B981) // Emerald
-        : isCancelled
-            ? const Color(0xFFFF453A) // Apple Coral Red
-            : const Color(0xFFFF9F0A); // Apple Amber
-
-    final badgeIcon = isAvailed
-        ? Icons.check_circle_rounded
-        : isCancelled
-            ? Icons.cancel_rounded
-            : Icons.hourglass_top_rounded;
-
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 10),
-      child: GlassContainer(
-        borderRadius: 18,
-        blur: 16,
-        padding: const EdgeInsets.all(12),
-        borderOpacity: isDark ? 0.15 : 0.08,
-        surfaceOpacity: isDark ? 0.05 : 0.55,
-        onTap: () {
-          HapticFeedback.lightImpact();
-          _showLeaveDetailModal(context, item, isDark);
-        },
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // Left Date Pill Block
-            Container(
-              width: 52,
-              padding: const EdgeInsets.symmetric(vertical: 8),
-              decoration: BoxDecoration(
-                color: isDark ? Colors.white.withOpacity(0.06) : const Color(0xFFF1F5F9),
-                borderRadius: BorderRadius.circular(13),
-                border: Border.all(
-                  color: isDark ? Colors.white.withOpacity(0.08) : Colors.black.withOpacity(0.06),
-                ),
-              ),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text(
-                    dayName,
-                    style: TextStyle(
-                      fontSize: 9.5,
-                      fontWeight: FontWeight.w700,
-                      letterSpacing: 0.5,
-                      color: isDark ? Colors.white54 : Colors.black45,
-                    ),
-                  ),
-                  const SizedBox(height: 1),
-                  Text(
-                    dayNum,
-                    style: TextStyle(
-                      fontSize: 20,
-                      fontWeight: FontWeight.w800,
-                      letterSpacing: -0.5,
-                      color: isDark ? Colors.white : const Color(0xFF0F172A),
-                    ),
-                  ),
-                  Text(
-                    monthShort,
-                    style: TextStyle(
-                      fontSize: 9,
-                      fontWeight: FontWeight.w700,
-                      color: badgeColor,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(width: 12),
-
-            // Middle & Right Details
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  // Top Row: Leave Type + Status Badge
-                  Row(
-                    children: [
-                      // Type Chip
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2.5),
-                        decoration: BoxDecoration(
-                          color: const Color(0xFF00C7FF).withOpacity(isDark ? 0.18 : 0.12),
-                          borderRadius: BorderRadius.circular(6),
-                        ),
-                        child: Text(
-                          '${item.leaveType} • ${item.duration}',
-                          style: TextStyle(
-                            fontSize: 10,
-                            fontWeight: FontWeight.w700,
-                            color: isDark ? const Color(0xFF38BDF8) : const Color(0xFF0284C7),
-                          ),
-                        ),
-                      ),
-                      const Spacer(),
-                      // Status Pill
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2.5),
-                        decoration: BoxDecoration(
-                          color: badgeColor.withOpacity(isDark ? 0.16 : 0.12),
-                          borderRadius: BorderRadius.circular(8),
-                          border: Border.all(
-                            color: badgeColor.withOpacity(0.3),
-                            width: 0.6,
-                          ),
-                        ),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Icon(badgeIcon, size: 10, color: badgeColor),
-                            const SizedBox(width: 3.5),
-                            Text(
-                              item.status,
-                              style: TextStyle(
-                                fontSize: 9.5,
-                                fontWeight: FontWeight.w700,
-                                color: badgeColor,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 6),
-
-                  // Reason Title
-                  Text(
-                    item.reason,
-                    style: TextStyle(
-                      fontSize: 13.5,
-                      fontWeight: FontWeight.w700,
-                      letterSpacing: -0.2,
-                      color: isDark ? Colors.white : const Color(0xFF1E293B),
-                    ),
-                  ),
-
-                  // Station Leaving Permission (SLP) Address badge if present
-                  if (item.slpAddress != null && item.slpAddress!.isNotEmpty) ...[
-                    const SizedBox(height: 5),
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                      decoration: BoxDecoration(
-                        color: isDark
-                            ? const Color(0xFF38BDF8).withOpacity(0.08)
-                            : const Color(0xFFE0F2FE),
-                        borderRadius: BorderRadius.circular(8),
-                        border: Border.all(
-                          color: const Color(0xFF0284C7).withOpacity(0.2),
-                          width: 0.6,
-                        ),
-                      ),
-                      child: Row(
-                        children: [
-                          Icon(
-                            Icons.location_on_rounded,
-                            size: 11,
-                            color: isDark ? const Color(0xFF38BDF8) : const Color(0xFF0284C7),
-                          ),
-                          const SizedBox(width: 4),
-                          Expanded(
-                            child: Text(
-                              'SLP: ${item.slpAddress}',
-                              style: TextStyle(
-                                fontSize: 10.5,
-                                fontWeight: FontWeight.w500,
-                                color: isDark ? const Color(0xFFBAE6FD) : const Color(0xFF0369A1),
-                              ),
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
-
-                  const SizedBox(height: 6),
-
-                  // Officer & Remarks
-                  Row(
-                    children: [
-                      Icon(
-                        isCancelled ? Icons.person_off_rounded : Icons.person_rounded,
-                        size: 12,
-                        color: isDark ? Colors.white38 : Colors.black38,
-                      ),
-                      const SizedBox(width: 4),
-                      Expanded(
-                        child: Text(
-                          '${item.actionBy}${item.actionRemarks != null ? " • ${item.actionRemarks}" : ""}',
-                          style: TextStyle(
-                            fontSize: 11,
-                            fontWeight: FontWeight.w500,
-                            color: isDark ? Colors.white60 : Colors.black54,
-                          ),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      Text(
-                        'App: ${item.applicationDate}',
-                        style: TextStyle(
-                          fontSize: 10,
-                          fontWeight: FontWeight.w500,
-                          color: isDark ? Colors.white38 : Colors.black38,
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  /// Empty state display
   Widget _buildEmptyState(bool isDark) {
     final hasSearch = _searchQuery.isNotEmpty || _selectedFilter != 'All';
     return Padding(
@@ -893,7 +1254,6 @@ class _LeaveHistoryScreenState extends State<LeaveHistoryScreen> {
     );
   }
 
-  /// Detailed Bottom Sheet Inspection Modal
   void _showLeaveDetailModal(
     BuildContext context,
     LeaveHistoryItem item,
@@ -926,7 +1286,6 @@ class _LeaveHistoryScreenState extends State<LeaveHistoryScreen> {
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // Top Grab Handle
                 Center(
                   child: Container(
                     width: 36,
@@ -939,7 +1298,6 @@ class _LeaveHistoryScreenState extends State<LeaveHistoryScreen> {
                 ),
                 const SizedBox(height: 16),
 
-                // Modal Header
                 Row(
                   children: [
                     Container(
@@ -1006,7 +1364,6 @@ class _LeaveHistoryScreenState extends State<LeaveHistoryScreen> {
                 ),
                 const SizedBox(height: 20),
 
-                // Key Value Bento Details
                 _buildModalDetailRow(
                   label: 'Leave Date',
                   value: item.leaveDate,
