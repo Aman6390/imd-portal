@@ -664,7 +664,7 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
                         builder: (_) => LeaveHistoryScreen(
                           leaveHistory: data.leaveHistory,
                           balances: data.leaves,
-                          onRefresh: _manualRefresh,
+                          onRefresh: _triggerSync,
                         ),
                       ),
                     );
@@ -718,7 +718,7 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
                     builder: (_) => LeaveHistoryScreen(
                       leaveHistory: data.leaveHistory,
                       balances: data.leaves,
-                      onRefresh: _manualRefresh,
+                      onRefresh: _triggerSync,
                     ),
                   ),
                 );
@@ -735,7 +735,7 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
                     builder: (_) => LeaveHistoryScreen(
                       leaveHistory: data.leaveHistory,
                       balances: data.leaves,
-                      onRefresh: _manualRefresh,
+                      onRefresh: _triggerSync,
                     ),
                   ),
                 );
