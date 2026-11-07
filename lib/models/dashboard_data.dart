@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'package:intl/intl.dart';
 
 class CircularItem {
   final String title;
@@ -62,10 +63,95 @@ class LapsingAlert {
       };
 }
 
+class LeaveHistoryItem {
+  final int slNo;
+  final String leaveType; // 'Casual Leave', 'Restricted Holiday', 'Compensatory Off'
+  final String applicationDate; // dd-MM-yyyy
+  final String leaveDate; // dd-MM-yyyy
+  final String duration; // e.g. "1 DAY", "0.5 DAY"
+  final String reason; // e.g. "URGENT DOMESTIC WORK"
+  final String? slpAddress; // Station Leaving Permission Address
+  final String status; // 'Approved & Availed', 'Self Cancellation', 'Auto Cancellation', 'Pending'
+  final String actionBy; // Approving Officer Name
+  final String? actionRemarks; // Remarks e.g. "Approved", "By mistake", "Due Change in plans!"
+
+  LeaveHistoryItem({
+    required this.slNo,
+    required this.leaveType,
+    required this.applicationDate,
+    required this.leaveDate,
+    required this.duration,
+    required this.reason,
+    this.slpAddress,
+    required this.status,
+    required this.actionBy,
+    this.actionRemarks,
+  });
+
+  bool get isCancelled {
+    final s = status.toLowerCase();
+    return s.contains('cancel') || s.contains('reject');
+  }
+
+  bool get isApproved {
+    final s = status.toLowerCase();
+    return s.contains('approved') || s.contains('availed');
+  }
+
+  DateTime? get parsedLeaveDate {
+    try {
+      final clean = leaveDate.trim();
+      return DateFormat('dd-MM-yyyy').parse(clean);
+    } catch (_) {
+      return null;
+    }
+  }
+
+  DateTime? get parsedApplicationDate {
+    try {
+      final clean = applicationDate.trim();
+      return DateFormat('dd-MM-yyyy').parse(clean);
+    } catch (_) {
+      return null;
+    }
+  }
+
+  factory LeaveHistoryItem.fromJson(Map<String, dynamic> json) {
+    return LeaveHistoryItem(
+      slNo: json['slNo'] is int
+          ? json['slNo']
+          : int.tryParse(json['slNo']?.toString() ?? '0') ?? 0,
+      leaveType: json['leaveType'] ?? 'Casual Leave',
+      applicationDate: json['applicationDate'] ?? '',
+      leaveDate: json['leaveDate'] ?? '',
+      duration: json['duration'] ?? '1 DAY',
+      reason: json['reason'] ?? '',
+      slpAddress: json['slpAddress'],
+      status: json['status'] ?? '',
+      actionBy: json['actionBy'] ?? '',
+      actionRemarks: json['actionRemarks'],
+    );
+  }
+
+  Map<String, dynamic> toJson() => {
+        'slNo': slNo,
+        'leaveType': leaveType,
+        'applicationDate': applicationDate,
+        'leaveDate': leaveDate,
+        'duration': duration,
+        'reason': reason,
+        'slpAddress': slpAddress,
+        'status': status,
+        'actionBy': actionBy,
+        'actionRemarks': actionRemarks,
+      };
+}
+
 class DashboardData {
   final String lastUpdated;
   final Map<String, String> leaves;
   final List<LapsingAlert> alerts;
+  final List<LeaveHistoryItem> leaveHistory;
   final List<CircularItem> vipCirculars;
   final List<CircularItem> fomoCirculars;
 
@@ -73,6 +159,7 @@ class DashboardData {
     required this.lastUpdated,
     required this.leaves,
     required this.alerts,
+    this.leaveHistory = const [],
     required this.vipCirculars,
     required this.fomoCirculars,
   });
@@ -94,6 +181,15 @@ class DashboardData {
       for (final item in json['alerts']) {
         if (item is Map<String, dynamic>) {
           alertsList.add(LapsingAlert.fromJson(item));
+        }
+      }
+    }
+
+    final historyList = <LeaveHistoryItem>[];
+    if (json['leave_history'] is List) {
+      for (final item in json['leave_history']) {
+        if (item is Map<String, dynamic>) {
+          historyList.add(LeaveHistoryItem.fromJson(item));
         }
       }
     }
@@ -122,6 +218,7 @@ class DashboardData {
       lastUpdated: json['last_updated'] ?? '',
       leaves: leavesMap,
       alerts: alertsList,
+      leaveHistory: historyList,
       vipCirculars: vipList,
       fomoCirculars: fomoList,
     );
@@ -131,6 +228,7 @@ class DashboardData {
         'last_updated': lastUpdated,
         'leaves': leaves,
         'alerts': alerts.map((a) => a.toJson()).toList(),
+        'leave_history': leaveHistory.map((h) => h.toJson()).toList(),
         'circulars': {
           'vip': vipCirculars.map((c) => c.toJson()).toList(),
           'fomo': fomoCirculars.map((c) => c.toJson()).toList(),

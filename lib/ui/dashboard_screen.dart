@@ -1,6 +1,8 @@
 import 'dart:async';
 import 'dart:ui';
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import '../models/dashboard_data.dart';
 import '../services/auth_service.dart';
 import '../services/ai_circular_service.dart';
@@ -10,6 +12,7 @@ import '../services/scraper_engine.dart';
 import '../services/storage_service.dart';
 import '../services/telemetry_service.dart';
 import '../services/update_service.dart';
+import 'leave_history_screen.dart';
 import 'widgets/alert_grid.dart';
 import 'widgets/circular_tabs.dart';
 import 'widgets/glass_container.dart';
@@ -641,10 +644,11 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
             ),
             const SizedBox(height: 20),
 
-            // Leave Balances section
-            const Row(
+            // Leave Balances section with History & Records button
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Text(
+                const Text(
                   'Leave Balances',
                   style: TextStyle(
                     fontSize: 20,
@@ -652,10 +656,149 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
                     letterSpacing: -0.5,
                   ),
                 ),
+                GestureDetector(
+                  onTap: () {
+                    HapticFeedback.lightImpact();
+                    Navigator.of(context).push(
+                      CupertinoPageRoute(
+                        builder: (_) => LeaveHistoryScreen(
+                          leaveHistory: data.leaveHistory,
+                          balances: data.leaves,
+                          onRefresh: _manualRefresh,
+                        ),
+                      ),
+                    );
+                  },
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                    decoration: BoxDecoration(
+                      color: Theme.of(context).colorScheme.primary.withOpacity(0.12),
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(
+                        color: Theme.of(context).colorScheme.primary.withOpacity(0.25),
+                        width: 0.8,
+                      ),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(
+                          Icons.history_rounded,
+                          size: 14,
+                          color: Theme.of(context).colorScheme.primary,
+                        ),
+                        const SizedBox(width: 4),
+                        Text(
+                          'History & Records',
+                          style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600,
+                            color: Theme.of(context).colorScheme.primary,
+                          ),
+                        ),
+                        const SizedBox(width: 2),
+                        Icon(
+                          Icons.chevron_right_rounded,
+                          size: 14,
+                          color: Theme.of(context).colorScheme.primary,
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
               ],
             ),
             const SizedBox(height: 12),
-            LeaveCardsRow(leavesData: data.leaves),
+            LeaveCardsRow(
+              leavesData: data.leaves,
+              onCardTap: (leaveType) {
+                HapticFeedback.lightImpact();
+                Navigator.of(context).push(
+                  CupertinoPageRoute(
+                    builder: (_) => LeaveHistoryScreen(
+                      leaveHistory: data.leaveHistory,
+                      balances: data.leaves,
+                      onRefresh: _manualRefresh,
+                    ),
+                  ),
+                );
+              },
+            ),
+            const SizedBox(height: 10),
+
+            // Apple Glass Leave Records Banner Card
+            GestureDetector(
+              onTap: () {
+                HapticFeedback.lightImpact();
+                Navigator.of(context).push(
+                  CupertinoPageRoute(
+                    builder: (_) => LeaveHistoryScreen(
+                      leaveHistory: data.leaveHistory,
+                      balances: data.leaves,
+                      onRefresh: _manualRefresh,
+                    ),
+                  ),
+                );
+              },
+              child: GlassContainer(
+                borderRadius: 16,
+                blur: 16,
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                borderOpacity: 0.14,
+                surfaceOpacity: 0.05,
+                child: Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(7),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF00C7FF).withOpacity(0.18),
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: const Icon(
+                        Icons.calendar_month_rounded,
+                        size: 17,
+                        color: Color(0xFF00C7FF),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text(
+                            'Past Leave Records & Timeline',
+                            style: TextStyle(
+                              fontSize: 13.5,
+                              fontWeight: FontWeight.w700,
+                              letterSpacing: -0.2,
+                            ),
+                          ),
+                          const SizedBox(height: 1.5),
+                          Text(
+                            data.leaveHistory.isNotEmpty
+                                ? '${data.leaveHistory.length} recorded entries • Monthly grouped history'
+                                : 'View past applied, availed, and cancelled leaves',
+                            style: TextStyle(
+                              fontSize: 11,
+                              color: Theme.of(context).brightness == Brightness.dark
+                                  ? Colors.white60
+                                  : Colors.black54,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    Icon(
+                      Icons.arrow_forward_ios_rounded,
+                      size: 13,
+                      color: Theme.of(context).brightness == Brightness.dark
+                          ? Colors.white38
+                          : Colors.black38,
+                    ),
+                  ],
+                ),
+              ),
+            ),
             const SizedBox(height: 24),
 
             // Leave Expiry Schedule (CL, RH, C-Off)

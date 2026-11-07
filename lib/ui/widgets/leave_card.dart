@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'glass_container.dart';
 
 /// iOS 27 Liquid Glass 3-Column Bento Grid for Leave Balances.
@@ -6,8 +7,13 @@ import 'glass_container.dart';
 /// specular edge highlights, and spatial glowing numerals.
 class LeaveCardsRow extends StatelessWidget {
   final Map<String, String> leavesData;
+  final ValueChanged<String>? onCardTap;
 
-  const LeaveCardsRow({Key? key, required this.leavesData}) : super(key: key);
+  const LeaveCardsRow({
+    Key? key,
+    required this.leavesData,
+    this.onCardTap,
+  }) : super(key: key);
 
   @override
   Widget build(BuildContext context) {
@@ -62,9 +68,16 @@ class LeaveCardsRow extends StatelessWidget {
           final isLast = index == leaveTypes.length - 1;
 
           return Expanded(
-            child: Container(
-              margin: EdgeInsets.only(right: isLast ? 0 : 6),
-              decoration: BoxDecoration(
+            child: GestureDetector(
+              onTap: onCardTap != null
+                  ? () {
+                      HapticFeedback.lightImpact();
+                      onCardTap!(displayName);
+                    }
+                  : null,
+              child: Container(
+                margin: EdgeInsets.only(right: isLast ? 0 : 6),
+                decoration: BoxDecoration(
                 borderRadius: BorderRadius.circular(16),
                 gradient: LinearGradient(
                   begin: Alignment.topCenter,
@@ -175,8 +188,9 @@ class LeaveCardsRow extends StatelessWidget {
                 ],
               ),
             ),
-          );
-        }).toList(),
+          ),
+        );
+      }).toList(),
       ),
     );
   }

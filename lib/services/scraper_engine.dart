@@ -90,8 +90,8 @@ class ScraperEngine {
   static List<String> get vipKeywords => StorageService.defaultVipKeywords;
   static List<String> get junkKeywords => StorageService.defaultJunkKeywords;
 
-  /// Parses leave balances and expiring C-Offs from leave_1.php HTML
-  static (Map<String, String>, List<LapsingAlert>) parseLeaves(dom.Document soup) {
+  /// Parses leave balances, expiring C-Offs, and past leave history from leave_1.php HTML
+  static (Map<String, String>, List<LapsingAlert>, List<LeaveHistoryItem>) parseLeaves(dom.Document soup) {
     final htmlText = soup.body?.text ?? '';
 
     final clMatch = RegExp(r'Casual Leaves.*?Balance\s*=\s*(\d+)').firstMatch(htmlText);
@@ -101,7 +101,7 @@ class ScraperEngine {
     // Protective Shield: If none of the 3 balance patterns matched in the HTML,
     // the page is an interstitial prompt (email/password/notice), not the real leave page!
     if (clMatch == null && rhMatch == null && coffMatch == null) {
-      return (<String, String>{}, <LapsingAlert>[]);
+      return (<String, String>{}, <LapsingAlert>[], <LeaveHistoryItem>[]);
     }
 
     final balances = <String, String>{
@@ -112,10 +112,11 @@ class ScraperEngine {
 
     final lapsingAlerts = <LapsingAlert>[];
     final currentDate = DateTime.now();
-
-    final rows = soup.querySelectorAll('tr[bgcolor="#ffffff"], tr[bgcolor="#f5f5f5"]');
     final dateFormat = DateFormat('dd-MM-yyyy');
 
+    final rows = soup.querySelectorAll('tr[bgcolor="#ffffff"], tr[bgcolor="#f5f5f5"]');
+
+    // 1. Parse expiring C-Off credits (>= 10 columns)
     for (final row in rows) {
       final cols = row.querySelectorAll('td');
       if (cols.length >= 10) {
@@ -149,7 +150,147 @@ class ScraperEngine {
       }
     }
 
-    return (balances, lapsingAlerts);
+    // 2. Parse past leave history records (7 columns: Sl. #, Application Date, Leave Date, Duration, Reason, Status, Action By)
+    final historyList = <LeaveHistoryItem>[];
+    final tables = soup.querySelectorAll('table');
+
+    for (final table in tables) {
+      final trList = table.querySelectorAll('tr');
+      if (trList.isEmpty) continue;
+
+      // Determine if this table is a Leave Application / History table (7 columns)
+      bool isLeaveHistoryTable = false;
+      for (final tr in trList) {
+        final cells = tr.querySelectorAll('th, td');
+        if (cells.length == 7) {
+          final t = tr.text.toLowerCase();
+          if (t.contains('sl.') || t.contains('leave date') || t.contains('duration') || t.contains('application')) {
+            isLeaveHistoryTable = true;
+            break;
+          }
+          if (RegExp(r'^\d{2}-\d{2}-\d{4}$').hasMatch(cells[1].text.trim()) ||
+              RegExp(r'^\d{2}-\d{2}-\d{4}$').hasMatch(cells[2].text.trim())) {
+            isLeaveHistoryTable = true;
+            break;
+          }
+        }
+      }
+
+      if (!isLeaveHistoryTable) continue;
+
+      // Determine leave type: inspect text before table
+      String leaveType = 'Casual Leave';
+      final tableOuter = table.outerHtml;
+      final fullHtml = soup.outerHtml;
+      final tablePos = fullHtml.indexOf(tableOuter);
+      if (tablePos > 0) {
+        final precedingHtml = fullHtml.substring(0, tablePos);
+        final lastCl = precedingHtml.lastIndexOf(RegExp(r'Casual Leaves', caseSensitive: false));
+        final lastRh = precedingHtml.lastIndexOf(RegExp(r'Restricted Holidays', caseSensitive: false));
+        final lastCoff = precedingHtml.lastIndexOf(RegExp(r'Compensatory Off', caseSensitive: false));
+
+        int maxIdx = lastCl;
+        if (lastRh > maxIdx) {
+          maxIdx = lastRh;
+          leaveType = 'Restricted Holiday';
+        }
+        if (lastCoff > maxIdx) {
+          maxIdx = lastCoff;
+          leaveType = 'Compensatory Off';
+        }
+      }
+
+      for (final tr in trList) {
+        final cols = tr.querySelectorAll('td');
+        if (cols.length == 7) {
+          final slText = cols[0].text.trim();
+          final appDate = cols[1].text.trim();
+          final leaveDate = cols[2].text.trim();
+
+          // Skip table header row
+          if (slText.toLowerCase().contains('sl') ||
+              appDate.toLowerCase().contains('application') ||
+              leaveDate.toLowerCase().contains('leave date')) {
+            continue;
+          }
+
+          // Skip non-date rows
+          final hasValidDate = RegExp(r'^\d{2}-\d{2}-\d{4}$').hasMatch(leaveDate) ||
+              RegExp(r'^\d{2}-\d{2}-\d{4}$').hasMatch(appDate);
+          if (!hasValidDate) continue;
+
+          final slNo = int.tryParse(slText) ?? 0;
+          final duration = cols[3].text.replaceAll('\u00A0', ' ').replaceAll('&nbsp;', ' ').trim();
+
+          // Reason & SLP Address parsing
+          final reasonHtml = cols[4].innerHtml;
+          final reasonLines = reasonHtml
+              .replaceAll(RegExp(r'<br\s*/?>', caseSensitive: false), '\n')
+              .replaceAll(RegExp(r'<[^>]*>'), ' ')
+              .split('\n')
+              .map((l) => l.replaceAll('\u00A0', ' ').replaceAll('&nbsp;', ' ').trim())
+              .where((l) => l.isNotEmpty)
+              .toList();
+
+          String reason = '';
+          String? slpAddress;
+          final mainReasons = <String>[];
+
+          for (final line in reasonLines) {
+            if (line.toLowerCase().contains('slp add')) {
+              final match = RegExp(r'slp\s*add\s*[:-]+\s*(.*)', caseSensitive: false).firstMatch(line);
+              if (match != null && match.group(1)!.trim().isNotEmpty) {
+                slpAddress = match.group(1)!.trim();
+              } else {
+                slpAddress = line;
+              }
+            } else {
+              mainReasons.add(line);
+            }
+          }
+          reason = mainReasons.isNotEmpty ? mainReasons.join(' ') : cols[4].text.trim();
+
+          // Status column
+          final status = cols[5].text.replaceAll('\u00A0', ' ').replaceAll('&nbsp;', ' ').trim();
+
+          // Action By & Approval Remarks
+          final actionHtml = cols[6].innerHtml;
+          final actionLines = actionHtml
+              .replaceAll(RegExp(r'<br\s*/?>', caseSensitive: false), '\n')
+              .replaceAll(RegExp(r'<[^>]*>'), ' ')
+              .split('\n')
+              .map((l) => l.replaceAll('\u00A0', ' ').replaceAll('&nbsp;', ' ').trim())
+              .where((l) => l.isNotEmpty)
+              .toList();
+
+          String actionBy = actionLines.isNotEmpty ? actionLines[0] : cols[6].text.trim();
+          String? actionRemarks;
+          if (actionLines.length > 1) {
+            final rawRem = actionLines.sublist(1).join(' ');
+            actionRemarks = rawRem
+                .replaceFirst(RegExp(r'^(Approval Remarks|Remarks)[\s:-]*', caseSensitive: false), '')
+                .trim();
+          }
+
+          historyList.add(
+            LeaveHistoryItem(
+              slNo: slNo,
+              leaveType: leaveType,
+              applicationDate: appDate,
+              leaveDate: leaveDate,
+              duration: duration,
+              reason: reason,
+              slpAddress: slpAddress,
+              status: status,
+              actionBy: actionBy,
+              actionRemarks: actionRemarks,
+            ),
+          );
+        }
+      }
+    }
+
+    return (balances, lapsingAlerts, historyList);
   }
 
   /// Parses various date formats commonly used in MetNet circulars (e.g. 15-10-2026, 15/10/2026, 15-Oct-2026, 2026-10-15)
@@ -571,7 +712,7 @@ class ScraperEngine {
 
         // Step 7: Fetch and parse leave balances
         final leavePage = await session.get(Uri.parse(leaveUrl)).timeout(const Duration(seconds: 25));
-        final (leaveBalances, lapsingAlerts) = parseLeaves(html_parser.parse(leavePage.body));
+        final (leaveBalances, lapsingAlerts, leaveHistory) = parseLeaves(html_parser.parse(leavePage.body));
 
         // Protective Zero-Shield: If leave balances could not be parsed,
         // determine the exact interstitial barrier (Password Change vs Unread Emails vs Notice)
@@ -679,6 +820,7 @@ class ScraperEngine {
           lastUpdated: nowFormatted,
           leaves: leaveBalances,
           alerts: lapsingAlerts,
+          leaveHistory: leaveHistory,
           vipCirculars: allVipCirculars,
           fomoCirculars: allFomoCirculars,
         );
