@@ -32,6 +32,43 @@ class _LeaveHistoryScreenState extends State<LeaveHistoryScreen> {
   String? _selectedMonth; // When non-null, shows Day-by-Day detail view for that month
   final TextEditingController _searchController = TextEditingController();
   bool _isRefreshing = false;
+  late int _selectedYear;
+
+  static const List<String> _calendarMonths = [
+    'January',
+    'February',
+    'March',
+    'April',
+    'May',
+    'June',
+    'July',
+    'August',
+    'September',
+    'October',
+    'November',
+    'December',
+  ];
+
+  @override
+  void initState() {
+    super.initState();
+    final years = _availableYears;
+    _selectedYear = years.isNotEmpty ? years.first : DateTime.now().year;
+  }
+
+  List<int> get _availableYears {
+    final years = <int>{};
+    for (final item in widget.leaveHistory) {
+      final dt = item.parsedLeaveDate;
+      if (dt != null) {
+        years.add(dt.year);
+      }
+    }
+    years.add(DateTime.now().year);
+    years.add(2026);
+    final sorted = years.toList()..sort((a, b) => b.compareTo(a));
+    return sorted;
+  }
 
   @override
   void dispose() {
@@ -87,32 +124,49 @@ class _LeaveHistoryScreenState extends State<LeaveHistoryScreen> {
     }).toList();
   }
 
-  /// Groups items by Year and Month, sorted in descending chronological order
+  /// Groups items by Year and Month in chronological order (all 12 calendar months)
   Map<String, List<LeaveHistoryItem>> get _groupedByMonth {
     final filtered = _filteredLeaves;
 
-    // Sort items chronologically descending by leaveDate
+    // Sort items chronologically ascending by leaveDate
     final sorted = List<LeaveHistoryItem>.from(filtered)..sort((a, b) {
       final da = a.parsedLeaveDate;
       final db = b.parsedLeaveDate;
-      if (da == null && db == null) return b.slNo.compareTo(a.slNo);
+      if (da == null && db == null) return a.slNo.compareTo(b.slNo);
       if (da == null) return 1;
       if (db == null) return -1;
-      final cmp = db.compareTo(da);
-      return cmp != 0 ? cmp : b.slNo.compareTo(a.slNo);
+      final cmp = da.compareTo(db);
+      return cmp != 0 ? cmp : a.slNo.compareTo(b.slNo);
     });
 
     final map = <String, List<LeaveHistoryItem>>{};
+
+    // 1. Initialize ALL 12 months for the selected year in chronological order
+    if (_searchQuery.isEmpty) {
+      for (final m in _calendarMonths) {
+        map['$m $_selectedYear'] = <LeaveHistoryItem>[];
+      }
+    }
+
+    // 2. Distribute leaves to their respective month
     for (final item in sorted) {
       final dt = item.parsedLeaveDate;
-      String monthKey;
       if (dt != null) {
-        monthKey = DateFormat('MMMM yyyy').format(dt);
-      } else {
-        monthKey = 'Other / Unspecified Date';
+        if (dt.year == _selectedYear) {
+          final monthName = DateFormat('MMMM').format(dt);
+          final monthKey = '$monthName ${dt.year}';
+          map.putIfAbsent(monthKey, () => []).add(item);
+        }
+      } else if (_searchQuery.isNotEmpty || _selectedFilter != 'All') {
+        map.putIfAbsent('Other / Unspecified Date', () => []).add(item);
       }
-      map.putIfAbsent(monthKey, () => []).add(item);
     }
+
+    // When searching, remove empty months so search results are focused
+    if (_searchQuery.isNotEmpty) {
+      map.removeWhere((_, list) => list.isEmpty);
+    }
+
     return map;
   }
 
@@ -202,22 +256,65 @@ class _LeaveHistoryScreenState extends State<LeaveHistoryScreen> {
                   color: isDark ? Colors.white : const Color(0xFF0F172A),
                 ),
               ),
-              Container(
-                margin: const EdgeInsets.only(top: 2),
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 1.5),
-                decoration: BoxDecoration(
-                  color: isDark ? Colors.white.withOpacity(0.08) : Colors.black.withOpacity(0.05),
-                  borderRadius: BorderRadius.circular(10),
-                ),
-                child: Text(
-                  '‹  2026 Leave Activity  ›',
-                  style: TextStyle(
-                    fontSize: 10.5,
-                    fontWeight: FontWeight.w600,
-                    letterSpacing: 0.3,
-                    color: isDark ? Colors.white70 : Colors.black54,
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  InkWell(
+                    onTap: () {
+                      HapticFeedback.lightImpact();
+                      final years = _availableYears;
+                      final idx = years.indexOf(_selectedYear);
+                      if (idx < years.length - 1) {
+                        setState(() => _selectedYear = years[idx + 1]);
+                      }
+                    },
+                    borderRadius: BorderRadius.circular(6),
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                      child: Icon(
+                        Icons.chevron_left_rounded,
+                        size: 15,
+                        color: isDark ? Colors.white60 : Colors.black54,
+                      ),
+                    ),
                   ),
-                ),
+                  Container(
+                    margin: const EdgeInsets.symmetric(horizontal: 2),
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 1.5),
+                    decoration: BoxDecoration(
+                      color: isDark ? Colors.white.withOpacity(0.08) : Colors.black.withOpacity(0.05),
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: Text(
+                      '$_selectedYear Calendar (12 Months)',
+                      style: TextStyle(
+                        fontSize: 10.5,
+                        fontWeight: FontWeight.w700,
+                        letterSpacing: 0.3,
+                        color: isDark ? const Color(0xFF00C7FF) : const Color(0xFF0284C7),
+                      ),
+                    ),
+                  ),
+                  InkWell(
+                    onTap: () {
+                      HapticFeedback.lightImpact();
+                      final years = _availableYears;
+                      final idx = years.indexOf(_selectedYear);
+                      if (idx > 0) {
+                        setState(() => _selectedYear = years[idx - 1]);
+                      }
+                    },
+                    borderRadius: BorderRadius.circular(6),
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                      child: Icon(
+                        Icons.chevron_right_rounded,
+                        size: 15,
+                        color: isDark ? Colors.white60 : Colors.black54,
+                      ),
+                    ),
+                  ),
+                ],
               ),
             ],
           ),
@@ -396,7 +493,7 @@ class _LeaveHistoryScreenState extends State<LeaveHistoryScreen> {
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 Text(
-                  'MONTHS WITH LEAVE ACTIVITY',
+                  'ALL 12 MONTHS ($_selectedYear)',
                   style: TextStyle(
                     fontSize: 11.5,
                     fontWeight: FontWeight.w700,
@@ -452,11 +549,14 @@ class _LeaveHistoryScreenState extends State<LeaveHistoryScreen> {
   ) {
     final availedCount = leaves.where((l) => l.isApproved).length;
     final cancelledCount = leaves.where((l) => l.isCancelled).length;
+    final hasActivity = leaves.isNotEmpty;
 
     // Pick a thematic accent based on activity
     final accentColor = availedCount > 0
         ? const Color(0xFF00C7FF) // Electric Cyan
-        : const Color(0xFFFF453A); // Coral
+        : cancelledCount > 0
+            ? const Color(0xFFFF453A) // Coral
+            : (isDark ? Colors.white38 : Colors.black38); // Subtle slate for 0 activity
 
     return Padding(
       padding: const EdgeInsets.only(bottom: 12),
@@ -464,8 +564,8 @@ class _LeaveHistoryScreenState extends State<LeaveHistoryScreen> {
         borderRadius: 22,
         blur: 20,
         padding: const EdgeInsets.all(16),
-        borderOpacity: isDark ? 0.18 : 0.10,
-        surfaceOpacity: isDark ? 0.06 : 0.60,
+        borderOpacity: isDark ? (hasActivity ? 0.18 : 0.08) : (hasActivity ? 0.10 : 0.05),
+        surfaceOpacity: isDark ? (hasActivity ? 0.06 : 0.03) : (hasActivity ? 0.60 : 0.40),
         onTap: () {
           HapticFeedback.lightImpact();
           setState(() {
@@ -484,13 +584,15 @@ class _LeaveHistoryScreenState extends State<LeaveHistoryScreen> {
                     Container(
                       padding: const EdgeInsets.all(6),
                       decoration: BoxDecoration(
-                        color: accentColor.withOpacity(0.16),
+                        color: hasActivity
+                            ? accentColor.withOpacity(0.16)
+                            : (isDark ? Colors.white.withOpacity(0.06) : Colors.black.withOpacity(0.04)),
                         borderRadius: BorderRadius.circular(8),
                       ),
                       child: Icon(
-                        Icons.calendar_month_rounded,
+                        hasActivity ? Icons.calendar_month_rounded : Icons.calendar_today_rounded,
                         size: 15,
-                        color: accentColor,
+                        color: hasActivity ? accentColor : (isDark ? Colors.white54 : Colors.black45),
                       ),
                     ),
                     const SizedBox(width: 8),
@@ -514,7 +616,7 @@ class _LeaveHistoryScreenState extends State<LeaveHistoryScreen> {
                   child: Row(
                     children: [
                       Text(
-                        'View Day-by-Day',
+                        hasActivity ? 'View Day-by-Day' : 'Inspect Month',
                         style: TextStyle(
                           fontSize: 10.5,
                           fontWeight: FontWeight.w600,
@@ -545,7 +647,9 @@ class _LeaveHistoryScreenState extends State<LeaveHistoryScreen> {
                     fontSize: 34,
                     fontWeight: FontWeight.w800,
                     letterSpacing: -1.0,
-                    color: isDark ? Colors.white : const Color(0xFF0F172A),
+                    color: hasActivity
+                        ? (isDark ? Colors.white : const Color(0xFF0F172A))
+                        : (isDark ? Colors.white38 : Colors.black38),
                   ),
                 ),
                 const SizedBox(width: 8),
@@ -554,7 +658,9 @@ class _LeaveHistoryScreenState extends State<LeaveHistoryScreen> {
                   style: TextStyle(
                     fontSize: 13,
                     fontWeight: FontWeight.w600,
-                    color: isDark ? Colors.white60 : Colors.black54,
+                    color: hasActivity
+                        ? (isDark ? Colors.white60 : Colors.black54)
+                        : (isDark ? Colors.white38 : Colors.black38),
                   ),
                 ),
                 const Spacer(),
@@ -603,6 +709,26 @@ class _LeaveHistoryScreenState extends State<LeaveHistoryScreen> {
                           ),
                         ),
                       ),
+                    if (!hasActivity)
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: isDark ? Colors.white.withOpacity(0.06) : Colors.black.withOpacity(0.04),
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(
+                            color: isDark ? Colors.white.withOpacity(0.08) : Colors.black.withOpacity(0.06),
+                            width: 0.6,
+                          ),
+                        ),
+                        child: Text(
+                          '0 Availed',
+                          style: TextStyle(
+                            fontSize: 10.5,
+                            fontWeight: FontWeight.w600,
+                            color: isDark ? Colors.white38 : Colors.black38,
+                          ),
+                        ),
+                      ),
                   ],
                 ),
               ],
@@ -611,12 +737,16 @@ class _LeaveHistoryScreenState extends State<LeaveHistoryScreen> {
 
             // Bottom Subtitle Row: Quick preview of leave dates
             Text(
-              '${leaves.length} ${leaves.length == 1 ? "entry" : "entries"}: '
-              '${leaves.map((l) => l.leaveDate.split("-").take(2).join("-")).join(", ")}',
+              hasActivity
+                  ? '${leaves.length} ${leaves.length == 1 ? "entry" : "entries"}: '
+                    '${leaves.map((l) => l.leaveDate.split("-").take(2).join("-")).join(", ")}'
+                  : 'Full duty attendance • Zero leave deductions',
               style: TextStyle(
                 fontSize: 11,
                 fontWeight: FontWeight.w500,
-                color: isDark ? Colors.white38 : Colors.black38,
+                color: hasActivity
+                    ? (isDark ? Colors.white38 : Colors.black38)
+                    : (isDark ? Colors.white24 : Colors.black26),
               ),
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
@@ -783,19 +913,68 @@ class _LeaveHistoryScreenState extends State<LeaveHistoryScreen> {
           ),
         ),
 
-        // 3. Day-by-Day Rows
-        SliverPadding(
-          padding: const EdgeInsets.symmetric(horizontal: 16),
-          sliver: SliverList(
-            delegate: SliverChildBuilderDelegate(
-              (context, index) {
-                final item = leaves[index];
-                return _buildDayByDayRow(item, isDark);
-              },
-              childCount: leaves.length,
+        // 3. Day-by-Day Rows OR Empty Month Card
+        if (leaves.isEmpty)
+          SliverToBoxAdapter(
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
+              child: GlassContainer(
+                borderRadius: 20,
+                blur: 16,
+                padding: const EdgeInsets.all(28),
+                borderOpacity: isDark ? 0.15 : 0.08,
+                surfaceOpacity: isDark ? 0.05 : 0.6,
+                child: Column(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(14),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF10B981).withOpacity(0.14),
+                        shape: BoxShape.circle,
+                      ),
+                      child: const Icon(
+                        Icons.check_circle_outline_rounded,
+                        size: 32,
+                        color: Color(0xFF10B981),
+                      ),
+                    ),
+                    const SizedBox(height: 14),
+                    Text(
+                      'No Leaves in $monthTitle',
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w700,
+                        color: isDark ? Colors.white : const Color(0xFF0F172A),
+                      ),
+                    ),
+                    const SizedBox(height: 6),
+                    Text(
+                      'Zero leaves applied, availed, or cancelled during this month.\nEnjoyed 100% duty attendance with no leave deductions.',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        fontSize: 12.5,
+                        height: 1.4,
+                        color: isDark ? Colors.white54 : Colors.black54,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          )
+        else
+          SliverPadding(
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            sliver: SliverList(
+              delegate: SliverChildBuilderDelegate(
+                (context, index) {
+                  final item = leaves[index];
+                  return _buildDayByDayRow(item, isDark);
+                },
+                childCount: leaves.length,
+              ),
             ),
           ),
-        ),
 
         // Bottom Button: Return to All Month Boxes
         SliverToBoxAdapter(
