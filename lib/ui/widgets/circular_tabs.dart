@@ -67,7 +67,7 @@ class _CircularTabsState extends State<CircularTabs> {
     HapticFeedback.lightImpact();
     final subject = item.title;
     final text = '📢 IMD Circular: ${item.title}\n\n'
-        '📅 Date: ${item.uploadDate}\n'
+        '📅 Date: ${item.date}\n'
         '🔗 Direct Link: ${item.link}\n\n'
         'Shared via IMD Staff Portal';
 
