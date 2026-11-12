@@ -116,60 +116,87 @@ class ScraperEngine {
 
     final rows = soup.querySelectorAll('tr[bgcolor="#ffffff"], tr[bgcolor="#f5f5f5"]');
 
-    // 1. Parse expiring C-Off credits (>= 10 columns)
+    // 1. Parse expiring C-Off credits (>= 10 columns) and availed C-Off records
+    final historyList = <LeaveHistoryItem>[];
+
     for (final row in rows) {
       final cols = row.querySelectorAll('td');
       if (cols.length >= 10) {
+        final slText = cols[0].text.trim();
         final dateOfCreditStr = cols[1].text.trim();
+        final dutyDetails = cols[2].text.trim();
+        final actionOfficer = cols[6].text.trim();
         final status = cols[8].text.trim();
 
-        if (status.isEmpty && RegExp(r'^\d{2}-\d{2}-\d{4}$').hasMatch(dateOfCreditStr)) {
-          try {
-            final creditDate = dateFormat.parse(dateOfCreditStr);
-            // In Python: credit_date + relativedelta(months=+6)
-            final expiryDate = DateTime(
-              creditDate.year,
-              creditDate.month + 6,
-              creditDate.day,
-            );
-            final daysLeft = expiryDate.difference(currentDate).inDays;
-
-            if (daysLeft > 0) {
-              lapsingAlerts.add(
-                LapsingAlert(
-                  creditDate: dateOfCreditStr,
-                  expiryDate: dateFormat.format(expiryDate),
-                  daysLeft: daysLeft,
-                ),
+        if (RegExp(r'^\d{2}-\d{2}-\d{4}$').hasMatch(dateOfCreditStr)) {
+          // If status is empty, this C-Off is unavailed (subject to 6-month expiry)
+          if (status.isEmpty) {
+            try {
+              final creditDate = dateFormat.parse(dateOfCreditStr);
+              final expiryDate = DateTime(
+                creditDate.year,
+                creditDate.month + 6,
+                creditDate.day,
               );
-            }
-          } catch (_) {
-            // Ignore invalid dates
+              final daysLeft = expiryDate.difference(currentDate).inDays;
+
+              if (daysLeft > 0) {
+                lapsingAlerts.add(
+                  LapsingAlert(
+                    creditDate: dateOfCreditStr,
+                    expiryDate: dateFormat.format(expiryDate),
+                    daysLeft: daysLeft,
+                  ),
+                );
+              }
+            } catch (_) {}
+          } else {
+            // Status is NOT empty -> This C-Off was availed or acted upon!
+            final dateMatch = RegExp(r'\d{2}-\d{2}-\d{4}').firstMatch(status);
+            final leaveDate = dateMatch != null ? dateMatch.group(0)! : dateOfCreditStr;
+
+            historyList.add(
+              LeaveHistoryItem(
+                slNo: int.tryParse(slText) ?? 0,
+                leaveType: 'Compensatory Off',
+                applicationDate: dateOfCreditStr,
+                leaveDate: leaveDate,
+                duration: '1 DAY',
+                reason: dutyDetails.isNotEmpty
+                    ? 'C-Off in lieu of duty: $dutyDetails'
+                    : 'Compensatory Off Duty',
+                status: status.toLowerCase().contains('cancel')
+                    ? 'Cancelled'
+                    : 'Approved & Availed',
+                actionBy: actionOfficer.isNotEmpty ? actionOfficer : 'Sanctioned by IMD',
+                actionRemarks: status,
+              ),
+            );
           }
         }
       }
     }
 
-    // 2. Parse past leave history records (7 columns: Sl. #, Application Date, Leave Date, Duration, Reason, Status, Action By)
-    final historyList = <LeaveHistoryItem>[];
+    // 2. Parse past leave history records across all tables (Casual Leave, RH, C-Off, etc.)
     final tables = soup.querySelectorAll('table');
 
     for (final table in tables) {
       final trList = table.querySelectorAll('tr');
       if (trList.isEmpty) continue;
 
-      // Determine if this table is a Leave Application / History table (7 columns)
+      // Determine if this table contains leave application rows (5 to 10 columns)
       bool isLeaveHistoryTable = false;
       for (final tr in trList) {
         final cells = tr.querySelectorAll('th, td');
-        if (cells.length == 7) {
+        if (cells.length >= 5 && cells.length <= 10) {
           final t = tr.text.toLowerCase();
           if (t.contains('sl.') || t.contains('leave date') || t.contains('duration') || t.contains('application')) {
             isLeaveHistoryTable = true;
             break;
           }
-          if (RegExp(r'^\d{2}-\d{2}-\d{4}$').hasMatch(cells[1].text.trim()) ||
-              RegExp(r'^\d{2}-\d{2}-\d{4}$').hasMatch(cells[2].text.trim())) {
+          if (cells.length >= 3 &&
+              (RegExp(r'^\d{2}-\d{2}-\d{4}$').hasMatch(cells[1].text.trim()) ||
+               RegExp(r'^\d{2}-\d{2}-\d{4}$').hasMatch(cells[2].text.trim()))) {
             isLeaveHistoryTable = true;
             break;
           }
@@ -178,31 +205,67 @@ class ScraperEngine {
 
       if (!isLeaveHistoryTable) continue;
 
-      // Determine leave type: inspect text before table
-      String leaveType = 'Casual Leave';
-      final tableOuter = table.outerHtml;
-      final fullHtml = soup.outerHtml;
-      final tablePos = fullHtml.indexOf(tableOuter);
-      if (tablePos > 0) {
-        final precedingHtml = fullHtml.substring(0, tablePos);
-        final lastCl = precedingHtml.lastIndexOf(RegExp(r'Casual Leaves', caseSensitive: false));
-        final lastRh = precedingHtml.lastIndexOf(RegExp(r'Restricted Holidays', caseSensitive: false));
-        final lastCoff = precedingHtml.lastIndexOf(RegExp(r'Compensatory Off', caseSensitive: false));
+      // Determine leave type: traverse preceding DOM siblings and search nearest heading
+      String sectionHeading = '';
+      dom.Element? prev = table.previousElementSibling;
+      while (prev != null && sectionHeading.isEmpty) {
+        final t = prev.text.trim();
+        if (RegExp(r'(Casual|Restricted|Compensatory|Earned|Half\s*Pay|RH|C-Off|CL)', caseSensitive: false).hasMatch(t)) {
+          sectionHeading = t;
+          break;
+        }
+        prev = prev.previousElementSibling;
+      }
+      if (sectionHeading.isEmpty && table.parent != null) {
+        var p = table.parent?.previousElementSibling;
+        while (p != null && sectionHeading.isEmpty) {
+          final t = p.text.trim();
+          if (RegExp(r'(Casual|Restricted|Compensatory|Earned|Half\s*Pay|RH|C-Off|CL)', caseSensitive: false).hasMatch(t)) {
+            sectionHeading = t;
+            break;
+          }
+          p = p.previousElementSibling;
+        }
+      }
+      if (sectionHeading.isEmpty) {
+        final tableOuter = table.outerHtml;
+        final fullHtml = soup.outerHtml;
+        final tablePos = fullHtml.indexOf(tableOuter);
+        if (tablePos > 0) {
+          final precedingHtml = fullHtml.substring(0, tablePos);
+          final lastCl = precedingHtml.lastIndexOf(RegExp(r'Casual\s*Leave', caseSensitive: false));
+          final lastRh = precedingHtml.lastIndexOf(RegExp(r'Restricted\s*Holiday', caseSensitive: false));
+          final lastCoff = precedingHtml.lastIndexOf(RegExp(r'Compensatory\s*Off', caseSensitive: false));
 
-        int maxIdx = lastCl;
-        if (lastRh > maxIdx) {
-          maxIdx = lastRh;
-          leaveType = 'Restricted Holiday';
+          int maxIdx = lastCl;
+          if (lastRh > maxIdx) {
+            maxIdx = lastRh;
+            sectionHeading = 'Restricted Holiday';
+          }
+          if (lastCoff > maxIdx) {
+            maxIdx = lastCoff;
+            sectionHeading = 'Compensatory Off';
+          }
         }
-        if (lastCoff > maxIdx) {
-          maxIdx = lastCoff;
-          leaveType = 'Compensatory Off';
-        }
+      }
+
+      String defaultLeaveType = 'Casual Leave';
+      final hLower = sectionHeading.toLowerCase();
+      if (hLower.contains('restricted') || hLower.contains('rh')) {
+        defaultLeaveType = 'Restricted Holiday';
+      } else if (hLower.contains('compensatory') || hLower.contains('c-off') || hLower.contains('comp')) {
+        defaultLeaveType = 'Compensatory Off';
+      } else if (hLower.contains('earned') || hLower.contains('el')) {
+        defaultLeaveType = 'Earned Leave';
+      } else if (hLower.contains('half pay') || hLower.contains('hpl')) {
+        defaultLeaveType = 'Half Pay Leave';
+      } else if (hLower.contains('casual') || hLower.contains('cl')) {
+        defaultLeaveType = 'Casual Leave';
       }
 
       for (final tr in trList) {
         final cols = tr.querySelectorAll('td');
-        if (cols.length == 7) {
+        if (cols.length >= 5 && cols.length <= 9) {
           final slText = cols[0].text.trim();
           final appDate = cols[1].text.trim();
           final leaveDate = cols[2].text.trim();
@@ -220,72 +283,97 @@ class ScraperEngine {
           if (!hasValidDate) continue;
 
           final slNo = int.tryParse(slText) ?? 0;
-          final duration = cols[3].text.replaceAll('\u00A0', ' ').replaceAll('&nbsp;', ' ').trim();
+          final duration = cols.length > 3
+              ? cols[3].text.replaceAll('\u00A0', ' ').replaceAll('&nbsp;', ' ').trim()
+              : '1 DAY';
 
           // Reason & SLP Address parsing
-          final reasonHtml = cols[4].innerHtml;
-          final reasonLines = reasonHtml
-              .replaceAll(RegExp(r'<br\s*/?>', caseSensitive: false), '\n')
-              .replaceAll(RegExp(r'<[^>]*>'), ' ')
-              .split('\n')
-              .map((l) => l.replaceAll('\u00A0', ' ').replaceAll('&nbsp;', ' ').trim())
-              .where((l) => l.isNotEmpty)
-              .toList();
-
           String reason = '';
           String? slpAddress;
-          final mainReasons = <String>[];
+          if (cols.length > 4) {
+            final reasonHtml = cols[4].innerHtml;
+            final reasonLines = reasonHtml
+                .replaceAll(RegExp(r'<br\s*/?>', caseSensitive: false), '\n')
+                .replaceAll(RegExp(r'<[^>]*>'), ' ')
+                .split('\n')
+                .map((l) => l.replaceAll('\u00A0', ' ').replaceAll('&nbsp;', ' ').trim())
+                .where((l) => l.isNotEmpty)
+                .toList();
 
-          for (final line in reasonLines) {
-            if (line.toLowerCase().contains('slp add')) {
-              final match = RegExp(r'slp\s*add\s*[:-]+\s*(.*)', caseSensitive: false).firstMatch(line);
-              if (match != null && match.group(1)!.trim().isNotEmpty) {
-                slpAddress = match.group(1)!.trim();
+            final mainReasons = <String>[];
+            for (final line in reasonLines) {
+              if (line.toLowerCase().contains('slp add')) {
+                final match = RegExp(r'slp\s*add\s*[:-]+\s*(.*)', caseSensitive: false).firstMatch(line);
+                if (match != null && match.group(1)!.trim().isNotEmpty) {
+                  slpAddress = match.group(1)!.trim();
+                } else {
+                  slpAddress = line;
+                }
               } else {
-                slpAddress = line;
+                mainReasons.add(line);
               }
-            } else {
-              mainReasons.add(line);
             }
+            reason = mainReasons.isNotEmpty ? mainReasons.join(' ') : cols[4].text.trim();
           }
-          reason = mainReasons.isNotEmpty ? mainReasons.join(' ') : cols[4].text.trim();
 
           // Status column
-          final status = cols[5].text.replaceAll('\u00A0', ' ').replaceAll('&nbsp;', ' ').trim();
+          final status = cols.length > 5
+              ? cols[5].text.replaceAll('\u00A0', ' ').replaceAll('&nbsp;', ' ').trim()
+              : 'Approved & Availed';
 
           // Action By & Approval Remarks
-          final actionHtml = cols[6].innerHtml;
-          final actionLines = actionHtml
-              .replaceAll(RegExp(r'<br\s*/?>', caseSensitive: false), '\n')
-              .replaceAll(RegExp(r'<[^>]*>'), ' ')
-              .split('\n')
-              .map((l) => l.replaceAll('\u00A0', ' ').replaceAll('&nbsp;', ' ').trim())
-              .where((l) => l.isNotEmpty)
-              .toList();
-
-          String actionBy = actionLines.isNotEmpty ? actionLines[0] : cols[6].text.trim();
+          String actionBy = 'Sanctioned';
           String? actionRemarks;
-          if (actionLines.length > 1) {
-            final rawRem = actionLines.sublist(1).join(' ');
-            actionRemarks = rawRem
-                .replaceFirst(RegExp(r'^(Approval Remarks|Remarks)[\s:-]*', caseSensitive: false), '')
-                .trim();
+          if (cols.length > 6) {
+            final actionHtml = cols[6].innerHtml;
+            final actionLines = actionHtml
+                .replaceAll(RegExp(r'<br\s*/?>', caseSensitive: false), '\n')
+                .replaceAll(RegExp(r'<[^>]*>'), ' ')
+                .split('\n')
+                .map((l) => l.replaceAll('\u00A0', ' ').replaceAll('&nbsp;', ' ').trim())
+                .where((l) => l.isNotEmpty)
+                .toList();
+
+            actionBy = actionLines.isNotEmpty ? actionLines[0] : cols[6].text.trim();
+            if (actionLines.length > 1) {
+              final rawRem = actionLines.sublist(1).join(' ');
+              actionRemarks = rawRem
+                  .replaceFirst(RegExp(r'^(Approval Remarks|Remarks)[\s:-]*', caseSensitive: false), '')
+                  .trim();
+            }
           }
 
-          historyList.add(
-            LeaveHistoryItem(
-              slNo: slNo,
-              leaveType: leaveType,
-              applicationDate: appDate,
-              leaveDate: leaveDate,
-              duration: duration,
-              reason: reason,
-              slpAddress: slpAddress,
-              status: status,
-              actionBy: actionBy,
-              actionRemarks: actionRemarks,
-            ),
-          );
+          // Specific leave type inference per row (e.g. if row mentions RH or C-Off)
+          String itemLeaveType = defaultLeaveType;
+          final rowCombined = '${tr.text} $reason'.toLowerCase();
+          if (rowCombined.contains('restricted holiday') || rowCombined.contains('rh-') || rowCombined.contains('rh -')) {
+            itemLeaveType = 'Restricted Holiday';
+          } else if (rowCombined.contains('compensatory off') || rowCombined.contains('c-off') || rowCombined.contains('comp off')) {
+            itemLeaveType = 'Compensatory Off';
+          }
+
+          // Prevent duplicate entries
+          final isDuplicate = historyList.any((existing) =>
+              existing.leaveDate == leaveDate &&
+              existing.leaveType == itemLeaveType &&
+              existing.slNo == slNo);
+
+          if (!isDuplicate) {
+            historyList.add(
+              LeaveHistoryItem(
+                slNo: slNo,
+                leaveType: itemLeaveType,
+                applicationDate: appDate,
+                leaveDate: leaveDate,
+                duration: duration,
+                reason: reason,
+                slpAddress: slpAddress,
+                status: status,
+                actionBy: actionBy,
+                actionRemarks: actionRemarks,
+              ),
+            );
+          }
         }
       }
     }

@@ -1,3 +1,4 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../../models/ai_circular_entry.dart';
@@ -57,6 +58,44 @@ class _CircularTabsState extends State<CircularTabs> {
   void _onAiUpdated() {
     if (mounted) {
       setState(() {});
+    }
+  }
+
+  static const MethodChannel _shareChannel = MethodChannel('com.imd.portal/share');
+
+  Future<void> _shareCircular(CircularItem item) async {
+    HapticFeedback.lightImpact();
+    final subject = item.title;
+    final text = '📢 IMD Circular: ${item.title}\n\n'
+        '📅 Date: ${item.uploadDate}\n'
+        '🔗 Direct Link: ${item.link}\n\n'
+        'Shared via IMD Staff Portal';
+
+    try {
+      final cachedPath = item.cachedPath;
+      if (cachedPath != null && await File(cachedPath).exists()) {
+        await _shareChannel.invokeMethod('shareFile', {
+          'filePath': cachedPath,
+          'title': subject,
+          'text': text,
+        });
+      } else {
+        await _shareChannel.invokeMethod('shareText', {
+          'title': subject,
+          'text': text,
+        });
+      }
+    } catch (_) {
+      // Fallback: Copy link and text to clipboard
+      await Clipboard.setData(ClipboardData(text: text));
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Notice details & link copied for sharing!'),
+            duration: Duration(seconds: 2),
+          ),
+        );
+      }
     }
   }
 
@@ -534,6 +573,17 @@ class _CircularTabsState extends State<CircularTabs> {
                 onTap: () {
                   Navigator.of(ctx).pop();
                   _handleCircularTap(context, item);
+                },
+              ),
+              ListTile(
+                leading: const Icon(Icons.share_rounded, color: Color(0xFF00C7FF)),
+                title: const Text('Share Circular',
+                    style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
+                subtitle: const Text('Share notice details & PDF link with colleagues',
+                    style: TextStyle(fontSize: 11)),
+                onTap: () {
+                  Navigator.of(ctx).pop();
+                  _shareCircular(item);
                 },
               ),
               ListTile(
@@ -1042,7 +1092,7 @@ class _CircularTabsState extends State<CircularTabs> {
               ),
               const SizedBox(height: 6),
 
-              // 2. Download / View Micro-Button (Bottom)
+              // 2. Download / View Micro-Button (Middle)
               Material(
                 color: Colors.transparent,
                 child: InkWell(
@@ -1076,6 +1126,35 @@ class _CircularTabsState extends State<CircularTabs> {
                         color: isUnavailable
                             ? const Color(0xFFFF9500)
                             : (isCached ? const Color(0xFF10B981) : const Color(0xFF0284C7)),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 6),
+
+              // 3. Share Micro-Button (Right below Download!)
+              Material(
+                color: Colors.transparent,
+                child: InkWell(
+                  borderRadius: BorderRadius.circular(10),
+                  onTap: () => _shareCircular(item),
+                  child: Container(
+                    width: 34,
+                    height: 34,
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF00C7FF).withOpacity(0.12),
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(
+                        color: const Color(0xFF00C7FF).withOpacity(0.3),
+                        width: 1,
+                      ),
+                    ),
+                    child: const Center(
+                      child: Icon(
+                        Icons.share_rounded,
+                        size: 17,
+                        color: Color(0xFF00C7FF),
                       ),
                     ),
                   ),

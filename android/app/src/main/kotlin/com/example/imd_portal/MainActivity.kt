@@ -24,6 +24,7 @@ class MainActivity: FlutterFragmentActivity() {
     private val INSTALL_CHANNEL = "com.imd.portal/installer"
     private val LOCATION_CHANNEL = "com.imd.portal/location"
     private val BATTERY_CHANNEL = "com.imd.portal/battery"
+    private val SHARE_CHANNEL = "com.imd.portal/share"
     private val INSTALL_REQUEST_CODE = 8899
 
     private var pendingApkPath: String? = null
@@ -260,6 +261,64 @@ class MainActivity: FlutterFragmentActivity() {
                         } catch (_: Exception) {
                             result.success(false)
                         }
+                    }
+                }
+                else -> result.notImplemented()
+            }
+        }
+
+        // Native System Share Sheet Channel
+        MethodChannel(flutterEngine.dartExecutor.binaryMessenger, SHARE_CHANNEL).setMethodCallHandler { call, result ->
+            when (call.method) {
+                "shareText" -> {
+                    val title = call.argument<String>("title") ?: "IMD Circular"
+                    val text = call.argument<String>("text") ?: ""
+                    try {
+                        val intent = Intent(Intent.ACTION_SEND).apply {
+                            type = "text/plain"
+                            putExtra(Intent.EXTRA_SUBJECT, title)
+                            putExtra(Intent.EXTRA_TEXT, text)
+                            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                        }
+                        val chooser = Intent.createChooser(intent, "Share Circular via").apply {
+                            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                        }
+                        startActivity(chooser)
+                        result.success(true)
+                    } catch (e: Exception) {
+                        result.error("SHARE_ERROR", e.localizedMessage, null)
+                    }
+                }
+                "shareFile" -> {
+                    val filePath = call.argument<String>("filePath")
+                    val text = call.argument<String>("text") ?: ""
+                    val title = call.argument<String>("title") ?: "IMD Circular"
+                    try {
+                        val file = if (filePath != null) File(filePath) else null
+                        val intent = Intent(Intent.ACTION_SEND).apply {
+                            if (file != null && file.exists()) {
+                                val uri = FileProvider.getUriForFile(
+                                    this@MainActivity,
+                                    "${applicationContext.packageName}.fileprovider",
+                                    file
+                                )
+                                type = "application/pdf"
+                                putExtra(Intent.EXTRA_STREAM, uri)
+                                addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                            } else {
+                                type = "text/plain"
+                            }
+                            putExtra(Intent.EXTRA_SUBJECT, title)
+                            putExtra(Intent.EXTRA_TEXT, text)
+                            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                        }
+                        val chooser = Intent.createChooser(intent, "Share Circular via").apply {
+                            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                        }
+                        startActivity(chooser)
+                        result.success(true)
+                    } catch (e: Exception) {
+                        result.error("SHARE_ERROR", e.localizedMessage, null)
                     }
                 }
                 else -> result.notImplemented()
