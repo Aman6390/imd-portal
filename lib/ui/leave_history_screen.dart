@@ -74,14 +74,61 @@ class _LeaveHistoryScreenState extends State<LeaveHistoryScreen> {
     }
   }
 
+  DateTime? _parseLeaveDate(String str) {
+    final clean = str.trim();
+    if (clean.isEmpty) return null;
+
+    final formats = [
+      'dd-MM-yyyy',
+      'dd/MM/yyyy',
+      'dd.MM.yyyy',
+      'dd-MMM-yyyy',
+      'd-M-yyyy',
+      'd/M/yyyy',
+      'yyyy-MM-dd',
+    ];
+
+    for (final fmt in formats) {
+      try {
+        return DateFormat(fmt).parseLoose(clean);
+      } catch (_) {}
+    }
+
+    final match = RegExp(r'(\d{1,2})[-/. ]([A-Za-z]+|\d{1,2})[-/. ](\d{2,4})').firstMatch(clean);
+    if (match != null) {
+      final d = int.tryParse(match.group(1)!) ?? 1;
+      final mPart = match.group(2)!;
+      final yPart = match.group(3)!;
+      final y = int.tryParse(yPart.length == 2 ? '20$yPart' : yPart) ?? DateTime.now().year;
+      int? m = int.tryParse(mPart);
+      if (m == null) {
+        const monthMap = {
+          'jan': 1, 'feb': 2, 'mar': 3, 'apr': 4, 'may': 5, 'jun': 6,
+          'jul': 7, 'aug': 8, 'sep': 9, 'oct': 10, 'nov': 11, 'dec': 12
+        };
+        final mLower = mPart.toLowerCase();
+        for (final entry in monthMap.entries) {
+          if (mLower.startsWith(entry.key)) {
+            m = entry.value;
+            break;
+          }
+        }
+      }
+      if (m != null) {
+        try {
+          return DateTime(y, m, d);
+        } catch (_) {}
+      }
+    }
+    return null;
+  }
+
   /// Available years found in leave records plus current year
   List<int> get _availableYears {
     final years = <int>{DateTime.now().year};
     for (final item in widget.leaveHistory) {
-      if (item.reason.startsWith('C-Off in lieu of duty:') || item.reason == 'Compensatory Off Duty') {
-        continue;
-      }
-      final dt = item.parsedLeaveDate ?? item.parsedApplicationDate;
+      if (!item.isGenuineLeave) continue;
+      final dt = _parseLeaveDate(item.leaveDate);
       if (dt != null) years.add(dt.year);
     }
     final sorted = years.toList()..sort((a, b) => b.compareTo(a));
@@ -95,10 +142,8 @@ class _LeaveHistoryScreenState extends State<LeaveHistoryScreen> {
 
     // Check if any leave in this year is recorded in a future month
     for (final item in widget.leaveHistory) {
-      if (item.reason.startsWith('C-Off in lieu of duty:') || item.reason == 'Compensatory Off Duty') {
-        continue;
-      }
-      final dt = item.parsedLeaveDate ?? item.parsedApplicationDate;
+      if (!item.isGenuineLeave) continue;
+      final dt = _parseLeaveDate(item.leaveDate);
       if (dt != null && dt.year == _selectedYear && dt.month > maxMonth) {
         maxMonth = dt.month;
       }
@@ -113,16 +158,18 @@ class _LeaveHistoryScreenState extends State<LeaveHistoryScreen> {
 
   /// Expands a single LeaveHistoryItem into individual day-by-day calendar entries
   List<DayLeaveEntry> _expandItemToDays(LeaveHistoryItem item) {
+    if (!item.isGenuineLeave) return [];
+
     final leaveDateStr = item.leaveDate.trim();
     final durationStr = item.duration.trim();
 
     // 1. Check for range: "dd-MM-yyyy to dd-MM-yyyy" or "dd-MM-yyyy - dd-MM-yyyy"
-    final rangeRegex = RegExp(r'(\d{2}-\d{2}-\d{4})\s*(?:to|-)\s*(\d{2}-\d{2}-\d{4})', caseSensitive: false);
+    final rangeRegex = RegExp(r'(\d{1,2}[-/.][A-Za-z0-9]+[-/. ]\d{2,4})\s*(?:to|-)\s*(\d{1,2}[-/.][A-Za-z0-9]+[-/. ]\d{2,4})', caseSensitive: false);
     final rangeMatch = rangeRegex.firstMatch(leaveDateStr);
     if (rangeMatch != null) {
-      try {
-        final startDt = DateFormat('dd-MM-yyyy').parse(rangeMatch.group(1)!);
-        final endDt = DateFormat('dd-MM-yyyy').parse(rangeMatch.group(2)!);
+      final startDt = _parseLeaveDate(rangeMatch.group(1)!);
+      final endDt = _parseLeaveDate(rangeMatch.group(2)!);
+      if (startDt != null && endDt != null && !startDt.isAfter(endDt)) {
         final totalDays = endDt.difference(startDt).inDays + 1;
         final list = <DayLeaveEntry>[];
         DateTime curr = startDt;
@@ -141,76 +188,53 @@ class _LeaveHistoryScreenState extends State<LeaveHistoryScreen> {
           curr = curr.add(const Duration(days: 1));
         }
         return list;
-      } catch (_) {}
+      }
     }
 
     // 2. Single date extraction
-    final dateMatch = RegExp(r'\d{2}-\d{2}-\d{4}').firstMatch(leaveDateStr);
-    if (dateMatch == null) {
-      final appMatch = RegExp(r'\d{2}-\d{2}-\d{4}').firstMatch(item.applicationDate);
-      if (appMatch == null) return [];
-      try {
-        final dt = DateFormat('dd-MM-yyyy').parse(appMatch.group(0)!);
-        return [
-          DayLeaveEntry(
-            date: dt,
-            leaveType: item.leaveType,
-            status: item.status,
-            isApproved: item.isApproved,
-            isCancelled: item.isCancelled,
-            originalItem: item,
-          )
-        ];
-      } catch (_) {
-        return [];
-      }
+    final singleDt = _parseLeaveDate(leaveDateStr);
+    if (singleDt == null) {
+      // Must not fabricate leaves on applicationDate when leaveDate is absent
+      return [];
     }
 
-    try {
-      final startDt = DateFormat('dd-MM-yyyy').parse(dateMatch.group(0)!);
-      final durMatch = RegExp(r'(\d+)').firstMatch(durationStr);
-      final numDays = durMatch != null ? (int.tryParse(durMatch.group(1)!) ?? 1) : 1;
+    final durMatch = RegExp(r'(\d+)').firstMatch(durationStr);
+    final numDays = durMatch != null ? (int.tryParse(durMatch.group(1)!) ?? 1) : 1;
 
-      if (numDays <= 1) {
-        return [
-          DayLeaveEntry(
-            date: startDt,
-            leaveType: item.leaveType,
-            status: item.status,
-            isApproved: item.isApproved,
-            isCancelled: item.isCancelled,
-            originalItem: item,
-          )
-        ];
-      }
-
-      final list = <DayLeaveEntry>[];
-      for (int i = 0; i < numDays && i < 31; i++) {
-        list.add(DayLeaveEntry(
-          date: startDt.add(Duration(days: i)),
+    if (numDays <= 1) {
+      return [
+        DayLeaveEntry(
+          date: singleDt,
           leaveType: item.leaveType,
           status: item.status,
           isApproved: item.isApproved,
           isCancelled: item.isCancelled,
           originalItem: item,
-          dayIndex: i + 1,
-          totalDays: numDays,
-        ));
-      }
-      return list;
-    } catch (_) {
-      return [];
+        )
+      ];
     }
+
+    final list = <DayLeaveEntry>[];
+    for (int i = 0; i < numDays && i < 31; i++) {
+      list.add(DayLeaveEntry(
+        date: singleDt.add(Duration(days: i)),
+        leaveType: item.leaveType,
+        status: item.status,
+        isApproved: item.isApproved,
+        isCancelled: item.isCancelled,
+        originalItem: item,
+        dayIndex: i + 1,
+        totalDays: numDays,
+      ));
+    }
+    return list;
   }
 
   /// Returns all day-by-day leave records falling into the given month, sorted chronologically ascending
   List<DayLeaveEntry> _getDayLeavesForMonth(DateTime month) {
     final rawList = <DayLeaveEntry>[];
     for (final item in widget.leaveHistory) {
-      // Discard any false duty credit records that may exist in cached offline storage
-      if (item.reason.startsWith('C-Off in lieu of duty:') || item.reason == 'Compensatory Off Duty') {
-        continue;
-      }
+      if (!item.isGenuineLeave) continue;
       final days = _expandItemToDays(item);
       for (final day in days) {
         if (day.date.year == month.year && day.date.month == month.month) {
@@ -222,7 +246,7 @@ class _LeaveHistoryScreenState extends State<LeaveHistoryScreen> {
     // Defensive Deduplication: Ensure each calendar date has at most 1 distinct entry per leave type
     final uniqueMap = <String, DayLeaveEntry>{};
     for (final day in rawList) {
-      final dateKey = '${DateFormat('yyyy-MM-dd').format(day.date)}_${day.leaveType}';
+      final dateKey = '${DateFormat('yyyy-MM-dd').format(day.date)}_${day.leaveType.trim().toLowerCase()}';
       if (!uniqueMap.containsKey(dateKey)) {
         uniqueMap[dateKey] = day;
       } else {
@@ -267,9 +291,7 @@ class _LeaveHistoryScreenState extends State<LeaveHistoryScreen> {
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
 
-    final validHistory = widget.leaveHistory.where((l) =>
-        !l.reason.startsWith('C-Off in lieu of duty:') &&
-        l.reason != 'Compensatory Off Duty').toList();
+    final validHistory = widget.leaveHistory.where((l) => l.isGenuineLeave).toList();
     final totalAvailed = validHistory.where((l) => l.isApproved).length;
     final totalCancelled = validHistory.where((l) => l.isCancelled).length;
     final clBalance = widget.balances['Casual Leave (CL)'] ?? '0';

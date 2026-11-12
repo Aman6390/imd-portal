@@ -98,6 +98,38 @@ class LeaveHistoryItem {
     return s.contains('approved') || s.contains('availed');
   }
 
+  /// Returns true only if this is a genuine leave application/availed record
+  /// and not an administrative duty credit/shift log entry.
+  bool get isGenuineLeave {
+    final cleanLeave = leaveDate.trim();
+    if (cleanLeave.isEmpty) return false;
+
+    // 1. Must contain an identifiable calendar date pattern (e.g. 03-09-2026, 03/09/2026, 03-Sep-2026)
+    final hasDatePattern = RegExp(r'\d{1,2}[-/. ]\d{1,2}[-/. ]\d{2,4}').hasMatch(cleanLeave) ||
+        RegExp(r'\d{1,2}[-/. ][A-Za-z]+[-/. ]\d{2,4}').hasMatch(cleanLeave);
+    if (!hasDatePattern) return false;
+
+    // 2. Reject any administrative duty credit entries (e.g. night duties, weekend duties, duty credit ledgers)
+    final r = reason.toLowerCase();
+    final rem = (actionRemarks ?? '').toLowerCase();
+    final d = cleanLeave.toLowerCase();
+
+    if (r.contains('in lieu of duty') ||
+        r.contains('compensatory off duty') ||
+        r.contains('duty credit') ||
+        r.contains('duty details') ||
+        r.contains('night duty') ||
+        r.contains('general shift') ||
+        r.contains('shift duty') ||
+        d.contains('duty') ||
+        d.contains('shift') ||
+        rem.contains('duty credit')) {
+      return false;
+    }
+
+    return true;
+  }
+
   DateTime? get parsedLeaveDate {
     try {
       final clean = leaveDate.trim();

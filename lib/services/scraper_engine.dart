@@ -116,42 +116,52 @@ class ScraperEngine {
 
     final rows = soup.querySelectorAll('tr[bgcolor="#ffffff"], tr[bgcolor="#f5f5f5"]');
 
-    // 1. Parse expiring C-Off duty credits (>= 10 columns in the Duty Credit Ledger)
+    // 1. Parse expiring C-Off duty credits from the Duty Credit Ledger
     for (final row in rows) {
       final cols = row.querySelectorAll('td');
-      if (cols.length >= 10) {
-        final dateOfCreditStr = cols[1].text.trim();
-        final status = cols[8].text.trim();
+      if (cols.length >= 8) {
+        final rowText = row.text.toLowerCase();
+        // Identify duty credit rows (e.g. night duties, shift duties, weekend duties)
+        final isDutyRow = cols.length >= 10 ||
+            rowText.contains('duty') ||
+            rowText.contains('shift') ||
+            rowText.contains('hours');
+        if (isDutyRow) {
+          final dateOfCreditStr = cols[1].text.trim();
+          final statusColIdx = cols.length >= 10 ? 8 : (cols.length >= 9 ? 7 : (cols.length - 2));
+          final status = cols[statusColIdx].text.trim();
 
-        // If status is empty, this C-Off duty credit is unavailed (subject to 6-month expiry)
-        if (status.isEmpty && RegExp(r'^\d{2}-\d{2}-\d{4}$').hasMatch(dateOfCreditStr)) {
-          try {
-            final creditDate = dateFormat.parse(dateOfCreditStr);
-            // In Python: credit_date + relativedelta(months=+6)
-            final expiryDate = DateTime(
-              creditDate.year,
-              creditDate.month + 6,
-              creditDate.day,
-            );
-            final daysLeft = expiryDate.difference(currentDate).inDays;
-
-            if (daysLeft > 0) {
-              lapsingAlerts.add(
-                LapsingAlert(
-                  creditDate: dateOfCreditStr,
-                  expiryDate: dateFormat.format(expiryDate),
-                  daysLeft: daysLeft,
-                ),
+          // If status is empty, this C-Off duty credit is unavailed (subject to 6-month expiry)
+          if (status.isEmpty && RegExp(r'^\d{2}-\d{2}-\d{4}$').hasMatch(dateOfCreditStr)) {
+            try {
+              final creditDate = dateFormat.parse(dateOfCreditStr);
+              // credit_date + 6 months
+              final expiryDate = DateTime(
+                creditDate.year,
+                creditDate.month + 6,
+                creditDate.day,
               );
+              final daysLeft = expiryDate.difference(currentDate).inDays;
+
+              if (daysLeft > 0) {
+                lapsingAlerts.add(
+                  LapsingAlert(
+                    creditDate: dateOfCreditStr,
+                    expiryDate: dateFormat.format(expiryDate),
+                    daysLeft: daysLeft,
+                  ),
+                );
+              }
+            } catch (_) {
+              // Ignore invalid dates
             }
-          } catch (_) {
-            // Ignore invalid dates
           }
         }
       }
     }
 
-    // 2. Parse past leave history records across all leave application tables (Casual Leave, RH, C-Off, etc.)
+    // 2. Parse past leave history records strictly from genuine Leave Application tables
+    // (Casual Leave, Restricted Holiday, Compensatory Off Availed, Earned Leave)
     final historyList = <LeaveHistoryItem>[];
     final tables = soup.querySelectorAll('table');
 
@@ -159,22 +169,29 @@ class ScraperEngine {
       final trList = table.querySelectorAll('tr');
       if (trList.isEmpty) continue;
 
-      // Determine if this table contains leave application rows (5 to 9 columns)
+      final tableText = table.text.toLowerCase();
+
+      // Crucial: Completely bypass the Duty Credit Ledger!
+      // Duty credits represent extra shifts worked, NEVER leaves taken by the employee.
+      if (tableText.contains('duty details') ||
+          tableText.contains('date of duty') ||
+          tableText.contains('duty date') ||
+          tableText.contains('reporting time') ||
+          tableText.contains('relieving time') ||
+          tableText.contains('total hours') ||
+          tableText.contains('duty credit')) {
+        continue;
+      }
+
+      // Determine if this table contains genuine leave application rows
+      // A leave table MUST contain headers referencing 'leave date' or 'application date'
       bool isLeaveHistoryTable = false;
       for (final tr in trList) {
-        final cells = tr.querySelectorAll('th, td');
-        if (cells.length >= 5 && cells.length <= 9) {
-          final t = tr.text.toLowerCase();
-          if (t.contains('sl.') || t.contains('leave date') || t.contains('duration') || t.contains('application')) {
-            isLeaveHistoryTable = true;
-            break;
-          }
-          if (cells.length >= 3 &&
-              (RegExp(r'^\d{2}-\d{2}-\d{4}$').hasMatch(cells[1].text.trim()) ||
-               RegExp(r'^\d{2}-\d{2}-\d{4}$').hasMatch(cells[2].text.trim()))) {
-            isLeaveHistoryTable = true;
-            break;
-          }
+        final t = tr.text.toLowerCase();
+        if ((t.contains('leave date') || t.contains('period of leave')) &&
+            (t.contains('application') || t.contains('duration') || t.contains('status') || t.contains('sl.'))) {
+          isLeaveHistoryTable = true;
+          break;
         }
       }
 
@@ -252,10 +269,10 @@ class ScraperEngine {
             continue;
           }
 
-          // Skip non-date rows
-          final hasValidDate = RegExp(r'^\d{2}-\d{2}-\d{4}$').hasMatch(leaveDate) ||
-              RegExp(r'^\d{2}-\d{2}-\d{4}$').hasMatch(appDate);
-          if (!hasValidDate) continue;
+          // A genuine leave application MUST have a real date in leaveDate!
+          final hasValidLeaveDate = RegExp(r'\d{1,2}[-/. ]\d{1,2}[-/. ]\d{2,4}').hasMatch(leaveDate) ||
+              RegExp(r'\d{1,2}[-/. ][A-Za-z]+[-/. ]\d{2,4}').hasMatch(leaveDate);
+          if (!hasValidLeaveDate) continue;
 
           final slNo = int.tryParse(slText) ?? 0;
           final duration = cols.length > 3
@@ -320,7 +337,16 @@ class ScraperEngine {
 
           // Specific leave type inference per row (e.g. if row mentions RH or C-Off)
           String itemLeaveType = defaultLeaveType;
-          final rowCombined = '${tr.text} $reason'.toLowerCase();
+          final rowCombined = '${tr.text} $leaveDate $reason'.toLowerCase();
+          // Skip if this is a duty credit or shift record
+          if (rowCombined.contains('duty credit') ||
+              rowCombined.contains('night duty') ||
+              rowCombined.contains('general shift') ||
+              rowCombined.contains('shift duty') ||
+              rowCombined.contains('in lieu of duty')) {
+            continue;
+          }
+
           if (rowCombined.contains('restricted holiday') || rowCombined.contains('rh-') || rowCombined.contains('rh -')) {
             itemLeaveType = 'Restricted Holiday';
           } else if (rowCombined.contains('compensatory off') || rowCombined.contains('c-off') || rowCombined.contains('comp off')) {
