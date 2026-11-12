@@ -95,7 +95,13 @@ class LeaveHistoryItem {
 
   bool get isApproved {
     final s = status.toLowerCase();
-    return s.contains('approved') || s.contains('availed');
+    if (s.contains('pending')) return false;
+    return s.contains('approved') || s.contains('availed') || s.contains('sanctioned');
+  }
+
+  bool get isPending {
+    final s = status.toLowerCase();
+    return s.contains('pending');
   }
 
   /// Returns true only if this is a genuine leave application/availed record

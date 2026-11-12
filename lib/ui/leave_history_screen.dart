@@ -13,6 +13,7 @@ class DayLeaveEntry {
   final String status;
   final bool isApproved;
   final bool isCancelled;
+  final bool isPending;
   final LeaveHistoryItem originalItem;
   final int dayIndex;
   final int totalDays;
@@ -23,6 +24,7 @@ class DayLeaveEntry {
     required this.status,
     required this.isApproved,
     required this.isCancelled,
+    this.isPending = false,
     required this.originalItem,
     this.dayIndex = 1,
     this.totalDays = 1,
@@ -181,6 +183,7 @@ class _LeaveHistoryScreenState extends State<LeaveHistoryScreen> {
             status: item.status,
             isApproved: item.isApproved,
             isCancelled: item.isCancelled,
+            isPending: item.isPending,
             originalItem: item,
             dayIndex: idx++,
             totalDays: totalDays > 0 ? totalDays : 1,
@@ -209,6 +212,7 @@ class _LeaveHistoryScreenState extends State<LeaveHistoryScreen> {
           status: item.status,
           isApproved: item.isApproved,
           isCancelled: item.isCancelled,
+          isPending: item.isPending,
           originalItem: item,
         )
       ];
@@ -222,6 +226,7 @@ class _LeaveHistoryScreenState extends State<LeaveHistoryScreen> {
         status: item.status,
         isApproved: item.isApproved,
         isCancelled: item.isCancelled,
+        isPending: item.isPending,
         originalItem: item,
         dayIndex: i + 1,
         totalDays: numDays,
@@ -711,6 +716,7 @@ class _LeaveHistoryScreenState extends State<LeaveHistoryScreen> {
         final isDark = Theme.of(ctx).brightness == Brightness.dark;
         final monthTitle = DateFormat('MMMM yyyy').format(month);
         final availedCount = dayLeaves.where((d) => d.isApproved).length;
+        final pendingCount = dayLeaves.where((d) => d.isPending).length;
         final cancelledCount = dayLeaves.where((d) => d.isCancelled).length;
 
         return StatefulBuilder(
@@ -828,6 +834,24 @@ class _LeaveHistoryScreenState extends State<LeaveHistoryScreen> {
                           ),
                           Row(
                             children: [
+                              if (pendingCount > 0) ...[
+                                Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                  decoration: BoxDecoration(
+                                    color: const Color(0xFFF59E0B).withOpacity(0.18),
+                                    borderRadius: BorderRadius.circular(6),
+                                  ),
+                                  child: Text(
+                                    '$pendingCount Pending',
+                                    style: const TextStyle(
+                                      fontSize: 10,
+                                      fontWeight: FontWeight.w700,
+                                      color: Color(0xFFF59E0B),
+                                    ),
+                                  ),
+                                ),
+                                const SizedBox(width: 6),
+                              ],
                               if (availedCount > 0) ...[
                                 Container(
                                   padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
@@ -1073,7 +1097,7 @@ class _LeaveHistoryScreenState extends State<LeaveHistoryScreen> {
                   ),
                 ),
 
-                // 4. Status Indicator Tag (Cancelled strike or Availed check)
+                // 4. Status Indicator Tag (Cancelled strike, Pending tag, or Availed check)
                 if (entry.isCancelled) ...[
                   const SizedBox(width: 6),
                   Container(
@@ -1089,6 +1113,24 @@ class _LeaveHistoryScreenState extends State<LeaveHistoryScreen> {
                         fontSize: 9.5,
                         fontWeight: FontWeight.w800,
                         color: Color(0xFFFF453A),
+                      ),
+                    ),
+                  ),
+                ] else if (entry.isPending) ...[
+                  const SizedBox(width: 6),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFF59E0B).withOpacity(0.16),
+                      borderRadius: BorderRadius.circular(6),
+                      border: Border.all(color: const Color(0xFFF59E0B).withOpacity(0.3), width: 0.6),
+                    ),
+                    child: const Text(
+                      '⏳ Pending',
+                      style: TextStyle(
+                        fontSize: 9.5,
+                        fontWeight: FontWeight.w800,
+                        color: Color(0xFFF59E0B),
                       ),
                     ),
                   ),
