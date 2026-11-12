@@ -116,79 +116,54 @@ class ScraperEngine {
 
     final rows = soup.querySelectorAll('tr[bgcolor="#ffffff"], tr[bgcolor="#f5f5f5"]');
 
-    // 1. Parse expiring C-Off credits (>= 10 columns) and availed C-Off records
-    final historyList = <LeaveHistoryItem>[];
-
+    // 1. Parse expiring C-Off duty credits (>= 10 columns in the Duty Credit Ledger)
     for (final row in rows) {
       final cols = row.querySelectorAll('td');
       if (cols.length >= 10) {
-        final slText = cols[0].text.trim();
         final dateOfCreditStr = cols[1].text.trim();
-        final dutyDetails = cols[2].text.trim();
-        final actionOfficer = cols[6].text.trim();
         final status = cols[8].text.trim();
 
-        if (RegExp(r'^\d{2}-\d{2}-\d{4}$').hasMatch(dateOfCreditStr)) {
-          // If status is empty, this C-Off is unavailed (subject to 6-month expiry)
-          if (status.isEmpty) {
-            try {
-              final creditDate = dateFormat.parse(dateOfCreditStr);
-              final expiryDate = DateTime(
-                creditDate.year,
-                creditDate.month + 6,
-                creditDate.day,
-              );
-              final daysLeft = expiryDate.difference(currentDate).inDays;
-
-              if (daysLeft > 0) {
-                lapsingAlerts.add(
-                  LapsingAlert(
-                    creditDate: dateOfCreditStr,
-                    expiryDate: dateFormat.format(expiryDate),
-                    daysLeft: daysLeft,
-                  ),
-                );
-              }
-            } catch (_) {}
-          } else {
-            // Status is NOT empty -> This C-Off was availed or acted upon!
-            final dateMatch = RegExp(r'\d{2}-\d{2}-\d{4}').firstMatch(status);
-            final leaveDate = dateMatch != null ? dateMatch.group(0)! : dateOfCreditStr;
-
-            historyList.add(
-              LeaveHistoryItem(
-                slNo: int.tryParse(slText) ?? 0,
-                leaveType: 'Compensatory Off',
-                applicationDate: dateOfCreditStr,
-                leaveDate: leaveDate,
-                duration: '1 DAY',
-                reason: dutyDetails.isNotEmpty
-                    ? 'C-Off in lieu of duty: $dutyDetails'
-                    : 'Compensatory Off Duty',
-                status: status.toLowerCase().contains('cancel')
-                    ? 'Cancelled'
-                    : 'Approved & Availed',
-                actionBy: actionOfficer.isNotEmpty ? actionOfficer : 'Sanctioned by IMD',
-                actionRemarks: status,
-              ),
+        // If status is empty, this C-Off duty credit is unavailed (subject to 6-month expiry)
+        if (status.isEmpty && RegExp(r'^\d{2}-\d{2}-\d{4}$').hasMatch(dateOfCreditStr)) {
+          try {
+            final creditDate = dateFormat.parse(dateOfCreditStr);
+            // In Python: credit_date + relativedelta(months=+6)
+            final expiryDate = DateTime(
+              creditDate.year,
+              creditDate.month + 6,
+              creditDate.day,
             );
+            final daysLeft = expiryDate.difference(currentDate).inDays;
+
+            if (daysLeft > 0) {
+              lapsingAlerts.add(
+                LapsingAlert(
+                  creditDate: dateOfCreditStr,
+                  expiryDate: dateFormat.format(expiryDate),
+                  daysLeft: daysLeft,
+                ),
+              );
+            }
+          } catch (_) {
+            // Ignore invalid dates
           }
         }
       }
     }
 
-    // 2. Parse past leave history records across all tables (Casual Leave, RH, C-Off, etc.)
+    // 2. Parse past leave history records across all leave application tables (Casual Leave, RH, C-Off, etc.)
+    final historyList = <LeaveHistoryItem>[];
     final tables = soup.querySelectorAll('table');
 
     for (final table in tables) {
       final trList = table.querySelectorAll('tr');
       if (trList.isEmpty) continue;
 
-      // Determine if this table contains leave application rows (5 to 10 columns)
+      // Determine if this table contains leave application rows (5 to 9 columns)
       bool isLeaveHistoryTable = false;
       for (final tr in trList) {
         final cells = tr.querySelectorAll('th, td');
-        if (cells.length >= 5 && cells.length <= 10) {
+        if (cells.length >= 5 && cells.length <= 9) {
           final t = tr.text.toLowerCase();
           if (t.contains('sl.') || t.contains('leave date') || t.contains('duration') || t.contains('application')) {
             isLeaveHistoryTable = true;

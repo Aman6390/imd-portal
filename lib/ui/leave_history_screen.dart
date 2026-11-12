@@ -78,6 +78,9 @@ class _LeaveHistoryScreenState extends State<LeaveHistoryScreen> {
   List<int> get _availableYears {
     final years = <int>{DateTime.now().year};
     for (final item in widget.leaveHistory) {
+      if (item.reason.startsWith('C-Off in lieu of duty:') || item.reason == 'Compensatory Off Duty') {
+        continue;
+      }
       final dt = item.parsedLeaveDate ?? item.parsedApplicationDate;
       if (dt != null) years.add(dt.year);
     }
@@ -92,6 +95,9 @@ class _LeaveHistoryScreenState extends State<LeaveHistoryScreen> {
 
     // Check if any leave in this year is recorded in a future month
     for (final item in widget.leaveHistory) {
+      if (item.reason.startsWith('C-Off in lieu of duty:') || item.reason == 'Compensatory Off Duty') {
+        continue;
+      }
       final dt = item.parsedLeaveDate ?? item.parsedApplicationDate;
       if (dt != null && dt.year == _selectedYear && dt.month > maxMonth) {
         maxMonth = dt.month;
@@ -199,15 +205,35 @@ class _LeaveHistoryScreenState extends State<LeaveHistoryScreen> {
 
   /// Returns all day-by-day leave records falling into the given month, sorted chronologically ascending
   List<DayLeaveEntry> _getDayLeavesForMonth(DateTime month) {
-    final result = <DayLeaveEntry>[];
+    final rawList = <DayLeaveEntry>[];
     for (final item in widget.leaveHistory) {
+      // Discard any false duty credit records that may exist in cached offline storage
+      if (item.reason.startsWith('C-Off in lieu of duty:') || item.reason == 'Compensatory Off Duty') {
+        continue;
+      }
       final days = _expandItemToDays(item);
       for (final day in days) {
         if (day.date.year == month.year && day.date.month == month.month) {
-          result.add(day);
+          rawList.add(day);
         }
       }
     }
+
+    // Defensive Deduplication: Ensure each calendar date has at most 1 distinct entry per leave type
+    final uniqueMap = <String, DayLeaveEntry>{};
+    for (final day in rawList) {
+      final dateKey = '${DateFormat('yyyy-MM-dd').format(day.date)}_${day.leaveType}';
+      if (!uniqueMap.containsKey(dateKey)) {
+        uniqueMap[dateKey] = day;
+      } else {
+        // If one is cancelled and the other is approved/availed, prefer the approved entry
+        if (uniqueMap[dateKey]!.isCancelled && !day.isCancelled) {
+          uniqueMap[dateKey] = day;
+        }
+      }
+    }
+
+    final result = uniqueMap.values.toList();
     // Sort chronologically ascending (01-Mar -> 31-Mar)
     result.sort((a, b) => a.date.compareTo(b.date));
     return result;
@@ -241,8 +267,11 @@ class _LeaveHistoryScreenState extends State<LeaveHistoryScreen> {
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
 
-    final totalAvailed = widget.leaveHistory.where((l) => l.isApproved).length;
-    final totalCancelled = widget.leaveHistory.where((l) => l.isCancelled).length;
+    final validHistory = widget.leaveHistory.where((l) =>
+        !l.reason.startsWith('C-Off in lieu of duty:') &&
+        l.reason != 'Compensatory Off Duty').toList();
+    final totalAvailed = validHistory.where((l) => l.isApproved).length;
+    final totalCancelled = validHistory.where((l) => l.isCancelled).length;
     final clBalance = widget.balances['Casual Leave (CL)'] ?? '0';
 
     final months = _monthsForSelectedYear;

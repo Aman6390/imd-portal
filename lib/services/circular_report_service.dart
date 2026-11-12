@@ -83,7 +83,7 @@ class CircularReportService {
               'Authorization': 'Bearer $token',
               'Accept': 'application/vnd.github.v3+json',
               'Content-Type': 'application/json',
-              'User-Agent': 'IMD-Portal-Scout/1.4.36',
+              'User-Agent': 'IMD-Portal-Scout/1.4.37',
             },
             body: json.encode({
               'title': issueTitle,
