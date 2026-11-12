@@ -399,7 +399,6 @@ class ScraperEngine {
           }
         }
       }
-    }
 
     return (balances, lapsingAlerts, historyList);
   }
