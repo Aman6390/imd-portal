@@ -5,6 +5,8 @@ class CircularItem {
   final String title;
   final String link;
   final String date;
+  final String category; // e.g. 'General', 'Admin', 'Promotion', 'Transfer', 'MACP', 'Training'
+  final bool isMyOffice; // true when issued under "Of Your Office only"
   bool isUnavailable;
   String? cachedPath;
 
@@ -12,6 +14,8 @@ class CircularItem {
     required this.title,
     required this.link,
     required this.date,
+    this.category = '',
+    this.isMyOffice = false,
     this.isUnavailable = false,
     this.cachedPath,
   });
@@ -21,6 +25,8 @@ class CircularItem {
       title: json['title'] ?? '',
       link: json['link'] ?? '',
       date: json['date'] ?? '',
+      category: json['category'] ?? '',
+      isMyOffice: json['isMyOffice'] == true,
       isUnavailable: json['isUnavailable'] == true,
       cachedPath: json['cachedPath'],
     );
@@ -30,6 +36,8 @@ class CircularItem {
         'title': title,
         'link': link,
         'date': date,
+        'category': category,
+        'isMyOffice': isMyOffice,
         'isUnavailable': isUnavailable,
         'cachedPath': cachedPath,
       };
@@ -340,6 +348,8 @@ class DashboardData {
   String get clBalance => leaves['Casual Leave (CL)'] ?? '0';
   String get rhBalance => leaves['Restricted Holiday (RH)'] ?? '0';
   String get coffBalance => leaves['Compensatory Off (C-Off)'] ?? '0';
+  String get elBalance => leaves['Earned Leave (EL)'] ?? '0';
+  String get hplBalance => leaves['Half Pay Leave (HPL)'] ?? '0';
 
   factory DashboardData.fromJson(Map<String, dynamic> json) {
     final leavesMap = <String, String>{};

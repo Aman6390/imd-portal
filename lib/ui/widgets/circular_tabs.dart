@@ -108,13 +108,22 @@ class _CircularTabsState extends State<CircularTabs> {
       return keywords.any((k) => t.contains(k) || reasons.any((r) => r.contains(k)));
     }
 
+    // 0. My Office Feed Badge
+    if (item.isMyOffice) {
+      badges.add(const _TopicBadge('My Office', Color(0xFF0EA5E9)));
+    }
+
     // 1. Transfer / Posting
-    if (hasKeyword(['transfer', 'posting', 'working arrangement', 'lacd', 'station', 'स्थानांतरण', 'पदस्थापना'])) {
+    if (item.category == 'Transfer' ||
+        hasKeyword(['transfer', 'posting', 'working arrangement', 'lacd', 'station', 'स्थानांतरण', 'पदस्थापना'])) {
       badges.add(const _TopicBadge('Transfer', Color(0xFF007AFF)));
     }
 
     // 2. Promotion / MACP
-    if (hasKeyword(['promotion', 'macp', 'modified acp', 'financial upgradation', 'पदोन्नति'])) {
+    if (item.category == 'MACP' || t.contains('macp') || t.contains('modified acp')) {
+      badges.add(const _TopicBadge('MACP', Color(0xFFF59E0B)));
+    } else if (item.category == 'Promotion' ||
+        hasKeyword(['promotion', 'financial upgradation', 'पदोन्नति'])) {
       badges.add(const _TopicBadge('Promotion', Color(0xFF34C759)));
     }
 
@@ -124,8 +133,14 @@ class _CircularTabsState extends State<CircularTabs> {
     }
 
     // 4. Training / WMO
-    if (hasKeyword(['training', 'course', 'wmo', 'fellowship', 'प्रशिक्षण'])) {
+    if (item.category == 'Training' ||
+        hasKeyword(['training', 'course', 'wmo', 'fellowship', 'प्रशिक्षण'])) {
       badges.add(const _TopicBadge('Training', Color(0xFF30B0C7)));
+    }
+
+    // 4b. Vacancy
+    if (item.category == 'Vacancy' || hasKeyword(['vacancy', 'deputation', 'रिक्त'])) {
+      badges.add(const _TopicBadge('Vacancy', Color(0xFFEC4899)));
     }
 
     // 5. Exam / LDCE
@@ -144,6 +159,9 @@ class _CircularTabsState extends State<CircularTabs> {
 
   List<CircularItem> _applyFilter(List<CircularItem> list) {
     if (_selectedFilter == 'All') return list;
+    if (_selectedFilter == 'My Office') {
+      return list.where((item) => item.isMyOffice).toList();
+    }
     if (_selectedFilter == 'Bookmarked') {
       return list.where((item) => _bookmarkedUrls.contains(item.link)).toList();
     }
@@ -162,13 +180,19 @@ class _CircularTabsState extends State<CircularTabs> {
           return aiMeta?.actionRequired == true ||
               hasKeyword(['deadline', 'representation', 'objection', 'apply', 'proforma', 'calling for', 'last date', 'by 1700', 'अभ्यावेदन', 'आपत्ति', 'action required']);
         case 'Transfers':
-          return hasKeyword(['transfer', 'posting', 'working arrangement', 'lacd', 'station', 'स्थानांतरण', 'पदस्थापना']);
+          return item.category == 'Transfer' ||
+              hasKeyword(['transfer', 'posting', 'working arrangement', 'lacd', 'station', 'स्थानांतरण', 'पदस्थापना']);
         case 'Promotions':
-          return hasKeyword(['promotion', 'macp', 'modified acp', 'financial upgradation', 'पदोन्नति']);
+          return item.category == 'Promotion' ||
+              hasKeyword(['promotion', 'financial upgradation', 'पदोन्नति']);
+        case 'MACP':
+          return item.category == 'MACP' ||
+              hasKeyword(['macp', 'modified acp', 'एमएसीपी']);
         case 'Seniority':
           return hasKeyword(['seniority', 'gradation', 'वरिष्ठता']);
         case 'Training':
-          return hasKeyword(['training', 'course', 'wmo', 'fellowship', 'प्रशिक्षण']);
+          return item.category == 'Training' ||
+              hasKeyword(['training', 'course', 'wmo', 'fellowship', 'प्रशिक्षण']);
         case 'Exams':
           return hasKeyword(['ldce', 'exam', 'examination', 'cutoff', 'परीक्षा']);
         case 'Met B':
@@ -224,9 +248,11 @@ class _CircularTabsState extends State<CircularTabs> {
   Widget _buildFilterChips() {
     final filters = [
       'All',
+      'My Office',
       'Deadlines',
       'Transfers',
       'Promotions',
+      'MACP',
       'Seniority',
       'Training',
       'Exams',

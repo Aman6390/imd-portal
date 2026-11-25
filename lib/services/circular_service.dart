@@ -69,8 +69,13 @@ class CircularService {
     if (uri != null && uri.pathSegments.isNotEmpty) {
       final filename = uri.pathSegments.last;
 
-      // Candidate 2: standard root docs
+      // Candidate 2: standard root docs & order directories
       candidates.add('https://metnet.imd.gov.in/docs/$filename');
+      candidates.add('https://metnet.imd.gov.in/docs/circulars/$filename');
+      candidates.add('https://metnet.imd.gov.in/docs/orders_pt/$filename');
+      candidates.add('https://metnet.imd.gov.in/docs/orders_ot/$filename');
+      candidates.add('https://metnet.imd.gov.in/docs/orders_st/$filename');
+      candidates.add('https://metnet.imd.gov.in/docs/orders_macp/$filename');
 
       // Candidate 3: phps/docs directory
       candidates.add('https://metnet.imd.gov.in/phps/docs/$filename');

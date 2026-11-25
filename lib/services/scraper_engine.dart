@@ -445,17 +445,103 @@ class ScraperEngine {
               leaveDate: leaveDate,
               duration: duration,
               reason: reason,
-                slpAddress: slpAddress,
-                status: status,
-                actionBy: actionBy,
-                actionRemarks: actionRemarks,
-              ),
-            );
-          }
+              slpAddress: slpAddress,
+              status: status,
+              actionBy: actionBy,
+              actionRemarks: actionRemarks,
+            ),
+          );
+        }
+      }
+    }
+
+    return (balances, lapsingAlerts, historyList);
+  }
+
+  /// Parses Earned Leave (EL) & Half-Pay Leave (HPL) balances and yearly availed spells
+  /// from options0_imdceass_show.php?field=leave HTML.
+  static List<LeaveHistoryItem> parseCeassLeaveRecord(
+    dom.Document soup,
+    Map<String, String> balances,
+  ) {
+    final normalizedText = (soup.body?.text ?? '')
+        .replaceAll('\u00A0', ' ')
+        .replaceAll(RegExp(r'\s+'), ' ')
+        .trim();
+
+    final elMatch = RegExp(
+      r'Earned Leave\s*:\s*Balance\s*:\s*(\d+)\s*Days',
+      caseSensitive: false,
+    ).firstMatch(normalizedText);
+    if (elMatch != null) {
+      balances['Earned Leave (EL)'] = elMatch.group(1)!;
+    }
+
+    final hplMatch = RegExp(
+      r'Half Pay Leave\s*:\s*Balance\s*:\s*(\d+)\s*Days',
+      caseSensitive: false,
+    ).firstMatch(normalizedText);
+    if (hplMatch != null) {
+      balances['Half Pay Leave (HPL)'] = hplMatch.group(1)!;
+    }
+
+    final spells = <LeaveHistoryItem>[];
+    final fullHtml = soup.outerHtml;
+
+    for (final table in soup.querySelectorAll('table')) {
+      final trs = table.querySelectorAll('tr');
+      if (trs.length < 2) continue;
+
+      final hdrCells = trs.first.querySelectorAll('th, td').map((c) => c.text.toLowerCase().trim()).toList();
+      if (hdrCells.length > 6) continue; // Ignore outer layout wrapper tables
+      final hasSpell = hdrCells.any((c) => c.contains('spell'));
+      final hasFrom = hdrCells.any((c) => c == 'from' || c.contains('from'));
+      final hasTo = hdrCells.any((c) => c == 'to' || c.contains('to'));
+      if (!hasSpell || !hasFrom || !hasTo) continue;
+
+      // Determine whether this sub-table belongs to Earned Leave or Half Pay Leave
+      String leaveType = 'Earned Leave';
+      final pos = fullHtml.indexOf(table.outerHtml);
+      if (pos > 0) {
+        final preceding = fullHtml.substring(0, pos);
+        final lastEl = preceding.lastIndexOf(RegExp(r'Earned Leave', caseSensitive: false));
+        final lastHpl = preceding.lastIndexOf(RegExp(r'Half Pay Leave', caseSensitive: false));
+        if (lastHpl > lastEl) {
+          leaveType = 'Half Pay Leave';
         }
       }
 
-    return (balances, lapsingAlerts, historyList);
+      for (int i = 1; i < trs.length; i++) {
+        final cols = trs[i].querySelectorAll('td');
+        if (cols.length < 3) continue;
+        final spellStr = cols[0].text.replaceAll('\u00A0', ' ').trim();
+        final fromStr = cols[1].text.replaceAll('\u00A0', ' ').trim();
+        final toStr = cols[2].text.replaceAll('\u00A0', ' ').trim();
+        final daysStr = cols.length >= 4 ? cols[3].text.replaceAll('\u00A0', ' ').trim() : '1';
+
+        final hasValidFrom = RegExp(r'\d{1,2}[-/.]\d{1,2}[-/.]\d{2,4}').hasMatch(fromStr);
+        if (!hasValidFrom) continue;
+
+        final hasValidTo = RegExp(r'\d{1,2}[-/.]\d{1,2}[-/.]\d{2,4}').hasMatch(toStr);
+        final dateRange = (hasValidTo && toStr != fromStr) ? '$fromStr to $toStr' : fromStr;
+        final slNo = int.tryParse(spellStr) ?? i;
+
+        spells.add(
+          LeaveHistoryItem(
+            slNo: slNo,
+            leaveType: leaveType,
+            applicationDate: fromStr,
+            leaveDate: dateRange,
+            duration: '${daysStr.isNotEmpty ? daysStr : "1"} DAY',
+            reason: 'e-Service Book Spell #$slNo',
+            status: 'Approved & Availed',
+            actionBy: 'IMD CeASS',
+          ),
+        );
+      }
+    }
+
+    return spells;
   }
 
   /// Parses various date formats commonly used in MetNet circulars (e.g. 15-10-2026, 15/10/2026, 15-Oct-2026, 2026-10-15)
@@ -523,6 +609,42 @@ class ScraperEngine {
     return null;
   }
 
+  /// Infers feed category and whether the feed is scoped to the employee's own office
+  static (String category, bool isMyOffice) _classifyFeedUrl(String sourceBaseUrl) {
+    final uri = Uri.tryParse(sourceBaseUrl);
+    final qp = uri?.queryParameters ?? const <String, String>{};
+    final pathLower = (uri?.path ?? sourceBaseUrl).toLowerCase();
+
+    final isMyOffice = pathLower.contains('circulars_display_10.php') ||
+        (qp.containsKey('id') && (qp['id'] ?? '').isNotEmpty);
+
+    final orderType = (qp['order_type'] ?? '').toLowerCase();
+    final circType = (qp['circular_type'] ?? qp['type'] ?? '').toLowerCase();
+
+    String category = '';
+    if (orderType == 'orders_pt') {
+      category = 'Promotion';
+    } else if (orderType == 'orders_ot' || orderType == 'orders_st') {
+      category = 'Transfer';
+    } else if (orderType == 'orders_macp') {
+      category = 'MACP';
+    } else if (circType == 'admin') {
+      category = 'Admin';
+    } else if (circType == 'training') {
+      category = 'Training';
+    } else if (circType == 'vacancy') {
+      category = 'Vacancy';
+    } else if (circType == 'rajbhasha') {
+      category = 'Rajbhasha';
+    } else if (circType == 'seminar' || circType == 'workshop') {
+      category = 'Workshop';
+    } else if (circType == 'general') {
+      category = 'General';
+    }
+
+    return (category, isMyOffice);
+  }
+
   /// Parses circulars of the last one month using Title Pre-Filter (Fast-Path), OCR Cache, and on-device Devanagari OCR (Slow-Path)
   static Future<(List<CircularItem>, List<CircularItem>)> parseCirculars(
     dom.Document soup,
@@ -532,13 +654,14 @@ class ScraperEngine {
   }) async {
     final vipCirculars = <CircularItem>[];
     final fomoCirculars = <CircularItem>[];
+    final (feedCategory, feedIsMyOffice) = _classifyFeedUrl(sourceBaseUrl);
 
     final dynamicVipKeywords = await StorageService.loadVipKeywords();
     final dynamicJunkKeywords = await StorageService.loadJunkKeywords();
     final ocrCache = await StorageService.loadOcrCache();
 
-    // Calculate cutoff date: exactly 1 month (31 days) ago
-    final oneMonthAgo = DateTime.now().subtract(const Duration(days: 31));
+    // Calculate cutoff date: 31 days for All-India feeds, 90 days (min top 5 rows) for My Office
+    final cutoffDate = DateTime.now().subtract(Duration(days: feedIsMyOffice ? 90 : 31));
 
     // Flexible row selector: standard alternating bgcolor first, fallback to any tr with links
     var rows = soup.querySelectorAll('tr[bgcolor="#ffffff"], tr[bgcolor="#f5f5f5"]');
@@ -551,6 +674,7 @@ class ScraperEngine {
 
     int uncachedOcrCount = 0;
     int rowIndex = 0;
+    int consecutiveOldRows = 0;
 
     for (final row in rows) {
       rowIndex++;
@@ -600,12 +724,15 @@ class ScraperEngine {
 
       final titleLower = title.toLowerCase();
 
-      // Filter by Date: only keep circulars from the last one month
+      // Filter by Date: only keep recent circulars (within cutoff, or top 5 for My Office)
       if (parsedDate != null) {
-        if (parsedDate.isBefore(oneMonthAgo)) {
-          // Circular is older than 31 days -> skip
+        if (parsedDate.isBefore(cutoffDate) && !(feedIsMyOffice && rowIndex <= 5)) {
+          // Tables are newest-first; once 6 consecutive old rows appear, exit early to save CPU
+          consecutiveOldRows++;
+          if (consecutiveOldRows >= 6) break;
           continue;
         }
+        consecutiveOldRows = 0;
       } else if (rowIndex > 50) {
         // Deep table fallback limit
         continue;
@@ -632,7 +759,13 @@ class ScraperEngine {
         continue;
       }
 
-      final item = CircularItem(title: title, link: link, date: uploadDate);
+      final item = CircularItem(
+        title: title,
+        link: link,
+        date: uploadDate,
+        category: feedCategory,
+        isMyOffice: feedIsMyOffice,
+      );
 
       // Context for VIP filter: Title + Specific Cadre + AI Summary + VIP Reasons
       final vipSearchContext =
@@ -832,15 +965,26 @@ class ScraperEngine {
         String? leaveUrl;
         String? leaveMenuUrl;
         String? ehUrl;
+        String? ceassLeaveUrl;
         const baseUrl = 'https://metnet.imd.gov.in/phps/';
 
-        // Multi-category circular URL discovery across the portal
-        final circularTargetUrls = <String>{};
+        // Deduplicated feed queues: My Office first so isMyOffice=true wins deduplication
+        final myOfficeFeedMap = <String, String>{};
+        final orderFeedMap = <String, String>{};
+        final circularFeedMap = <String, String>{};
+
+        String feedKey(Uri u) {
+          final qp = u.queryParameters;
+          final cType = qp['circular_type'] ?? qp['type'] ?? '';
+          final oType = qp['order_type'] ?? '';
+          final id = qp['id'] ?? '';
+          return '${u.path}|$cType|$oType|$id';
+        }
 
         for (final a in soupMain.querySelectorAll('a[href]')) {
-          final href = a.attributes['href'] ?? '';
+          final href = (a.attributes['href'] ?? '').trim();
           final hrefLower = href.toLowerCase();
-          final textLower = a.text.toLowerCase();
+          final anchorText = a.text.trim();
 
           if (href.contains('leave_1.php') && leaveUrl == null) {
             leaveUrl = Uri.parse(baseUrl).resolve(href).toString();
@@ -851,20 +995,43 @@ class ScraperEngine {
           if (href.contains('leave_eh1.php') && ehUrl == null) {
             ehUrl = Uri.parse(baseUrl).resolve(href).toString();
           }
+          if (href.contains('options0_imdceass_show.php') &&
+              href.contains('field=leave') &&
+              ceassLeaveUrl == null) {
+            ceassLeaveUrl = Uri.parse(baseUrl).resolve(href).toString();
+          }
 
-          if (hrefLower.contains('circular') ||
-              hrefLower.contains('order') ||
-              textLower.contains('circular') ||
-              textLower.contains('order') ||
-              textLower.contains('peripat') ||
-              textLower.contains('aadesh') ||
-              textLower.contains('परिपत्र') ||
-              textLower.contains('आदेश')) {
-            if (hrefLower.contains('.php') &&
-                !hrefLower.contains('leave') &&
-                !hrefLower.contains('logout')) {
-              final fullUrl = Uri.parse(baseUrl).resolve(href).toString();
-              circularTargetUrls.add(fullUrl);
+          if (!hrefLower.contains('.php') ||
+              hrefLower.contains('leave') ||
+              hrefLower.contains('logout')) {
+            continue;
+          }
+
+          if (hrefLower.contains('circulars_display_10.php') ||
+              hrefLower.contains('circulars_display_2.php') ||
+              hrefLower.contains('orders_display_2.php')) {
+            // Skip zero-count office-only badges (e.g. "0" under My Office or empty SEMINAR/VACANCY=0)
+            if (anchorText == '0') continue;
+
+            final fullUrl = Uri.parse(baseUrl).resolve(href.replaceAll('&amp;', '&')).toString();
+            final uri = Uri.tryParse(fullUrl);
+            if (uri == null) continue;
+            final key = feedKey(uri);
+            final hasTokenV = (uri.queryParameters['v'] ?? '').isNotEmpty;
+
+            if (hrefLower.contains('circulars_display_10.php') ||
+                (uri.queryParameters['id'] ?? '').isNotEmpty) {
+              if (!myOfficeFeedMap.containsKey(key) || hasTokenV) {
+                myOfficeFeedMap[key] = fullUrl;
+              }
+            } else if (hrefLower.contains('orders_display_2.php')) {
+              if (!orderFeedMap.containsKey(key) || hasTokenV) {
+                orderFeedMap[key] = fullUrl;
+              }
+            } else {
+              if (!circularFeedMap.containsKey(key) || hasTokenV) {
+                circularFeedMap[key] = fullUrl;
+              }
             }
           }
         }
@@ -910,16 +1077,26 @@ class ScraperEngine {
           } catch (_) {}
         }
 
-        // Always query standard MetNet circular sections so no transfers, establishment,
-        // or general office orders are missed
-        const standardCategories = [
-          'https://metnet.imd.gov.in/phps/circulars_display_2.php?type=GENERAL',
-          'https://metnet.imd.gov.in/phps/circulars_display_2.php?type=ESTABLISHMENT',
-          'https://metnet.imd.gov.in/phps/circulars_display_2.php?type=OFFICE_ORDER',
-          'https://metnet.imd.gov.in/phps/circulars_display_2.php?type=TRANSFER',
-          'https://metnet.imd.gov.in/phps/circulars_display_2.php',
+        // Ordered feed list: My Office -> Promotions/Transfers/MACP Orders -> All-India Circulars
+        final circularTargetUrls = <String>[
+          ...myOfficeFeedMap.values,
+          ...orderFeedMap.values,
+          ...circularFeedMap.values,
         ];
-        circularTargetUrls.addAll(standardCategories);
+
+        // Fallback standard MetNet sections if main2.php discovery was empty
+        if (circularTargetUrls.isEmpty) {
+          circularTargetUrls.addAll(const [
+            'https://metnet.imd.gov.in/phps/orders_display_2.php?order_type=orders_pt',
+            'https://metnet.imd.gov.in/phps/orders_display_2.php?order_type=orders_ot',
+            'https://metnet.imd.gov.in/phps/orders_display_2.php?order_type=orders_st',
+            'https://metnet.imd.gov.in/phps/orders_display_2.php?order_type=orders_macp',
+            'https://metnet.imd.gov.in/phps/circulars_display_2.php?circular_type=GENERAL',
+            'https://metnet.imd.gov.in/phps/circulars_display_2.php?circular_type=ADMIN',
+            'https://metnet.imd.gov.in/phps/circulars_display_2.php?circular_type=TRAINING',
+            'https://metnet.imd.gov.in/phps/circulars_display_2.php?circular_type=VACANCY',
+          ]);
+        }
 
         // Fallback for leave URL if not found dynamically
         leaveUrl ??= 'https://metnet.imd.gov.in/phps/leave_1.php';
@@ -1028,8 +1205,23 @@ class ScraperEngine {
         allVipCirculars.sort(circularDateComparator);
         allFomoCirculars.sort(circularDateComparator);
 
-        // Step 7b: Also fetch EH/CH Availed Register (leave_eh1.php) via leave_0.php if needed, then revise Master Leave Ledger
+        // Step 7b: Also fetch EH/CH Availed Register (leave_eh1.php) and e-Service Book Leaves' Record
+        // (options0_imdceass_show.php?field=leave for EL/HPL balances & availed spells), then revise Master Leave Ledger
         final combinedRawLeaves = <LeaveHistoryItem>[...rawLeaveHistory];
+        if (ceassLeaveUrl != null) {
+          try {
+            final ceassPage = await session.get(Uri.parse(ceassLeaveUrl)).timeout(const Duration(seconds: 20));
+            if (ceassPage.statusCode == 200 && ceassPage.body.isNotEmpty) {
+              final elHplSpells = parseCeassLeaveRecord(
+                html_parser.parse(ceassPage.body),
+                leaveBalances,
+              );
+              combinedRawLeaves.addAll(elHplSpells);
+            }
+          } catch (_) {
+            // Optional e-Service Book EL/HPL record failed; continue cleanly
+          }
+        }
         if (ehUrl == null && leaveMenuUrl != null) {
           try {
             final leaveMenuPage = await session.get(Uri.parse(leaveMenuUrl)).timeout(const Duration(seconds: 12));

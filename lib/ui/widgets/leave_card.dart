@@ -47,150 +47,290 @@ class LeaveCardsRow extends StatelessWidget {
       padding: const EdgeInsets.all(8),
       borderOpacity: 0.16,
       surfaceOpacity: 0.06,
-      child: Row(
-        children: leaveTypes.asMap().entries.map((entry) {
-          final index = entry.key;
-          final item = entry.value;
-          final key = item.$1;
-          final displayName = item.$2;
-          final shortCode = item.$3;
-          final accentColor = item.$4;
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Row(
+            children: leaveTypes.asMap().entries.map((entry) {
+              final index = entry.key;
+              final item = entry.value;
+              final key = item.$1;
+              final displayName = item.$2;
+              final shortCode = item.$3;
+              final accentColor = item.$4;
 
-          final valueStr = leavesData[key] ?? '0';
-          final value = int.tryParse(valueStr) ?? 0;
+              final valueStr = leavesData[key] ?? '0';
+              final value = int.tryParse(valueStr) ?? 0;
 
-          // For C-Off, if high balance or approaching expiry, escalate to red
-          Color effectiveColor = accentColor;
-          if (shortCode == 'COMP-OFF' && value > 15) {
-            effectiveColor = const Color(0xFFFF3B30);
-          }
+              // For C-Off, if high balance or approaching expiry, escalate to red
+              Color effectiveColor = accentColor;
+              if (shortCode == 'COMP-OFF' && value > 15) {
+                effectiveColor = const Color(0xFFFF3B30);
+              }
 
-          final isLast = index == leaveTypes.length - 1;
+              final isLast = index == leaveTypes.length - 1;
 
-          return Expanded(
-            child: GestureDetector(
-              onTap: onCardTap != null
-                  ? () {
-                      HapticFeedback.lightImpact();
-                      onCardTap!(displayName);
-                    }
-                  : null,
-              child: Container(
-                margin: EdgeInsets.only(right: isLast ? 0 : 6),
-                decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(16),
-                gradient: LinearGradient(
-                  begin: Alignment.topCenter,
-                  end: Alignment.bottomCenter,
-                  stops: const [0.0, 0.45, 1.0],
-                  colors: isDark
-                      ? [
-                          Colors.white.withOpacity(0.05),
-                          effectiveColor.withOpacity(0.12),
-                          effectiveColor.withOpacity(0.32),
-                        ]
-                      : [
-                          Colors.white.withOpacity(0.7),
-                          effectiveColor.withOpacity(0.08),
-                          effectiveColor.withOpacity(0.20),
-                        ],
-                ),
-                border: Border.all(
-                  color: isDark
-                      ? effectiveColor.withOpacity(0.38)
-                      : effectiveColor.withOpacity(0.25),
-                  width: 1.0,
-                ),
-                boxShadow: [
-                  BoxShadow(
-                    color: effectiveColor.withOpacity(isDark ? 0.15 : 0.08),
-                    blurRadius: 14,
-                    offset: const Offset(0, 4),
-                  ),
-                ],
-              ),
-              padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 8),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  // Liquid Glass Header Badge Pill
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+              return Expanded(
+                child: GestureDetector(
+                  onTap: onCardTap != null
+                      ? () {
+                          HapticFeedback.lightImpact();
+                          onCardTap!(displayName);
+                        }
+                      : null,
+                  child: Container(
+                    margin: EdgeInsets.only(right: isLast ? 0 : 6),
                     decoration: BoxDecoration(
-                      color: effectiveColor.withOpacity(0.18),
-                      borderRadius: BorderRadius.circular(8),
-                      border: Border.all(
-                        color: effectiveColor.withOpacity(0.35),
-                        width: 0.6,
-                      ),
-                    ),
-                    child: Text(
-                      shortCode,
-                      style: TextStyle(
-                        fontSize: 10.5,
-                        fontWeight: FontWeight.w700,
-                        letterSpacing: 0.5,
-                        color: isDark ? Colors.white : effectiveColor,
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-
-                  // Display Count with Specular Spatial Glow
-                  Text(
-                    valueStr,
-                    style: TextStyle(
-                      fontSize: 32,
-                      fontWeight: FontWeight.w800,
-                      letterSpacing: -1.0,
-                      color: isDark ? Colors.white : const Color(0xFF0F172A),
-                      shadows: isDark
+                    borderRadius: BorderRadius.circular(16),
+                    gradient: LinearGradient(
+                      begin: Alignment.topCenter,
+                      end: Alignment.bottomCenter,
+                      stops: const [0.0, 0.45, 1.0],
+                      colors: isDark
                           ? [
-                              Shadow(
-                                color: effectiveColor.withOpacity(0.55),
-                                blurRadius: 14,
-                              ),
+                              Colors.white.withOpacity(0.05),
+                              effectiveColor.withOpacity(0.12),
+                              effectiveColor.withOpacity(0.32),
                             ]
-                          : null,
+                          : [
+                              Colors.white.withOpacity(0.7),
+                              effectiveColor.withOpacity(0.08),
+                              effectiveColor.withOpacity(0.20),
+                            ],
                     ),
+                    border: Border.all(
+                      color: isDark
+                          ? effectiveColor.withOpacity(0.38)
+                          : effectiveColor.withOpacity(0.25),
+                      width: 1.0,
+                    ),
+                    boxShadow: [
+                      BoxShadow(
+                        color: effectiveColor.withOpacity(isDark ? 0.15 : 0.08),
+                        blurRadius: 14,
+                        offset: const Offset(0, 4),
+                      ),
+                    ],
                   ),
-                  const SizedBox(height: 4),
+                  padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 8),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      // Liquid Glass Header Badge Pill
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                        decoration: BoxDecoration(
+                          color: effectiveColor.withOpacity(0.18),
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(
+                            color: effectiveColor.withOpacity(0.35),
+                            width: 0.6,
+                          ),
+                        ),
+                        child: Text(
+                          shortCode,
+                          style: TextStyle(
+                            fontSize: 10.5,
+                            fontWeight: FontWeight.w700,
+                            letterSpacing: 0.5,
+                            color: isDark ? Colors.white : effectiveColor,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 8),
 
-                  // Subtitle / Expiring Status Pill
-                  if (shortCode == 'COMP-OFF' && value > 0)
+                      // Display Count with Specular Spatial Glow
+                      Text(
+                        valueStr,
+                        style: TextStyle(
+                          fontSize: 32,
+                          fontWeight: FontWeight.w800,
+                          letterSpacing: -1.0,
+                          color: isDark ? Colors.white : const Color(0xFF0F172A),
+                          shadows: isDark
+                              ? [
+                                  Shadow(
+                                    color: effectiveColor.withOpacity(0.55),
+                                    blurRadius: 14,
+                                  ),
+                                ]
+                              : null,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+
+                      // Subtitle / Expiring Status Pill
+                      if (shortCode == 'COMP-OFF' && value > 0)
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFFF9500).withOpacity(0.2),
+                            borderRadius: BorderRadius.circular(6),
+                          ),
+                          child: const Text(
+                            'Expiring Soon',
+                            style: TextStyle(
+                              fontSize: 10,
+                              fontWeight: FontWeight.w700,
+                              color: Color(0xFFFF9F0A),
+                            ),
+                          ),
+                        )
+                      else
+                        Text(
+                          displayName,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w500,
+                            color: isDark ? const Color(0xFFD1D1D6) : const Color(0xFF48484A),
+                          ),
+                        ),
+                    ],
+                  ),
+                ),
+              ),
+            );
+          }).toList(),
+          ),
+          const SizedBox(height: 6),
+          Row(
+            children: [
+              _buildSecondaryTile(
+                context: context,
+                isDark: isDark,
+                shortCode: 'EL',
+                label: 'Earned Leave',
+                valueStr: leavesData['Earned Leave (EL)'] ?? '—',
+                accentColor: const Color(0xFF10B981),
+                marginRight: 6,
+              ),
+              _buildSecondaryTile(
+                context: context,
+                isDark: isDark,
+                shortCode: 'HPL',
+                label: 'Half-Pay Leave',
+                valueStr: leavesData['Half Pay Leave (HPL)'] ?? '—',
+                accentColor: const Color(0xFF6366F1),
+                marginRight: 0,
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSecondaryTile({
+    required BuildContext context,
+    required bool isDark,
+    required String shortCode,
+    required String label,
+    required String valueStr,
+    required Color accentColor,
+    required double marginRight,
+  }) {
+    return Expanded(
+      child: GestureDetector(
+        onTap: onCardTap != null
+            ? () {
+                HapticFeedback.lightImpact();
+                onCardTap!(label);
+              }
+            : null,
+        child: Container(
+          margin: EdgeInsets.only(right: marginRight),
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(14),
+            gradient: LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: isDark
+                  ? [
+                      Colors.white.withOpacity(0.05),
+                      accentColor.withOpacity(0.18),
+                    ]
+                  : [
+                      Colors.white.withOpacity(0.75),
+                      accentColor.withOpacity(0.14),
+                    ],
+            ),
+            border: Border.all(
+              color: isDark ? accentColor.withOpacity(0.32) : accentColor.withOpacity(0.24),
+              width: 0.9,
+            ),
+          ),
+          child: Row(
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                       decoration: BoxDecoration(
-                        color: const Color(0xFFFF9500).withOpacity(0.2),
+                        color: accentColor.withOpacity(0.18),
                         borderRadius: BorderRadius.circular(6),
+                        border: Border.all(color: accentColor.withOpacity(0.32), width: 0.6),
                       ),
-                      child: const Text(
-                        'Expiring Soon',
+                      child: Text(
+                        shortCode,
                         style: TextStyle(
-                          fontSize: 10,
-                          fontWeight: FontWeight.w700,
-                          color: Color(0xFFFF9F0A),
+                          fontSize: 9.5,
+                          fontWeight: FontWeight.w800,
+                          letterSpacing: 0.5,
+                          color: isDark ? Colors.white : accentColor,
                         ),
                       ),
-                    )
-                  else
+                    ),
+                    const SizedBox(height: 4),
                     Text(
-                      displayName,
+                      label,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      textAlign: TextAlign.center,
                       style: TextStyle(
-                        fontSize: 12,
-                        fontWeight: FontWeight.w500,
+                        fontSize: 11.5,
+                        fontWeight: FontWeight.w600,
                         color: isDark ? const Color(0xFFD1D1D6) : const Color(0xFF48484A),
                       ),
                     ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 6),
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.end,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    valueStr,
+                    style: TextStyle(
+                      fontSize: 22,
+                      fontWeight: FontWeight.w800,
+                      letterSpacing: -0.6,
+                      color: isDark ? Colors.white : const Color(0xFF0F172A),
+                      shadows: isDark
+                          ? [Shadow(color: accentColor.withOpacity(0.45), blurRadius: 10)]
+                          : null,
+                    ),
+                  ),
+                  Text(
+                    'Days',
+                    style: TextStyle(
+                      fontSize: 9.5,
+                      fontWeight: FontWeight.w600,
+                      color: isDark ? Colors.white54 : Colors.black45,
+                    ),
+                  ),
                 ],
               ),
-            ),
+            ],
           ),
-        );
-      }).toList(),
+        ),
       ),
     );
   }
