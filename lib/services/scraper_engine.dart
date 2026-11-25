@@ -90,8 +90,11 @@ class ScraperEngine {
   static List<String> get vipKeywords => StorageService.defaultVipKeywords;
   static List<String> get junkKeywords => StorageService.defaultJunkKeywords;
 
-  /// Parses leave balances, expiring C-Offs, and past leave history from leave_1.php HTML
-  static (Map<String, String>, List<LapsingAlert>, List<LeaveHistoryItem>) parseLeaves(dom.Document soup) {
+  /// Parses leave balances, expiring C-Offs, and past leave history from leave_1.php / leave_eh1.php HTML
+  static (Map<String, String>, List<LapsingAlert>, List<LeaveHistoryItem>) parseLeaves(
+    dom.Document soup, {
+    bool requireBalanceHeaders = true,
+  }) {
     final htmlText = soup.body?.text ?? '';
 
     final clMatch = RegExp(r'Casual Leaves.*?Balance\s*=\s*(\d+)').firstMatch(htmlText);
@@ -100,7 +103,7 @@ class ScraperEngine {
 
     // Protective Shield: If none of the 3 balance patterns matched in the HTML,
     // the page is an interstitial prompt (email/password/notice), not the real leave page!
-    if (clMatch == null && rhMatch == null && coffMatch == null) {
+    if (requireBalanceHeaders && clMatch == null && rhMatch == null && coffMatch == null) {
       return (<String, String>{}, <LapsingAlert>[], <LeaveHistoryItem>[]);
     }
 
@@ -195,6 +198,7 @@ class ScraperEngine {
       int statusCol = -1;
       int actionByCol = -1;
       int remarksCol = -1;
+      List<String> headerCellTexts = const [];
 
       for (int r = 0; r < trList.length && r < 3; r++) {
         final cells = trList[r].querySelectorAll('th, td');
@@ -205,7 +209,9 @@ class ScraperEngine {
             c.contains('leave date') ||
             c.contains('period') ||
             c.contains('date of leave') ||
-            c.contains('comp off date'));
+            c.contains('comp-off date') ||
+            c.contains('comp off date') ||
+            c.contains('eh/ch availed date'));
         final hasApp = cellTexts.any((c) =>
             c.contains('application') ||
             c.contains('applied') ||
@@ -213,6 +219,7 @@ class ScraperEngine {
 
         if ((hasLeave || (hasApp && hasSl)) && cells.length >= 4) {
           headerRowIndex = r;
+          headerCellTexts = cellTexts;
           for (int c = 0; c < cells.length; c++) {
             final h = cellTexts[c];
             if (h.contains('sl') || h.contains('#')) {
@@ -222,7 +229,9 @@ class ScraperEngine {
             } else if (h.contains('leave date') ||
                 h.contains('period') ||
                 h.contains('date of leave') ||
-                h.contains('comp off date')) {
+                h.contains('comp-off date') ||
+                h.contains('comp off date') ||
+                h.contains('eh/ch availed date')) {
               leaveDateCol = c;
             } else if (h.contains('duration') || h.contains('no. of days') || h == 'day' || h.contains('days')) {
               durationCol = c;
@@ -248,7 +257,7 @@ class ScraperEngine {
       dom.Element? prev = table.previousElementSibling;
       while (prev != null && sectionHeading.isEmpty) {
         final t = prev.text.trim();
-        if (RegExp(r'(Casual|Restricted|Compensatory|Earned|Half\s*Pay|RH|C-Off|CL)', caseSensitive: false).hasMatch(t)) {
+        if (RegExp(r'(Casual|Restricted|Compensatory|Earned|Half\s*Pay|EH/CH|RH|C-Off|CL)', caseSensitive: false).hasMatch(t)) {
           sectionHeading = t;
           break;
         }
@@ -258,7 +267,7 @@ class ScraperEngine {
         var p = table.parent?.previousElementSibling;
         while (p != null && sectionHeading.isEmpty) {
           final t = p.text.trim();
-          if (RegExp(r'(Casual|Restricted|Compensatory|Earned|Half\s*Pay|RH|C-Off|CL)', caseSensitive: false).hasMatch(t)) {
+          if (RegExp(r'(Casual|Restricted|Compensatory|Earned|Half\s*Pay|EH/CH|RH|C-Off|CL)', caseSensitive: false).hasMatch(t)) {
             sectionHeading = t;
             break;
           }
@@ -274,6 +283,7 @@ class ScraperEngine {
           final lastCl = precedingHtml.lastIndexOf(RegExp(r'Casual\s*Leave', caseSensitive: false));
           final lastRh = precedingHtml.lastIndexOf(RegExp(r'Restricted\s*Holiday', caseSensitive: false));
           final lastCoff = precedingHtml.lastIndexOf(RegExp(r'Compensatory\s*Off', caseSensitive: false));
+          final lastEh = precedingHtml.lastIndexOf(RegExp(r'EH/CH\s*Availed', caseSensitive: false));
 
           int maxIdx = lastCl;
           if (maxIdx >= 0) sectionHeading = 'Casual Leave';
@@ -285,12 +295,18 @@ class ScraperEngine {
             maxIdx = lastCoff;
             sectionHeading = 'Compensatory Off';
           }
+          if (lastEh > maxIdx) {
+            maxIdx = lastEh;
+            sectionHeading = 'EH/CH Availed';
+          }
         }
       }
 
       String defaultLeaveType = 'Casual Leave';
       final hLower = sectionHeading.toLowerCase();
-      if (hLower.contains('restricted') || hLower.contains('rh')) {
+      if (hLower.contains('eh/ch') || hLower.contains('eh availed')) {
+        defaultLeaveType = 'EH/CH Availed';
+      } else if (hLower.contains('restricted') || hLower.contains('rh')) {
         defaultLeaveType = 'Restricted Holiday';
       } else if (hLower.contains('compensatory') || hLower.contains('c-off') || hLower.contains('comp')) {
         defaultLeaveType = 'Compensatory Off';
@@ -300,6 +316,13 @@ class ScraperEngine {
         defaultLeaveType = 'Half Pay Leave';
       } else if (hLower.contains('casual') || hLower.contains('cl')) {
         defaultLeaveType = 'Casual Leave';
+      } else if (leaveDateCol >= 0 && headerCellTexts.length > leaveDateCol) {
+        final colHdr = headerCellTexts[leaveDateCol];
+        if (colHdr.contains('comp-off') || colHdr.contains('comp off')) {
+          defaultLeaveType = 'Compensatory Off';
+        } else if (colHdr.contains('eh/ch')) {
+          defaultLeaveType = 'EH/CH Availed';
+        }
       }
 
       for (int r = headerRowIndex + 1; r < trList.length; r++) {
@@ -352,16 +375,31 @@ class ScraperEngine {
 
         // Status column
         final status = (statusCol >= 0 && statusCol < cols.length)
-            ? cols[statusCol].text.replaceAll('\u00A0', ' ').replaceAll('&nbsp;', ' ').trim()
+            ? cols[statusCol]
+                .text
+                .replaceAll('\u00A0', ' ')
+                .replaceAll('&nbsp;', ' ')
+                .replaceAll(RegExp(r'\s+'), ' ')
+                .trim()
             : 'Approved & Availed';
 
         // Action By & Approval Remarks
         String actionBy = (actionByCol >= 0 && actionByCol < cols.length)
-            ? cols[actionByCol].text.replaceAll('\u00A0', ' ').replaceAll('&nbsp;', ' ').trim()
+            ? cols[actionByCol]
+                .text
+                .replaceAll('\u00A0', ' ')
+                .replaceAll('&nbsp;', ' ')
+                .replaceAll(RegExp(r'\s+'), ' ')
+                .trim()
             : 'Sanctioned';
         String? actionRemarks;
         if (remarksCol >= 0 && remarksCol < cols.length) {
-          final remText = cols[remarksCol].text.replaceAll('\u00A0', ' ').replaceAll('&nbsp;', ' ').trim();
+          final remText = cols[remarksCol]
+              .text
+              .replaceAll('\u00A0', ' ')
+              .replaceAll('&nbsp;', ' ')
+              .replaceAll(RegExp(r'\s+'), ' ')
+              .trim();
           if (remText.isNotEmpty) {
             actionRemarks = remText;
           }
@@ -379,14 +417,17 @@ class ScraperEngine {
           continue;
         }
 
-        final rowCombined = '${tr.text} $leaveDate $reason'.toLowerCase();
-        if (rowCombined.contains('restricted holiday') || rowCombined.contains('rh-') || rowCombined.contains('rh -')) {
+        if (leaveAndReason.contains('restricted holiday') ||
+            leaveAndReason.contains('rh-') ||
+            leaveAndReason.contains('rh -')) {
           itemLeaveType = 'Restricted Holiday';
         } else if (defaultLeaveType == 'Compensatory Off' ||
             leaveAndReason.contains('compensatory off') ||
             leaveAndReason.contains('c-off') ||
             leaveAndReason.contains('comp off')) {
           itemLeaveType = 'Compensatory Off';
+        } else if (defaultLeaveType == 'EH/CH Availed') {
+          itemLeaveType = 'EH/CH Availed';
         }
 
         // Prevent duplicate entries
@@ -789,6 +830,7 @@ class ScraperEngine {
           soupMain = html_parser.parse(mainPage.body);
         }
         String? leaveUrl;
+        String? ehUrl;
         const baseUrl = 'https://metnet.imd.gov.in/phps/';
 
         // Multi-category circular URL discovery across the portal
@@ -801,6 +843,9 @@ class ScraperEngine {
 
           if (href.contains('leave_1.php') && leaveUrl == null) {
             leaveUrl = Uri.parse(baseUrl).resolve(href).toString();
+          }
+          if (href.contains('leave_eh1.php') && ehUrl == null) {
+            ehUrl = Uri.parse(baseUrl).resolve(href).toString();
           }
 
           if (hrefLower.contains('circular') ||
@@ -877,7 +922,7 @@ class ScraperEngine {
 
         // Step 7: Fetch and parse leave balances
         final leavePage = await session.get(Uri.parse(leaveUrl)).timeout(const Duration(seconds: 25));
-        final (leaveBalances, lapsingAlerts, leaveHistory) = parseLeaves(html_parser.parse(leavePage.body));
+        final (leaveBalances, lapsingAlerts, rawLeaveHistory) = parseLeaves(html_parser.parse(leavePage.body));
 
         // Protective Zero-Shield: If leave balances could not be parsed,
         // determine the exact interstitial barrier (Password Change vs Unread Emails vs Notice)
@@ -979,13 +1024,31 @@ class ScraperEngine {
         allVipCirculars.sort(circularDateComparator);
         allFomoCirculars.sort(circularDateComparator);
 
+        // Step 7b: Also fetch EH/CH Availed Register (leave_eh1.php) if discovered, then revise Master Leave Ledger
+        final combinedRawLeaves = <LeaveHistoryItem>[...rawLeaveHistory];
+        if (ehUrl != null) {
+          try {
+            final ehPage = await session.get(Uri.parse(ehUrl)).timeout(const Duration(seconds: 15));
+            if (ehPage.statusCode == 200 && ehPage.body.isNotEmpty) {
+              final (_, _, ehHistory) = parseLeaves(
+                html_parser.parse(ehPage.body),
+                requireBalanceHeaders: false,
+              );
+              combinedRawLeaves.addAll(ehHistory);
+            }
+          } catch (_) {
+            // Optional supplementary EH/CH register failed; continue cleanly
+          }
+        }
+        final masterLeaveHistory = await StorageService.reviseMasterLeaveLedger(combinedRawLeaves);
+
         final nowFormatted = DateFormat('dd-MM-yyyy HH:mm:ss').format(DateTime.now());
 
         final data = DashboardData(
           lastUpdated: nowFormatted,
           leaves: leaveBalances,
           alerts: lapsingAlerts,
-          leaveHistory: leaveHistory,
+          leaveHistory: masterLeaveHistory,
           vipCirculars: allVipCirculars,
           fomoCirculars: allFomoCirculars,
         );

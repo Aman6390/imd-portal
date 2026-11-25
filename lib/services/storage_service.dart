@@ -15,6 +15,7 @@ class StorageService {
   static const String _keyOcrCache = 'imd_ocr_cache';
   static const String _keyBookmarkedUrls = 'imd_bookmarked_urls';
   static const String _keyShowWeatherBanner = 'imd_show_weather_banner';
+  static const String _keyMasterLeaveLedger = 'imd_master_leave_ledger_v2';
 
   static const List<String> defaultVipKeywords = [
     // 1. Career & Seniority (Discovered from 9,600+ real circulars)
@@ -301,6 +302,104 @@ class StorageService {
     }
   }
 
+  /// Helper: returns status priority so approved > pending > cancelled when resolving same-day duplicates
+  static int _leaveStatusPriority(LeaveHistoryItem item) {
+    if (item.isApproved) return 3;
+    if (item.isPending) return 2;
+    return 1;
+  }
+
+  /// Normalizes and deduplicates raw LeaveHistoryItem records into daily canonical entries
+  static Map<String, LeaveHistoryItem> normalizeToLedgerMap(List<LeaveHistoryItem> items) {
+    final map = <String, LeaveHistoryItem>{};
+    for (final raw in items) {
+      for (final dayItem in raw.expandToDailyRecords()) {
+        final key = dayItem.ledgerKey;
+        final existing = map[key];
+        if (existing == null || _leaveStatusPriority(dayItem) >= _leaveStatusPriority(existing)) {
+          map[key] = dayItem;
+        }
+      }
+    }
+    return map;
+  }
+
+  /// Loads the persistent Master Leave Ledger from device storage
+  static Future<List<LeaveHistoryItem>> loadMasterLeaveLedger() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final jsonStr = prefs.getString(_keyMasterLeaveLedger);
+      if (jsonStr == null || jsonStr.isEmpty) return [];
+      final decoded = jsonDecode(jsonStr);
+      if (decoded is! List) return [];
+      final rawList = decoded
+          .whereType<Map<String, dynamic>>()
+          .map((m) => LeaveHistoryItem.fromJson(m))
+          .where((item) => item.isGenuineLeave)
+          .toList();
+      return normalizeToLedgerMap(rawList).values.toList();
+    } catch (_) {
+      return [];
+    }
+  }
+
+  /// Revises the persistent Master Leave Ledger with fresh items scraped during sync.
+  /// - Expands & deduplicates all fresh items into daily canonical records keyed by yyyy-MM-dd|LeaveType.
+  /// - Updates statuses/details for existing entries and drops stale unapproved pending items for synced years.
+  /// - Preserves historical entries from older years if MetNet archives them off the live page.
+  static Future<List<LeaveHistoryItem>> reviseMasterLeaveLedger(
+    List<LeaveHistoryItem> freshSyncItems,
+  ) async {
+    final freshMap = normalizeToLedgerMap(freshSyncItems);
+    final existingList = await loadMasterLeaveLedger();
+    final existingMap = normalizeToLedgerMap(existingList);
+
+    // Track which calendar years and leave types were actively returned by this sync
+    final syncedYears = <int>{};
+    for (final item in freshMap.values) {
+      final dt = LeaveHistoryItem.parseFlexibleDate(item.leaveDate);
+      if (dt != null) syncedYears.add(dt.year);
+    }
+
+    final mergedMap = <String, LeaveHistoryItem>{};
+
+    // 1. Retain valid historical records from existing ledger (except stale pending entries in synced years)
+    for (final entry in existingMap.entries) {
+      final item = entry.value;
+      final dt = LeaveHistoryItem.parseFlexibleDate(item.leaveDate);
+      if (dt != null && syncedYears.contains(dt.year) && item.isPending && !freshMap.containsKey(entry.key)) {
+        // Pending application no longer present in fresh scrape -> withdrawn/removed
+        continue;
+      }
+      mergedMap[entry.key] = item;
+    }
+
+    // 2. Upsert / revise with all fresh records from this sync
+    for (final entry in freshMap.entries) {
+      mergedMap[entry.key] = entry.value;
+    }
+
+    final revised = mergedMap.values.toList();
+    revised.sort((a, b) {
+      final da = LeaveHistoryItem.parseFlexibleDate(a.leaveDate);
+      final db = LeaveHistoryItem.parseFlexibleDate(b.leaveDate);
+      if (da == null && db == null) return 0;
+      if (da == null) return 1;
+      if (db == null) return -1;
+      return db.compareTo(da);
+    });
+
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString(
+        _keyMasterLeaveLedger,
+        jsonEncode(revised.map((e) => e.toJson()).toList()),
+      );
+    } catch (_) {}
+
+    return revised;
+  }
+
   /// Saves the latest scraped DashboardData to device storage
   static Future<bool> saveDashboardData(DashboardData data) async {
     try {
@@ -317,7 +416,17 @@ class StorageService {
       final prefs = await SharedPreferences.getInstance();
       final jsonStr = prefs.getString(_keyDashboardData);
       if (jsonStr == null || jsonStr.isEmpty) return null;
-      return DashboardData.deserialize(jsonStr);
+      final data = DashboardData.deserialize(jsonStr);
+      if (data == null) return null;
+
+      // Prefer the versioned Master Leave Ledger when present
+      final ledger = await loadMasterLeaveLedger();
+      if (ledger.isNotEmpty) {
+        return data.copyWith(leaveHistory: ledger);
+      }
+      // Fallback: sanitize cached leaveHistory on the fly before first v2 sync
+      final sanitized = normalizeToLedgerMap(data.leaveHistory).values.toList();
+      return data.copyWith(leaveHistory: sanitized);
     } catch (_) {
       return null;
     }

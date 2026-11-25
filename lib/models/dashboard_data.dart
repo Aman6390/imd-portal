@@ -94,14 +94,149 @@ class LeaveHistoryItem {
   }
 
   bool get isApproved {
+    if (isCancelled) return false;
     final s = status.toLowerCase();
-    if (s.contains('pending')) return false;
+    if (s.contains('pending') || s.trim() == 'applied') return false;
     return s.contains('approved') || s.contains('availed') || s.contains('sanctioned');
   }
 
   bool get isPending {
-    final s = status.toLowerCase();
-    return s.contains('pending');
+    if (isCancelled || isApproved) return false;
+    final s = status.toLowerCase().trim();
+    return s.contains('pending') || s == 'applied' || s.startsWith('applied');
+  }
+
+  String get canonicalLeaveType {
+    final t = leaveType.trim().toLowerCase();
+    if (t.contains('restricted') || t == 'rh') return 'Restricted Holiday';
+    if (t.contains('compensatory') || t.contains('c-off') || t.contains('comp')) {
+      return 'Compensatory Off';
+    }
+    if (t.contains('earned') || t == 'el') return 'Earned Leave';
+    if (t.contains('half pay') || t == 'hpl') return 'Half Pay Leave';
+    if (t.contains('eh/ch') || t.contains('eh ') || t.contains('holiday availed')) {
+      return 'EH/CH Availed';
+    }
+    return 'Casual Leave';
+  }
+
+  static DateTime? parseFlexibleDate(String str) {
+    final clean = str.trim();
+    if (clean.isEmpty) return null;
+
+    const formats = [
+      'dd-MM-yyyy',
+      'dd/MM/yyyy',
+      'dd.MM.yyyy',
+      'dd-MMM-yyyy',
+      'd-M-yyyy',
+      'd/M/yyyy',
+      'yyyy-MM-dd',
+    ];
+    for (final fmt in formats) {
+      try {
+        return DateFormat(fmt).parseLoose(clean);
+      } catch (_) {}
+    }
+
+    final match = RegExp(r'(\d{1,2})[-/. ]([A-Za-z]+|\d{1,2})[-/. ](\d{2,4})').firstMatch(clean);
+    if (match != null) {
+      final d = int.tryParse(match.group(1)!) ?? 1;
+      final mPart = match.group(2)!;
+      final yPart = match.group(3)!;
+      final y = int.tryParse(yPart.length == 2 ? '20$yPart' : yPart) ?? DateTime.now().year;
+      int? m = int.tryParse(mPart);
+      if (m == null) {
+        const monthMap = {
+          'jan': 1, 'feb': 2, 'mar': 3, 'apr': 4, 'may': 5, 'jun': 6,
+          'jul': 7, 'aug': 8, 'sep': 9, 'oct': 10, 'nov': 11, 'dec': 12
+        };
+        final mLower = mPart.toLowerCase();
+        for (final entry in monthMap.entries) {
+          if (mLower.startsWith(entry.key)) {
+            m = entry.value;
+            break;
+          }
+        }
+      }
+      if (m != null && m >= 1 && m <= 12 && d >= 1 && d <= 31) {
+        try {
+          return DateTime(y, m, d);
+        } catch (_) {}
+      }
+    }
+    return null;
+  }
+
+  /// Expands this LeaveHistoryItem into daily canonical LeaveHistoryItem records
+  /// (one item per calendar date) so the Master Leave Ledger stays normalized.
+  List<LeaveHistoryItem> expandToDailyRecords() {
+    if (!isGenuineLeave) return [];
+
+    final cleanDate = leaveDate.trim();
+    final cType = canonicalLeaveType;
+    final dateFmt = DateFormat('dd-MM-yyyy');
+
+    final rangeRegex = RegExp(
+      r'(\d{1,2}[-/.][A-Za-z0-9]+[-/. ]\d{2,4})\s*(?:to|-)\s*(\d{1,2}[-/.][A-Za-z0-9]+[-/. ]\d{2,4})',
+      caseSensitive: false,
+    );
+    final rangeMatch = rangeRegex.firstMatch(cleanDate);
+    if (rangeMatch != null) {
+      final startDt = parseFlexibleDate(rangeMatch.group(1)!);
+      final endDt = parseFlexibleDate(rangeMatch.group(2)!);
+      if (startDt != null && endDt != null && !startDt.isAfter(endDt)) {
+        final list = <LeaveHistoryItem>[];
+        DateTime curr = startDt;
+        while (!curr.isAfter(endDt) && list.length < 31) {
+          list.add(LeaveHistoryItem(
+            slNo: slNo,
+            leaveType: cType,
+            applicationDate: applicationDate,
+            leaveDate: dateFmt.format(curr),
+            duration: '1 DAY',
+            reason: reason,
+            slpAddress: slpAddress,
+            status: status,
+            actionBy: actionBy,
+            actionRemarks: actionRemarks,
+          ));
+          curr = curr.add(const Duration(days: 1));
+        }
+        return list;
+      }
+    }
+
+    final singleDt = parseFlexibleDate(cleanDate);
+    if (singleDt == null) return [];
+
+    final durMatch = RegExp(r'(\d+)').firstMatch(duration.trim());
+    final numDays = durMatch != null ? (int.tryParse(durMatch.group(1)!) ?? 1) : 1;
+    final clampedDays = (numDays <= 1 || numDays > 31) ? 1 : numDays;
+
+    final list = <LeaveHistoryItem>[];
+    for (int i = 0; i < clampedDays; i++) {
+      list.add(LeaveHistoryItem(
+        slNo: slNo,
+        leaveType: cType,
+        applicationDate: applicationDate,
+        leaveDate: dateFmt.format(singleDt.add(Duration(days: i))),
+        duration: clampedDays == 1 ? duration : '1 DAY',
+        reason: reason,
+        slpAddress: slpAddress,
+        status: status,
+        actionBy: actionBy,
+        actionRemarks: actionRemarks,
+      ));
+    }
+    return list;
+  }
+
+  /// Canonical deduplication key for a single-day ledger entry: yyyy-MM-dd|LeaveType
+  String get ledgerKey {
+    final dt = parseFlexibleDate(leaveDate) ?? parsedLeaveDate;
+    final datePart = dt != null ? DateFormat('yyyy-MM-dd').format(dt) : leaveDate.trim();
+    return '$datePart|$canonicalLeaveType';
   }
 
   /// Returns true only if this is a genuine leave application/availed record
@@ -259,6 +394,24 @@ class DashboardData {
       leaveHistory: historyList,
       vipCirculars: vipList,
       fomoCirculars: fomoList,
+    );
+  }
+
+  DashboardData copyWith({
+    String? lastUpdated,
+    Map<String, String>? leaves,
+    List<LapsingAlert>? alerts,
+    List<LeaveHistoryItem>? leaveHistory,
+    List<CircularItem>? vipCirculars,
+    List<CircularItem>? fomoCirculars,
+  }) {
+    return DashboardData(
+      lastUpdated: lastUpdated ?? this.lastUpdated,
+      leaves: leaves ?? this.leaves,
+      alerts: alerts ?? this.alerts,
+      leaveHistory: leaveHistory ?? this.leaveHistory,
+      vipCirculars: vipCirculars ?? this.vipCirculars,
+      fomoCirculars: fomoCirculars ?? this.fomoCirculars,
     );
   }
 

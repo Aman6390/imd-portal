@@ -76,54 +76,7 @@ class _LeaveHistoryScreenState extends State<LeaveHistoryScreen> {
     }
   }
 
-  DateTime? _parseLeaveDate(String str) {
-    final clean = str.trim();
-    if (clean.isEmpty) return null;
-
-    final formats = [
-      'dd-MM-yyyy',
-      'dd/MM/yyyy',
-      'dd.MM.yyyy',
-      'dd-MMM-yyyy',
-      'd-M-yyyy',
-      'd/M/yyyy',
-      'yyyy-MM-dd',
-    ];
-
-    for (final fmt in formats) {
-      try {
-        return DateFormat(fmt).parseLoose(clean);
-      } catch (_) {}
-    }
-
-    final match = RegExp(r'(\d{1,2})[-/. ]([A-Za-z]+|\d{1,2})[-/. ](\d{2,4})').firstMatch(clean);
-    if (match != null) {
-      final d = int.tryParse(match.group(1)!) ?? 1;
-      final mPart = match.group(2)!;
-      final yPart = match.group(3)!;
-      final y = int.tryParse(yPart.length == 2 ? '20$yPart' : yPart) ?? DateTime.now().year;
-      int? m = int.tryParse(mPart);
-      if (m == null) {
-        const monthMap = {
-          'jan': 1, 'feb': 2, 'mar': 3, 'apr': 4, 'may': 5, 'jun': 6,
-          'jul': 7, 'aug': 8, 'sep': 9, 'oct': 10, 'nov': 11, 'dec': 12
-        };
-        final mLower = mPart.toLowerCase();
-        for (final entry in monthMap.entries) {
-          if (mLower.startsWith(entry.key)) {
-            m = entry.value;
-            break;
-          }
-        }
-      }
-      if (m != null) {
-        try {
-          return DateTime(y, m, d);
-        } catch (_) {}
-      }
-    }
-    return null;
-  }
+  DateTime? _parseLeaveDate(String str) => LeaveHistoryItem.parseFlexibleDate(str);
 
   /// Available years found in leave records plus current year
   List<int> get _availableYears {
@@ -251,12 +204,15 @@ class _LeaveHistoryScreenState extends State<LeaveHistoryScreen> {
     // Defensive Deduplication: Ensure each calendar date has at most 1 distinct entry per leave type
     final uniqueMap = <String, DayLeaveEntry>{};
     for (final day in rawList) {
-      final dateKey = '${DateFormat('yyyy-MM-dd').format(day.date)}_${day.leaveType.trim().toLowerCase()}';
+      final dateKey =
+          '${DateFormat('yyyy-MM-dd').format(day.date)}_${day.originalItem.canonicalLeaveType.toLowerCase()}';
       if (!uniqueMap.containsKey(dateKey)) {
         uniqueMap[dateKey] = day;
       } else {
-        // If one is cancelled and the other is approved/availed, prefer the approved entry
-        if (uniqueMap[dateKey]!.isCancelled && !day.isCancelled) {
+        final existing = uniqueMap[dateKey]!;
+        final existingRank = existing.isApproved ? 3 : (existing.isPending ? 2 : 1);
+        final candidateRank = day.isApproved ? 3 : (day.isPending ? 2 : 1);
+        if (candidateRank >= existingRank) {
           uniqueMap[dateKey] = day;
         }
       }
@@ -280,6 +236,10 @@ class _LeaveHistoryScreenState extends State<LeaveHistoryScreen> {
         types.add('C-Off');
       } else if (t.contains('restricted') || t.contains('rh')) {
         types.add('RH');
+      } else if (t.contains('eh/ch') || t.contains('eh ')) {
+        types.add('EH');
+      } else if (t.contains('half pay') || t.contains('hpl')) {
+        types.add('HPL');
       } else if (t.contains('earned') || t.contains('el')) {
         types.add('EL');
       } else {
@@ -987,6 +947,14 @@ class _LeaveHistoryScreenState extends State<LeaveHistoryScreen> {
       badgeColor = const Color(0xFFA855F7); // Violet
       badgeCode = 'RH';
       badgeFull = 'Restricted Holiday';
+    } else if (typeLower.contains('eh/ch') || typeLower.contains('eh ')) {
+      badgeColor = const Color(0xFF14B8A6); // Teal
+      badgeCode = 'EH';
+      badgeFull = 'EH/CH Availed';
+    } else if (typeLower.contains('half pay') || typeLower.contains('hpl')) {
+      badgeColor = const Color(0xFF6366F1); // Indigo
+      badgeCode = 'HPL';
+      badgeFull = 'Half Pay Leave';
     } else if (typeLower.contains('earned') || typeLower.contains('el')) {
       badgeColor = const Color(0xFF10B981); // Emerald
       badgeCode = 'EL';
