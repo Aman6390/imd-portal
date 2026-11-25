@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
 import '../models/dashboard_data.dart';
+import '../services/storage_service.dart';
 import 'widgets/glass_container.dart';
 
 /// Individual day-by-day leave record for chronological breakdown.
@@ -54,6 +55,8 @@ class LeaveHistoryScreen extends StatefulWidget {
 
 class _LeaveHistoryScreenState extends State<LeaveHistoryScreen> {
   late int _selectedYear;
+  late List<LeaveHistoryItem> _history;
+  late Map<String, String> _balances;
   bool _isRefreshing = false;
   int? _expandedRowIndex; // for modal sheet inline row expansion
 
@@ -61,6 +64,20 @@ class _LeaveHistoryScreenState extends State<LeaveHistoryScreen> {
   void initState() {
     super.initState();
     _selectedYear = DateTime.now().year;
+    _history = List<LeaveHistoryItem>.from(widget.leaveHistory);
+    _balances = Map<String, String>.from(widget.balances);
+    _reloadFromLedger();
+  }
+
+  Future<void> _reloadFromLedger() async {
+    final cached = await StorageService.loadDashboardData();
+    if (!mounted || cached == null) return;
+    setState(() {
+      _history = cached.leaveHistory;
+      if (cached.leaves.isNotEmpty) {
+        _balances = cached.leaves;
+      }
+    });
   }
 
   Future<void> _handleRefresh() async {
@@ -69,6 +86,7 @@ class _LeaveHistoryScreenState extends State<LeaveHistoryScreen> {
     HapticFeedback.mediumImpact();
     try {
       await widget.onRefresh!();
+      await _reloadFromLedger();
     } finally {
       if (mounted) {
         setState(() => _isRefreshing = false);
@@ -78,11 +96,11 @@ class _LeaveHistoryScreenState extends State<LeaveHistoryScreen> {
 
   DateTime? _parseLeaveDate(String str) => LeaveHistoryItem.parseFlexibleDate(str);
 
-  /// Available years found in leave records plus current year
+  /// Available years found in non-cancelled leave records plus current year
   List<int> get _availableYears {
     final years = <int>{DateTime.now().year};
-    for (final item in widget.leaveHistory) {
-      if (!item.isGenuineLeave) continue;
+    for (final item in _history) {
+      if (!item.isGenuineLeave || item.isCancelled) continue;
       final dt = _parseLeaveDate(item.leaveDate);
       if (dt != null) years.add(dt.year);
     }
@@ -95,9 +113,9 @@ class _LeaveHistoryScreenState extends State<LeaveHistoryScreen> {
     final now = DateTime.now();
     int maxMonth = (_selectedYear == now.year) ? now.month : 12;
 
-    // Check if any leave in this year is recorded in a future month
-    for (final item in widget.leaveHistory) {
-      if (!item.isGenuineLeave) continue;
+    // Check if any taken leave in this year is recorded in a future month
+    for (final item in _history) {
+      if (!item.isGenuineLeave || item.isCancelled) continue;
       final dt = _parseLeaveDate(item.leaveDate);
       if (dt != null && dt.year == _selectedYear && dt.month > maxMonth) {
         maxMonth = dt.month;
@@ -188,11 +206,11 @@ class _LeaveHistoryScreenState extends State<LeaveHistoryScreen> {
     return list;
   }
 
-  /// Returns all day-by-day leave records falling into the given month, sorted chronologically ascending
+  /// Returns all non-cancelled day-by-day leave records falling into the given month, sorted chronologically ascending
   List<DayLeaveEntry> _getDayLeavesForMonth(DateTime month) {
     final rawList = <DayLeaveEntry>[];
-    for (final item in widget.leaveHistory) {
-      if (!item.isGenuineLeave) continue;
+    for (final item in _history) {
+      if (!item.isGenuineLeave || item.isCancelled) continue;
       final days = _expandItemToDays(item);
       for (final day in days) {
         if (day.date.year == month.year && day.date.month == month.month) {
@@ -256,10 +274,10 @@ class _LeaveHistoryScreenState extends State<LeaveHistoryScreen> {
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
 
-    final validHistory = widget.leaveHistory.where((l) => l.isGenuineLeave).toList();
+    final validHistory = _history.where((l) => l.isGenuineLeave && !l.isCancelled).toList();
     final totalAvailed = validHistory.where((l) => l.isApproved).length;
-    final totalCancelled = validHistory.where((l) => l.isCancelled).length;
-    final clBalance = widget.balances['Casual Leave (CL)'] ?? '0';
+    final totalPending = validHistory.where((l) => l.isPending).length;
+    final clBalance = _balances['Casual Leave (CL)'] ?? '0';
 
     final months = _monthsForSelectedYear;
     final now = DateTime.now();
@@ -457,9 +475,9 @@ class _LeaveHistoryScreenState extends State<LeaveHistoryScreen> {
                         ),
                         Container(width: 1, height: 20, color: isDark ? Colors.white12 : Colors.black12),
                         _buildSummaryIndicator(
-                          label: 'Cancelled',
-                          value: '$totalCancelled Days',
-                          color: const Color(0xFFFF453A),
+                          label: 'Pending',
+                          value: '$totalPending Days',
+                          color: const Color(0xFFF59E0B),
                           isDark: isDark,
                         ),
                       ],

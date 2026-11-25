@@ -830,6 +830,7 @@ class ScraperEngine {
           soupMain = html_parser.parse(mainPage.body);
         }
         String? leaveUrl;
+        String? leaveMenuUrl;
         String? ehUrl;
         const baseUrl = 'https://metnet.imd.gov.in/phps/';
 
@@ -843,6 +844,9 @@ class ScraperEngine {
 
           if (href.contains('leave_1.php') && leaveUrl == null) {
             leaveUrl = Uri.parse(baseUrl).resolve(href).toString();
+          }
+          if (href.contains('leave_0.php') && leaveMenuUrl == null) {
+            leaveMenuUrl = Uri.parse(baseUrl).resolve(href).toString();
           }
           if (href.contains('leave_eh1.php') && ehUrl == null) {
             ehUrl = Uri.parse(baseUrl).resolve(href).toString();
@@ -1024,8 +1028,23 @@ class ScraperEngine {
         allVipCirculars.sort(circularDateComparator);
         allFomoCirculars.sort(circularDateComparator);
 
-        // Step 7b: Also fetch EH/CH Availed Register (leave_eh1.php) if discovered, then revise Master Leave Ledger
+        // Step 7b: Also fetch EH/CH Availed Register (leave_eh1.php) via leave_0.php if needed, then revise Master Leave Ledger
         final combinedRawLeaves = <LeaveHistoryItem>[...rawLeaveHistory];
+        if (ehUrl == null && leaveMenuUrl != null) {
+          try {
+            final leaveMenuPage = await session.get(Uri.parse(leaveMenuUrl)).timeout(const Duration(seconds: 12));
+            if (leaveMenuPage.statusCode == 200) {
+              final soupMenu = html_parser.parse(leaveMenuPage.body);
+              for (final a in soupMenu.querySelectorAll('a[href]')) {
+                final href = a.attributes['href'] ?? '';
+                if (href.contains('leave_eh1.php')) {
+                  ehUrl = Uri.parse(baseUrl).resolve(href).toString();
+                  break;
+                }
+              }
+            }
+          } catch (_) {}
+        }
         if (ehUrl != null) {
           try {
             final ehPage = await session.get(Uri.parse(ehUrl)).timeout(const Duration(seconds: 15));
