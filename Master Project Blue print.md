@@ -1,6 +1,6 @@
 # 🚀 PROJECT MASTER BLUEPRINT: Meteorological Portal Android Application
 
-> **Project Status:** Production Ready — 100% Free & Open Edition (v1.4.21)  
+> **Project Status:** Production Ready — 100% Free & Open Edition (v1.4.42+59)  
 > **Target Platform:** Native Android (Flutter / Kotlin) [Why: Guarantees broad compatibility with all modern Android smartphones used by staff]  
 > **Output Release Artifact:** `build/app/outputs/flutter-apk/app-release.apk` [Why: Standard Android standalone package format for direct distribution]  
 > **CI/CD Pipeline:** GitHub Actions Automated Cloud Build (`Aman6390/imd-portal`) [Why: Eliminates the need for a high-end development computer by compiling APKs in the cloud automatically]  
@@ -79,18 +79,24 @@
 4. **Spoofed Form Submission:** Dispatches POST request to `https://metnet.imd.gov.in/phps/emplogin.php` with browser headers (`User-Agent`, `Referer`, `Origin`) and form parameters (`login_username`, encrypted `password`, `sc`). [Why: Mimics an authentic desktop web browser to prevent anti-bot security blocks].
 5. **Session Persistence:** Maintains cookie headers across subsequent requests to `main2.php`, `leave_1.php`, and `circulars_display_2.php`. [Why: Ensures authenticated state remains valid across all departmental subpages].
 
-### B. Leave Extraction & Expiry Calculation (`leave_1.php`)
-[Why: Staff need instant clarity on how many leaves they have left and which ones are about to expire so they don't forfeit them.]
+### B. Leave Extraction, Master Leave Ledger & Expiry Calculation (`leave_1.php` & `leave_eh1.php`)
+[Why: Staff need instant clarity on both remaining leave balances (with expiring C-Off countdowns) and a clean, non-duplicated chronological record of every leave actually taken across CL, RH, C-Off, and EH/CH.]
 
 * **Balances:** Extracted using regular expressions targeting:
   * `Casual Leaves.*?Balance\s*=\s*(\d+)` [Why: Fast regex handles whitespace differences in portal HTML].
   * `Restricted Holidays.*?Balance\s*=\s*(\d+)` [Why: Captures remaining RH quota for the calendar year].
   * `Compensatory Off.*?Balance\s*=\s*(\d+)` [Why: Tracks active earned C-Offs from weekend or holiday duties].
 * **C-Off Expiry Math:**
-  * Targets table rows (`tr[bgcolor="#ffffff"]`, `tr[bgcolor="#f5f5f5"]`) with `>= 10` columns. [Why: MetNet displays C-Off credit history in alternating striped table rows].
-  * Filters unavailed C-Offs where status column is empty and credit date matches `dd-MM-yyyy`. [Why: Avoids calculating expiry for leaves that were already taken or canceled].
+  * Targets table rows (`tr[bgcolor="#ffffff"]`, `tr[bgcolor="#f5f5f5"]`) with `>= 8`–`10` columns in the Duty Credit / C-Off ledger. [Why: MetNet displays C-Off credit history in alternating striped table rows].
+  * Filters unavailed C-Offs where the `Status` column (`cols[8]` in 10-column tables) is empty and `Date of Credit` matches `dd-MM-yyyy`. [Why: Strictly separates unavailed C-Off credits from already applied, approved, or `AUTO CANCELLED` entries].
   * Computes: $\text{Expiry Date} = \text{Credit Date} + 6 \text{ months}$. [Why: Departmental rules stipulate that Compensatory Offs strictly lapse 6 months after the duty date].
   * Calculates exact $\text{Days Left} = \text{Expiry Date} - \text{Current Date}$. [Why: Gives the employee a real-time countdown to plan their leaves before they are lost].
+  * Displays CL and RH calendar-year expiry inside the **December capsule** alongside DoPT rules in the Leave Expiry Schedule (`alert_grid.dart`, `month_calendar_screen.dart`).
+* **Dynamic Header-Driven Leave History Extraction (`v1.4.39`–`v1.4.42`):**
+  * Parses all genuine leave tables dynamically by header text instead of brittle column indices: 7-column **Casual Leaves**, 7-column **Restricted Holidays** (no Duration column), 10-column **Compensatory Off** (`Comp-Off Date`, `Date of Apply`, `Day`), and **`leave_eh1.php` (`EH/CH Availed Register`)** discovered via `leave_0.php` [Why: Eliminates cross-column shifts and supports every MetNet leave table layout].
+  * Maps **`APPLIED`** and **`Approval Pending`** to Pending (`⏳ Pending`), **`Approved & Availed`** / **`Approval Remarks: Approved ...`** to Approved, and isolates unavailed credits and `AUTO CANCELLED` credit rows out of leave history [Why: Preserves accurate status while ensuring duty credits are never listed as leaves taken].
+* **Persistent Master Leave Ledger (`imd_master_leave_ledger_v2` in `StorageService`):**
+  * Normalizes and expands every genuine leave record into daily entries keyed by `yyyy-MM-dd|canonicalLeaveType` (`expandToDailyRecords()`, `ledgerKey`), resolves duplicate keys (`Approved > Pending > Cancelled`), updates statuses across subsequent syncs, retains prior historical years, and excludes cancelled leaves from the chronological monthly view (`leave_history_screen.dart`) [Why: Serves as a single source of truth so users see only the leaves they actually took in exact day-by-day chronological order].
 
 ### C. Advanced Fast-Path & On-Device Devanagari OCR Circular Engine
 [Why: MetNet publishes an overwhelming volume of notices. Processing every single PDF with AI OCR would be slow and data-heavy; this two-tier engine filters 90% instantly and only uses OCR when strictly necessary.]
@@ -264,17 +270,14 @@ Every circular is mapped to the exact organizational structure of the India Mete
 
 ## 4. UI / UX Features & Keyword Customization
 
-1. **Interactive Live Weather Card (`weather_card.dart`):** [Why: Greets employees with instant station weather, feels-like metric, humidity, wind, and precipitation probability at the very top of the dashboard]. Includes one-tap station switcher, automatic location detection, a 24-hour horizontal hourly carousel, and a 7-day weather outlook bottom sheet.
-2. **Material 3 Theme:** [Why: Modern, battery-saving dark interface that reduces eye strain during night-shift duty operations]. Dark Theme (`#121212` background, `#1E1E1E` cards) with one-tap Light/Dark theme toggle.
-3. **Leave Balance Cards:** [Why: Clean visual hierarchy letting staff see their CL, RH, and C-Off balances within one second of unlocking the app].
-4. **12-Month Alert Grid with Dynamic Rotating Border (`alert_grid.dart`):** [Why: Visual warning matrix showing which upcoming months have expiring C-Offs so employees can plan leave applications in advance]. Features a dynamic rotating sweep-gradient neon light border around active expiring months (e.g. March 2027) with zero layout shift (maintains strict 105x105 dimensions).
-5. **Interactive Month Calendar Screen (`month_calendar_screen.dart`):** [Why: Provides an intuitive calendar view where days with expiring leaves are marked with alert borders and day counters].
-6. **Custom Keyword Filter in Settings (`settings_dialog.dart`):** [Why: Empowers each employee to personalize their notice board by tracking their own station, name, or cadre while hiding unwanted notices].
-7. **Tabbed Circulars Section ("For You" & "Other Notices"):** [Why: Rebrands VIP notices to a personalized "For You" board while organizing general announcements into "Other Notices"]. Features 1-tap horizontal cadre filter chips (`All`, `Met B`, `Met A`, `SA`, `Scientists`, `Action Required`, `Bookmarked`), full-width title layout (leading star icon removed), and 1-tap local offline bookmarking (`🔖`).
+1. **Interactive Live Weather Card (`weather_card.dart`) & Dashboard Toggle:** [Why: Greets employees with instant station weather, feels-like metric, humidity, wind, and precipitation probability at the very top of the dashboard, while allowing users to toggle the weather banner on/off in Settings]. Includes one-tap station switcher, automatic location detection, a 24-hour horizontal hourly carousel, and a 7-day weather outlook bottom sheet.
+2. **iOS 27 Liquid Glassmorphism & Apple HIG Theme (`glass_container.dart`):** [Why: Modern, battery-saving spatial translucent interface with frosted `BackdropFilter` blurs, hairline highlights, and responsive Apple spring transitions across Dark and Light modes].
+3. **Leave Balance Cards & History Capsule (`leave_card.dart`, `dashboard_screen.dart`):** [Why: Clean visual hierarchy letting staff see CL, RH, and C-Off balances within one second of unlocking the app, plus a clean `History & Records` capsule].
+4. **Leave History & Records (`leave_history_screen.dart`):** [Why: Replaces cluttered raw tables with top-to-bottom 12-month cards sorted from the latest month downward, opening a frosted modal sheet listing only taken/active leaves (`CL`, `RH`, `C-Off`, `EH`, `EL`, `HPL`) in strict chronological day-by-day order]. Supports pull-to-refresh directly against the persisted `Master Leave Ledger`.
+5. **12-Month Leave Expiry Schedule (`alert_grid.dart` & `month_calendar_screen.dart`):** [Why: Visual warning matrix showing upcoming C-Off 6-month expiries with dynamic rotating sweep-gradient borders alongside December CL/RH year-end expiry per DoPT rules].
+6. **Simplified Settings Panel & Key `6390` Diagnostic Suite (`settings_dialog.dart`, `system_health_screen.dart`, `telemetry_dashboard_modal.dart`):** [Why: Streamlined daily settings with Weather Banner toggle, Keyword Filter customization, and battery exemption status—while shielding diagnostic ping tools, OCR inspector, and anonymous staff telemetry analytics under the 24-hour Key `6390` security lease].
+7. **Tabbed Circulars with Vertical Actions & Native Share (`circular_tabs.dart` & `MainActivity.kt`):** [Why: Combines personalized "For You" cadre filter chips, offline bookmarking (`🔖`), pre-flight PDF download, native Android circular sharing (right below bookmark & download), and expandable in-place plain-words AI summaries].
 8. **Sync Controls:** [Why: Gives users immediate visual feedback with animated spinners and SnackBars while data is refreshing from MetNet].
-9. **Settings Panel (4 Tabs):** [Why: Organizes credentials, VIP filters, junk terms, and app updates into logical tabs for effortless navigation].
-10. **Interactive In-Place Expandable Plain-Words Summary:** [Why: Employees want quick clarity on dense government orders without leaving their list position or downloading heavy PDFs]. Dual-tap navigation allows 1 tap on the notice card to open the PDF directly, while 1 tap on the summary box right below smoothly unfolds an in-place plain-words breakdown (`AnimatedSize`) explaining the order in everyday English, detailing action items, decoding confusing jargon, and offering an in-card PDF button.
-11. **Authentic MetNet App Icon & In-App Brand Banner (`settings_dialog.dart`):** [Why: Replaces Android placeholder with the official MetNet emblem across home screens and inside Settings with real-time version status].
 
 ---
 
@@ -402,10 +405,11 @@ E:\imd portal\
 │       ├── app_icon.png                      # Bundled Flutter 512x512 master branding icon [Why: Settings dialog brand header]
 │       └── metnet_logo_source.jpeg           # Master source MetNet emblem reference [Why: Visual identity preservation]
 ├── lib\
-│   ├── main.dart                             # App entry, Material 3 theme manager [Why: Initializes services & boots UI]
+│   ├── main.dart                             # App entry, Apple-inspired Dark/Light theme manager [Why: Initializes services & boots UI]
 │   ├── models\
 │   │   ├── ai_circular_entry.dart            # Model: AiCircularEntry with cadre, summary & actions [Why: AI metadata serialization]
-│   │   └── dashboard_data.dart               # Models: DashboardData, CircularItem, LapsingAlert [Why: Type-safe JSON serialization]
+│   │   ├── dashboard_data.dart               # Models: DashboardData, CircularItem, LapsingAlert, LeaveHistoryItem & daily ledger helpers [Why: Type-safe JSON serialization & status normalization]
+│   │   └── weather_data.dart                 # Models: WeatherData, HourlyPoint, DailyPoint & geocoding DTOs [Why: Weather persistence & forecast display]
 │   ├── services\
 │   │   ├── ai_circular_service.dart          # Multi-tier AI semantic indexer, on-device synthesizer & plain-words engine [Why: Decodes circulars & jargon]
 │   │   ├── auth_service.dart                 # Local biometrics & PIN authentication service [Why: Manages device lock security]
@@ -415,27 +419,31 @@ E:\imd portal\
 │   │   ├── notification_service.dart         # Android notification channels, battery optimization bridge & dispatcher [Why: Posts push notifications]
 │   │   ├── ocr_service.dart                  # On-Device Google ML Kit Devanagari OCR service [Why: Scans ambiguous Hindi orders]
 │   │   ├── rsa_crypto.dart                   # RSA PKCS1_v1_5 dynamic password encrypter [Why: Bypasses MetNet login encryption]
-│   │   ├── scraper_engine.dart               # AI-augmented VIP & junk filtering, session scraper & retries [Why: Scrapes portal data & circulars]
-│   │   ├── storage_service.dart              # SharedPreferences for credentials, keywords, bookmarks & cache [Why: Persistent local storage]
-│   │   └── update_service.dart               # GitHub Releases automated update checker, smart version cache & installer [Why: Handles OTA updates]
+│   │   ├── scraper_engine.dart               # Multi-table dynamic header leave parser, iframe link discovery & circular scraper [Why: Scrapes MetNet leaves & circulars]
+│   │   ├── storage_service.dart              # SharedPreferences for credentials, Master Leave Ledger (v2), keywords, bookmarks & settings [Why: Persistent local storage]
+│   │   ├── telemetry_service.dart            # Privacy-preserving staff pulse telemetry & master analytics aggregator [Why: Live anonymized adoption metrics]
+│   │   ├── update_service.dart               # Multi-repo GitHub Releases OTA checker, smart APK cache & native installer [Why: Prevents update loops & handles OTA updates]
+│   │   └── weather_service.dart              # Open-Meteo API client, native GPS channel & geocoding search [Why: Free global weather intelligence]
 │   └── ui\
-│       ├── dashboard_screen.dart             # Main dashboard view, lock screen, notice banner & FAB [Why: Core app user interface]
-│       ├── month_calendar_screen.dart        # Interactive monthly calendar expiry view [Why: Dedicated C-Off expiry calendar]
+│       ├── dashboard_screen.dart             # Main dashboard view, lock screen, History & Records capsule, notice banner & FAB [Why: Core app user interface]
+│       ├── leave_history_screen.dart         # Top-to-bottom 12-month cards & chronological day-by-day modal sheet (non-cancelled leaves) [Why: Clean leave audit]
+│       ├── month_calendar_screen.dart        # Interactive monthly calendar expiry view with Dec CL/RH DoPT notes [Why: Dedicated C-Off & year-end expiry calendar]
 │       ├── system_health_screen.dart         # Interactive live subsystem health monitor & diagnostics pulse [Why: Real-time Green/Red diagnostic status]
 │       └── widgets\
-│           ├── alert_grid.dart               # 12-Month alert grid with dynamic rotating neon border [Why: Visual leave matrix with active expiry glow]
-│           ├── circular_tabs.dart            # "For You" & "Other Notices" with cadre chips, bookmarks & expandable plain-words summaries [Why: Displays circulars]
-│           ├── leave_card.dart               # Horizontal color-coded leave cards [Why: Displays CL, RH, C-Off balances]
+│           ├── alert_grid.dart               # 12-Month alert grid with dynamic rotating neon border & Dec CL/RH capsule [Why: Visual leave matrix]
+│           ├── circular_tabs.dart            # "For You" & "Other Notices" with cadre chips, bookmarks, share action & AI summaries [Why: Displays circulars]
+│           ├── glass_container.dart          # Spatial frosted BackdropFilter liquid glass component [Why: iOS 27 Liquid Glassmorphism aesthetic]
+│           ├── leave_card.dart               # Horizontal color-coded liquid glass leave cards [Why: Displays CL, RH, C-Off balances]
 │           ├── notice_resolver_webview.dart  # In-App MetNet Notice Resolver WebView [Why: Dismisses portal blocking popups]
-│           ├── settings_dialog.dart          # 4-Tab settings with MetNet branding banner & battery whitelist button [Why: User configuration modal]
+│           ├── settings_dialog.dart          # Simplified Settings UI with Weather toggle & Key 6390 Diagnostic Tools section [Why: Clean user config]
+│           ├── telemetry_dashboard_modal.dart# Key 6390 Master Analytics modal (installs, versions, weather toggle stats) [Why: Fleet visibility]
 │           └── weather_card.dart             # Expandable high-density station weather card [Why: Real-time meteorological station situational awareness]
 ├── scripts\
 │   ├── ai_circular_indexer.py                # Serverless Python circular scraper & Gemini 1.5 Flash Vision indexer [Why: Automated cloud indexing]
 │   └── generate_app_icons.py                 # Automated Pillow-based multi-density Android app icon generator [Why: Generates all mipmaps]
-├── .gitignore                                # Build & artifact ignore rules [Why: Prevents binary files in git]
+├── .gitignore                                # Build, APK & private dump ignore rules (excludes METNET_CLIENT_CODEBASE.md) [Why: Keeps repo clean & private]
 ├── analysis_options.yaml                     # Dart analyzer configuration [Why: Enforces Dart code quality standards]
-├── pubspec.yaml                              # Flutter dependencies & metadata (v1.4.21+38) [Why: Defines app version & third-party packages]
-├── IMD_Portal_v1.4.21_Final.apk              # Final Production Standalone Android Release Package [Why: Ready for direct phone installation]
+├── pubspec.yaml                              # Flutter dependencies & metadata (v1.4.42+59) [Why: Defines app version & third-party packages]
 └── Master Project Blue print.md             # Master Project Blueprint & Documentation [Why: Single source of truth for the project]
 ```
 
@@ -445,6 +453,24 @@ E:\imd portal\
 
 | Version | Build Code | Date | Key Architectural Changes & [Why We Made Them] |
 | :--- | :--- | :--- | :--- |
+| **v1.4.42** | `1.4.42+59` | Nov 2026 | **Taken-Only Chronological Filter, Immediate Screen Reload & `leave_0.php` Discovery:** Excluded cancelled leaves (`Self Cancellation`, `CANCELLED WITH REASON AS: ...`) from month cards and chronological breakdowns so each month displays only leaves actually taken/active from day 1 to month-end. Added `_reloadFromLedger()` on pull-to-refresh inside `LeaveHistoryScreen` so freshly synced Master Leave Ledger data updates immediately on screen, and added `leave_0.php` traversal to discover `leave_eh1.php` (`EH/CH Availed Register`). [Why: Eliminates cancelled clutter from monthly leave lists and prevents stale data when refreshing directly inside History & Records] |
+| **v1.4.41** | `1.4.41+58` | Nov 2026 | **Persistent Master Leave Ledger, Hyphenated `Comp-Off Date`, `APPLIED` Status & `EH/CH Availed`:** Introduced the persistent, versioned Master Leave Ledger (`imd_master_leave_ledger_v2` in `StorageService`) that expands, deduplicates, and revises leave records on every sync while retaining prior years and clearing legacy duplicate caches. Fixed exact MetNet C-Off parsing (`Comp-Off Date` with hyphen), added `APPLIED` to `isPending` alongside `Approval Pending`, and integrated `leave_eh1.php` (`[EH] EH/CH Availed`). [Why: Verified directly against authenticated MetNet DOM so all November `APPLIED` C-Offs and October EH/CH leaves appear accurately without duty-credit duplicates] |
+| **v1.4.40** | `1.4.40+57` | Nov 2026 | **10-Column Compensatory Off Header Mapping:** Added `Comp Off Date`, `Date of Apply`, and `Day` header recognition in `ScraperEngine.parseLeaves`, scoping duty-credit skip checks to `leaveDate` and `reason` while skipping rows with empty `Comp-Off Date`. [Why: Prepares the parser for MetNet's 10-column C-Off table without pulling unavailed credit rows into Leave History] |
+| **v1.4.39** | `1.4.39+56` | Nov 2026 | **Dynamic Header-Based Table Column Mapping & Iframe Discovery:** Replaced hardcoded column indices with header-driven column detection supporting both 7-column Casual Leave tables (with Duration) and 7-column Restricted Holiday tables (without Duration). Added `isPending` UI pill (`⏳ Pending`) and `left1.php` / `main1.php` iframe traversal for live `leave_1.php?sc=...` token resolution. [Why: Prevented Reason text from shifting into Duration and Status on 7-column tables without a Duration column] |
+| **v1.4.38** | `1.4.38+55` | Nov 2026 | **Duty Credit Ledger Isolation & Cache Sanitization:** Added `LeaveHistoryItem.isGenuineLeave` validation requiring a real calendar date and rejecting duty-credit/shift rows (`duty credit`, `night duty`, `general shift`) in both `ScraperEngine` and `LeaveHistoryScreen`. [Why: Stopped extra duty credit logs from polluting Leave History as fake availed C-Off rows] |
+| **v1.4.37** | `1.4.37+54` | Nov 2026 | **Date Deduplication in Monthly Leave History:** Added calendar-date + leave-type deduplication (`uniqueMap`) preferring approved entries over cancelled rows on the same day. [Why: Eliminated duplicate day rows in the monthly leave sheet] |
+| **v1.4.36** | `1.4.36+53` | Nov 2026 | **Mockup 4 Month Stack & Chronological Frosted Modal Sheet:** Redesigned `LeaveHistoryScreen` with crisp top-to-bottom 12-month summary cards (latest month first) that open a frosted modal sheet displaying chronological day-by-day rows (`01-Mar-2026 ──▶ [C-Off] Compensatory Off`). [Why: Delivers clean glanceability across the entire year and instant chronological inspection per month] |
+| **v1.4.35** | `1.4.35+52` | Nov 2026 | **Native Android Circular Share & Multi-Leave Extraction:** Added native share button directly below Bookmark and Download in `circular_tabs.dart` backed by `MainActivity.kt` Android share intent; expanded leave scraping for CL, RH, and C-Off rows. [Why: Lets employees forward official circular PDFs/links cleanly via WhatsApp or email in one tap] |
+| **v1.4.34** | `1.4.34+51` | Nov 2026 | **Full 12-Month Grid, Update Prompt Loop Fix & Capsule Cleanup:** Expanded `LeaveHistoryScreen` to render all 12 calendar months, fixed repeated OTA update prompts across `Aman6390/imd-portal` and `Aman6390/metnet-circulars-index`, and removed the redundant past-leave banner while preserving the `History & Records` capsule. [Why: Stopped already-updated installs from re-prompting for updates and decluttered the dashboard header] |
+| **v1.4.33** | `1.4.33+50` | Nov 2026 | **Month Boxes & Day-by-Day Leave Architecture:** Rebuilt leave history visualization around interactive month boxes with per-day chronological leave type badges. [Why: Matched the user's preferred month-box mental model similar to the expiry grid] |
+| **v1.4.32** | `1.4.32+49` | Nov 2026 | **Month-Grouped Leave History & Records Screen:** Introduced `leave_history_screen.dart`, year selector, pull-to-refresh wiring (`_triggerSync`), and dashboard `History & Records` entry capsule. [Why: Replaced scattered leave rows with an organized chronological archive] |
+| **v1.4.31** | `1.4.31+48` | Oct 2026 | **Protected Diagnostic Tools & Security Gate in Settings:** Moved system health and telemetry analytics cleanly inside the Key `6390` Diagnostic Tools & Security section in `settings_dialog.dart`. [Why: Keeps everyday Settings clean and non-technical for general staff] |
+| **v1.4.30** | `1.4.30+47` | Oct 2026 | **Anonymous Staff Pulse Telemetry & Master Analytics Dashboard:** Added `telemetry_service.dart` and `telemetry_dashboard_modal.dart` sending anonymized device UUID heartbeats (app version + weather banner toggle preference) to `Aman6390/metnet-user-data`. [Why: Gives the developer visibility into active installs, version adoption, and feature usage without collecting personal credentials] |
+| **v1.4.29** | `1.4.29+46` | Oct 2026 | **December CL/RH Expiry Capsule & Cleaner Expiry Schedule:** Removed the bulky DoPT rule banner and integrated CL/RH year-end expiry directly into the December capsule (`alert_grid.dart`, `month_calendar_screen.dart`). [Why: Frees vertical space while keeping calendar-year CL/RH expiry visible] |
+| **v1.4.28** | `1.4.28+45` | Oct 2026 | **Leave Expiry Schedule DoPT Rules & Vertical Circular Action Stack:** Added DoPT leave expiry context to the expiry schedule and stacked circular action icons vertically on the right (`circular_tabs.dart`). [Why: Gives circular titles wider horizontal space and clearer touch targets] |
+| **v1.4.27** | `1.4.27+44` | Oct 2026 | **Simplified Settings UI & Weather Banner Toggle:** Streamlined `settings_dialog.dart` and added `StorageService.saveShowWeatherBanner` toggle to show/hide the dashboard weather forecast strip. [Why: Gives staff full control over dashboard density] |
+| **v1.4.26** | `1.4.26+43` | Oct 2026 | **iOS 27 Liquid Glassmorphism Theme:** Introduced `glass_container.dart` with spatial frosted `BackdropFilter` blurs, hairline translucent borders, and layered glass cards across dashboard, leave cards, alert grid, circulars, weather strip, and system health monitor. [Why: Elevates visual polish with modern translucent depth] |
+| **v1.4.25** | `1.4.25+42` | Oct 2026 | **Apple Design System & HIG Interface Modernization:** Standardized typography scale, squircle geometry, generous breathing room, and tactile feedback across core screens and widgets. [Why: Creates a cohesive, native-feeling interface aligned with Apple Human Interface Guidelines] |
 | **v1.4.24** | `1.4.24+41` | Oct 2026 | **24-Hour Ephemeral Lease & Auto-Revocation for Master Key 6390:** Upgraded Key `6390` developer access with an automated 24-hour expiration security lease (`_keyDiagnosticsExpiry`). Once Key `6390` is entered on any phone, the device receives master status for exactly 24 hours with live countdown display (`⏳ Active: Xh Ym left`). Upon expiry, master status is automatically and irreversibly revoked, locking the troubleshooting suite back to pristine standard user state. The administrator can re-enter key `6390` at any time on any device to grant a fresh 24-hour window with zero permanent master lock-in. [Why: Protects device fleet security by ensuring no employee phone permanently retains master developer or diagnostic control while preserving complete administrator flexibility] |
 | **v1.4.23** | `1.4.23+40` | Oct 2026 | **Interactive Live System Health & Subsystems Diagnostics Monitor:** Integrated full-screen live health monitor (`system_health_screen.dart`) testing all 10 core subsystems in real time: MetNet Gateway HTTP latency, Dynamic RSA Cipher verification, Leave Balance & C-Off statutory 6-month formula checks, ML Kit Latin & Devanagari OCR readiness, Git AI Fastly Edge CDN index availability, Distributed Scout token integrity, Open-Meteo numerical weather streams, WorkManager 90-min periodic sync & battery whitelist status, Public OTA Release pipeline, and encrypted local storage. Features 1-tap "Diagnostic Pulse" suite-wide check, individual module re-test buttons, categorized filter chips, and prominent access directly from Settings Tab 4 and Key 6390 Troubleshooting Tools. [Why: Gives users and developers complete real-time diagnostic transparency into exactly which app segments are working (Green) or facing network/server issues (Red)] |
 | **v1.4.22** | `1.4.22+39` | Oct 2026 | **Distributed Scout Architecture & Git AI Central Cloud Hub:** Revived cloud AI indexing through a crowdsourced distributed scout system. When any user's phone discovers an unindexed circular, the client-extracted text is reported to the public data hub (`Aman6390/metnet-circulars-index`) where Git AI runs automatically via GitHub Actions (Gemini 1.5 Flash Vision / IMD rule engine) to parse official cadre tags, urgency, deadlines, and plain-English summaries. The resulting index is published to Fastly CDN (`circulars_ai_index.json`) and synced to all staff phones automatically on periodic sync without duplicate cloud processing or NIC IP blocking. Updated OTA distribution to pull unauthenticated release APKs directly from the public hub repository. [Why: Enables full zero-cost Git AI semantic analysis for all employees while keeping the core app codebase private and eliminating MetNet cloud IP blocking] |

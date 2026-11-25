@@ -7,3 +7,5 @@ build_output*/
 tools/
 __pycache__/
 *.pyc
+METNET_CLIENT_CODEBASE.md
+*CODEBASE*.md
