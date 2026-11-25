@@ -601,49 +601,6 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
             // Live Weather Forecast Card (100% Free & Open-Meteo Powered, toggleable in Settings)
             if (_showWeatherBanner) WeatherCard(key: _weatherKey),
 
-            // Sync status badge (Apple iOS 27 live status capsule)
-            Builder(
-              builder: (ctx) {
-                return GlassContainer(
-                  borderRadius: 20,
-                  blur: 14,
-                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
-                  borderOpacity: 0.18,
-                  surfaceOpacity: 0.08,
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Container(
-                        width: 7,
-                        height: 7,
-                        decoration: BoxDecoration(
-                          shape: BoxShape.circle,
-                          color: const Color(0xFF34C759),
-                          boxShadow: [
-                            BoxShadow(
-                              color: const Color(0xFF34C759).withOpacity(0.6),
-                              blurRadius: 6,
-                            ),
-                          ],
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      Text(
-                        'Updated ${data.lastUpdated}',
-                        style: TextStyle(
-                          fontSize: 12,
-                          fontWeight: FontWeight.w500,
-                          color: Theme.of(ctx).colorScheme.outline,
-                          letterSpacing: -0.1,
-                        ),
-                      ),
-                    ],
-                  ),
-                );
-              },
-            ),
-            const SizedBox(height: 20),
-
             // Leave Balances section with History & Records button
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -924,50 +881,12 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
                   ? const Color(0xFF080C14).withOpacity(0.65)
                   : Colors.white.withOpacity(0.70),
               elevation: 0,
-              title: Row(
-                children: [
-                  const Text(
-                    'Meteorological Portal',
-                    style: TextStyle(
-                      fontWeight: FontWeight.w700,
-                      letterSpacing: -0.4,
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFF34C759).withOpacity(0.18),
-                      borderRadius: BorderRadius.circular(10),
-                      border: Border.all(
-                        color: const Color(0xFF34C759).withOpacity(0.4),
-                        width: 0.8,
-                      ),
-                    ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Container(
-                          width: 5,
-                          height: 5,
-                          decoration: const BoxDecoration(
-                            shape: BoxShape.circle,
-                            color: Color(0xFF34C759),
-                          ),
-                        ),
-                        const SizedBox(width: 4),
-                        const Text(
-                          'Live',
-                          style: TextStyle(
-                            fontSize: 10,
-                            fontWeight: FontWeight.w700,
-                            color: Color(0xFF34C759),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
+              title: const Text(
+                'Meteorological Portal',
+                style: TextStyle(
+                  fontWeight: FontWeight.w700,
+                  letterSpacing: -0.4,
+                ),
               ),
               actions: [
                 IconButton(

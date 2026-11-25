@@ -89,8 +89,6 @@ class AlertGrid extends StatelessWidget {
       );
     }
 
-    final totalExpiring = monthCounts.values.fold(0, (sum, val) => sum + val);
-
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -99,35 +97,6 @@ class AlertGrid extends StatelessWidget {
           scrollDirection: Axis.horizontal,
           physics: const BouncingScrollPhysics(),
           child: Row(children: monthBoxes),
-        ),
-        const SizedBox(height: 8),
-
-        // Footer indicator
-        Padding(
-          padding: const EdgeInsets.only(left: 4),
-          child: Row(
-            children: [
-              Container(
-                width: 6,
-                height: 6,
-                decoration: const BoxDecoration(
-                  color: Color(0xFFFF9500),
-                  shape: BoxShape.circle,
-                ),
-              ),
-              const SizedBox(width: 6),
-              Expanded(
-                child: Text(
-                  'C-Offs expire in 6 months ($totalExpiring active) • CL & RH lapse Dec 31 • Tap for calendar',
-                  style: TextStyle(
-                    fontSize: 11.5,
-                    fontWeight: FontWeight.w500,
-                    color: isDark ? const Color(0xFF8E8E93) : const Color(0xFF6E6E73),
-                  ),
-                ),
-              ),
-            ],
-          ),
         ),
       ],
     );
