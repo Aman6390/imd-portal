@@ -201,8 +201,15 @@ class ScraperEngine {
         final cellTexts = cells.map((c) => c.text.toLowerCase().trim()).toList();
 
         final hasSl = cellTexts.any((c) => c.contains('sl') || c.contains('#'));
-        final hasLeave = cellTexts.any((c) => c.contains('leave date') || c.contains('period') || c.contains('date of leave'));
-        final hasApp = cellTexts.any((c) => c.contains('application') || c.contains('applied'));
+        final hasLeave = cellTexts.any((c) =>
+            c.contains('leave date') ||
+            c.contains('period') ||
+            c.contains('date of leave') ||
+            c.contains('comp off date'));
+        final hasApp = cellTexts.any((c) =>
+            c.contains('application') ||
+            c.contains('applied') ||
+            c.contains('date of apply'));
 
         if ((hasLeave || (hasApp && hasSl)) && cells.length >= 4) {
           headerRowIndex = r;
@@ -210,11 +217,14 @@ class ScraperEngine {
             final h = cellTexts[c];
             if (h.contains('sl') || h.contains('#')) {
               slCol = c;
-            } else if (h.contains('application') || h.contains('applied')) {
+            } else if (h.contains('application') || h.contains('applied') || h.contains('date of apply')) {
               appDateCol = c;
-            } else if (h.contains('leave date') || h.contains('period') || h.contains('date of leave')) {
+            } else if (h.contains('leave date') ||
+                h.contains('period') ||
+                h.contains('date of leave') ||
+                h.contains('comp off date')) {
               leaveDateCol = c;
-            } else if (h.contains('duration') || h.contains('no. of days') || h.contains('days')) {
+            } else if (h.contains('duration') || h.contains('no. of days') || h == 'day' || h.contains('days')) {
               durationCol = c;
             } else if (h.contains('on account of') || h.contains('reason') || h.contains('purpose')) {
               reasonCol = c;
@@ -359,19 +369,23 @@ class ScraperEngine {
 
         // Specific leave type inference per row (e.g. if row mentions RH or C-Off)
         String itemLeaveType = defaultLeaveType;
-        final rowCombined = '${tr.text} $leaveDate $reason'.toLowerCase();
-        // Skip if this is a duty credit or shift record
-        if (rowCombined.contains('duty credit') ||
-            rowCombined.contains('night duty') ||
-            rowCombined.contains('general shift') ||
-            rowCombined.contains('shift duty') ||
-            rowCombined.contains('in lieu of duty')) {
+        final leaveAndReason = '$leaveDate $reason'.toLowerCase();
+        // Skip if leaveDate or reason is a duty credit or shift record
+        if (leaveAndReason.contains('duty credit') ||
+            leaveAndReason.contains('night duty') ||
+            leaveAndReason.contains('general shift') ||
+            leaveAndReason.contains('shift duty') ||
+            leaveAndReason.contains('in lieu of duty')) {
           continue;
         }
 
+        final rowCombined = '${tr.text} $leaveDate $reason'.toLowerCase();
         if (rowCombined.contains('restricted holiday') || rowCombined.contains('rh-') || rowCombined.contains('rh -')) {
           itemLeaveType = 'Restricted Holiday';
-        } else if (rowCombined.contains('compensatory off') || rowCombined.contains('c-off') || rowCombined.contains('comp off')) {
+        } else if (defaultLeaveType == 'Compensatory Off' ||
+            leaveAndReason.contains('compensatory off') ||
+            leaveAndReason.contains('c-off') ||
+            leaveAndReason.contains('comp off')) {
           itemLeaveType = 'Compensatory Off';
         }
 
