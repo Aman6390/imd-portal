@@ -7,6 +7,7 @@ class CircularItem {
   final String date;
   final String category; // e.g. 'General', 'Admin', 'Promotion', 'Transfer', 'MACP', 'Training'
   final bool isMyOffice; // true when issued under "Of Your Office only"
+  final bool isNew; // true when marked new on MetNet or uploaded within 3 days
   bool isUnavailable;
   String? cachedPath;
 
@@ -16,6 +17,7 @@ class CircularItem {
     required this.date,
     this.category = '',
     this.isMyOffice = false,
+    this.isNew = false,
     this.isUnavailable = false,
     this.cachedPath,
   });
@@ -27,6 +29,7 @@ class CircularItem {
       date: json['date'] ?? '',
       category: json['category'] ?? '',
       isMyOffice: json['isMyOffice'] == true,
+      isNew: json['isNew'] == true,
       isUnavailable: json['isUnavailable'] == true,
       cachedPath: json['cachedPath'],
     );
@@ -38,6 +41,7 @@ class CircularItem {
         'date': date,
         'category': category,
         'isMyOffice': isMyOffice,
+        'isNew': isNew,
         'isUnavailable': isUnavailable,
         'cachedPath': cachedPath,
       };

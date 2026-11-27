@@ -1,6 +1,6 @@
 # 🚀 PROJECT MASTER BLUEPRINT: Meteorological Portal Android Application
 
-> **Project Status:** Production Ready — 100% Free & Open Edition (v1.4.44+61)  
+> **Project Status:** Production Ready — 100% Free & Open Edition (v1.4.45+62)  
 > **Target Platform:** Native Android (Flutter / Kotlin) [Why: Guarantees broad compatibility with all modern Android smartphones used by staff]  
 > **Output Release Artifact:** `build/app/outputs/flutter-apk/app-release.apk` [Why: Standard Android standalone package format for direct distribution]  
 > **CI/CD Pipeline:** GitHub Actions Automated Cloud Build (`Aman6390/imd-portal`) [Why: Eliminates the need for a high-end development computer by compiling APKs in the cloud automatically]  
@@ -443,7 +443,7 @@ E:\imd portal\
 │   └── generate_app_icons.py                 # Automated Pillow-based multi-density Android app icon generator [Why: Generates all mipmaps]
 ├── .gitignore                                # Build, APK & private dump ignore rules (excludes METNET_CLIENT_CODEBASE.md) [Why: Keeps repo clean & private]
 ├── analysis_options.yaml                     # Dart analyzer configuration [Why: Enforces Dart code quality standards]
-├── pubspec.yaml                              # Flutter dependencies & metadata (v1.4.44+61) [Why: Defines app version & third-party packages]
+├── pubspec.yaml                              # Flutter dependencies & metadata (v1.4.45+62) [Why: Defines app version & third-party packages]
 └── Master Project Blue print.md             # Master Project Blueprint & Documentation [Why: Single source of truth for the project]
 ```
 
@@ -453,6 +453,7 @@ E:\imd portal\
 
 | Version | Build Code | Date | Key Architectural Changes & [Why We Made Them] |
 | :--- | :--- | :--- | :--- |
+| **v1.4.45** | `1.4.45+62` | Nov 2026 | **NEW Logo Badge on Recent & MetNet-Flagged Circulars:** Added `isNew` to `CircularItem` (`dashboard_data.dart`), parsed MetNet's `new.gif` row indicator alongside a 3-day recency window in `ScraperEngine.parseCirculars`, and rendered a prominent gradient `NEW` badge with sparkle icon (`Icons.auto_awesome_rounded`) at the start of each active circular's badge row in `CircularTabs`. [Why: Makes newly uploaded circulars and orders immediately stand out at a glance] |
 | **v1.4.44** | `1.4.44+61` | Nov 2026 | **Cleaner Minimalist Dashboard Header & Expiry Grid:** Removed the AppBar `• Live` pill badge, the `Updated <timestamp>` sync status capsule above `Leave Balances`, and the `C-Offs expire in 6 months (...) • CL & RH lapse Dec 31 • Tap for calendar` footer text below the Leave Expiry Schedule grid (`dashboard_screen.dart`, `alert_grid.dart`). [Why: Declutters the home dashboard for a cleaner Apple Liquid Glass visual hierarchy] |
 | **v1.4.43** | `1.4.43+60` | Nov 2026 | **EL & HPL Balances + Full `orders_pt` / `orders_macp` / `My Office` Circular Feeds:** Integrated `options0_imdceass_show.php?field=leave` scraping (`parseCeassLeaveRecord`) into `ScraperEngine` to extract live Earned Leave (`EL`) and Half-Pay Leave (`HPL`) balances plus `Leaves Availed` spells into the persistent `Master Leave Ledger`, surfaced in a 3+2 Liquid Glass Bento grid (`leave_card.dart`). Re-architected circular/order feed discovery from `main2.php` to prioritize deduplicated `My Office` (`circulars_display_10.php`, 90-day / top-5 retention), Promotion (`orders_pt`), Transfer (`orders_ot`/`orders_st`), and MACP (`orders_macp`) streams with `CircularItem.category`/`isMyOffice` metadata, sibling download paths in `CircularService`, and dedicated `[ My Office ]` & `[ MACP ]` filter chips in `CircularTabs`. [Why: Gives staff full visibility into EL/HPL quotas alongside CL/RH/C-Off and ensures regional office circulars, promotions, transfers, and MACP orders are never missed] |
 | **v1.4.42** | `1.4.42+59` | Nov 2026 | **Taken-Only Chronological Filter, Immediate Screen Reload & `leave_0.php` Discovery:** Excluded cancelled leaves (`Self Cancellation`, `CANCELLED WITH REASON AS: ...`) from month cards and chronological breakdowns so each month displays only leaves actually taken/active from day 1 to month-end. Added `_reloadFromLedger()` on pull-to-refresh inside `LeaveHistoryScreen` so freshly synced Master Leave Ledger data updates immediately on screen, and added `leave_0.php` traversal to discover `leave_eh1.php` (`EH/CH Availed Register`). [Why: Eliminates cancelled clutter from monthly leave lists and prevents stale data when refreshing directly inside History & Records] |

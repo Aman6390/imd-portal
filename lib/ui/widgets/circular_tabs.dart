@@ -5,6 +5,7 @@ import '../../models/ai_circular_entry.dart';
 import '../../models/dashboard_data.dart';
 import '../../services/ai_circular_service.dart';
 import '../../services/circular_service.dart';
+import '../../services/scraper_engine.dart';
 import '../../services/storage_service.dart';
 import 'glass_container.dart';
 
@@ -97,6 +98,17 @@ class _CircularTabsState extends State<CircularTabs> {
         );
       }
     }
+  }
+
+  bool _isNewCircular(CircularItem item) {
+    if (item.isNew) return true;
+    final parsed = ScraperEngine.parseCircularDate(item.date);
+    if (parsed == null) return false;
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    final itemDay = DateTime(parsed.year, parsed.month, parsed.day);
+    final diffDays = today.difference(itemDay).inDays;
+    return diffDays >= 0 && diffDays <= 3;
   }
 
   List<_TopicBadge> _getTopicBadges(CircularItem item, AiCircularEntry? aiMeta) {
@@ -892,6 +904,7 @@ class _CircularTabsState extends State<CircularTabs> {
       itemBuilder: (context, index) {
         final item = items[index];
         final isUnavailable = item.isUnavailable;
+        final isNewCircular = !isUnavailable && _isNewCircular(item);
         final isCached = item.cachedPath != null;
         final isBookmarked = _bookmarkedUrls.contains(item.link);
         final isSummaryExpanded = _expandedSummaryUrls.contains(item.link);
@@ -910,11 +923,52 @@ class _CircularTabsState extends State<CircularTabs> {
             crossAxisAlignment: CrossAxisAlignment.start,
             mainAxisSize: MainAxisSize.min,
             children: [
-              // Cadre, Topic, Action, and Withdrawn Badges
+              // NEW, Cadre, Topic, Action, and Withdrawn Badges
               Wrap(
                 spacing: 6,
                 runSpacing: 4,
                 children: [
+                  // 0. NEW Logo Badge (MetNet new.gif or uploaded within last 3 days)
+                  if (isNewCircular)
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+                      decoration: BoxDecoration(
+                        gradient: const LinearGradient(
+                          colors: [Color(0xFFFF3B30), Color(0xFFFF6B35)],
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                        ),
+                        borderRadius: BorderRadius.circular(6),
+                        boxShadow: [
+                          BoxShadow(
+                            color: const Color(0xFFFF3B30).withOpacity(0.32),
+                            blurRadius: 6,
+                            offset: const Offset(0, 2),
+                          ),
+                        ],
+                      ),
+                      child: const Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(
+                            Icons.auto_awesome_rounded,
+                            size: 11,
+                            color: Colors.white,
+                          ),
+                          SizedBox(width: 3),
+                          Text(
+                            'NEW',
+                            style: TextStyle(
+                              fontSize: 10.5,
+                              fontWeight: FontWeight.w800,
+                              color: Colors.white,
+                              letterSpacing: 0.5,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+
                   // 1. Cadre Badge
                   if (cadre.isNotEmpty)
                     Container(

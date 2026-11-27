@@ -759,12 +759,25 @@ class ScraperEngine {
         continue;
       }
 
+      final hasNewGif = row.querySelectorAll('img').any(
+            (img) => (img.attributes['src'] ?? '').toLowerCase().contains('new'),
+          );
+      bool isRecentDate = false;
+      if (parsedDate != null) {
+        final now = DateTime.now();
+        final today = DateTime(now.year, now.month, now.day);
+        final itemDay = DateTime(parsedDate.year, parsedDate.month, parsedDate.day);
+        final diffDays = today.difference(itemDay).inDays;
+        isRecentDate = diffDays >= 0 && diffDays <= 3;
+      }
+
       final item = CircularItem(
         title: title,
         link: link,
         date: uploadDate,
         category: feedCategory,
         isMyOffice: feedIsMyOffice,
+        isNew: hasNewGif || isRecentDate,
       );
 
       // Context for VIP filter: Title + Specific Cadre + AI Summary + VIP Reasons
